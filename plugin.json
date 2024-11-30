@@ -1,0 +1,23 @@
+{
+  "slug": "gtno",
+  "name": "gtno",
+  "version": "2.0.0",
+  "license": "MIT",
+  "brand": "gtno",
+  "author": "gotno",
+  "authorEmail": "floyd.will@gmail.com",
+  "authorUrl": "https://gotno.net",
+  "pluginUrl": "https://gotno.net",
+  "manualUrl": "",
+  "sourceUrl": "",
+  "donateUrl": "",
+  "changelogUrl": "",
+  "modules": [
+    {
+      "slug": "Render",
+      "name": "Render",
+      "description": "",
+      "tags": []
+    }
+  ]
+}

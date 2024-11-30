@@ -1,0 +1,5 @@
+clang
+%c -std=c11
+%cpp -std=c++11
+-I./src
+-I../../rack-src/rack-git/include
