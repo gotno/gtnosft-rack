@@ -29,6 +29,14 @@ struct Render : Module {
 struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::widget::FramebufferWidget*> framebuffers;
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
+  rack::app::ModuleWidget* moduleToRender = nullptr;
+
+  struct ModuleWidgetContainer : widget::Widget {
+    void draw(const DrawArgs& args) override {
+      Widget::draw(args);
+      Widget::drawLayer(args, 1);
+    }
+  };
 
 	RenderWidget(Render* module) {
 		setModule(module);
@@ -42,6 +50,21 @@ struct RenderWidget : ModuleWidget {
 
   virtual void step() override {
     ModuleWidget::step();
+
+    if (moduleToRender) {
+      renderModule(moduleToRender);
+      moduleToRender = nullptr;
+    }
+  }
+
+  void renderModule(rack::app::ModuleWidget* mw) {
+    // make filename
+    std::string filename = "";
+    filename.append(mw->getModule()->getModel()->plugin->slug.c_str());
+    filename.append("-");
+    filename.append(mw->getModule()->getModel()->name.c_str());
+
+
   }
 
   void refreshFramebuffers() {
@@ -59,7 +82,7 @@ struct RenderWidget : ModuleWidget {
 
             std::string key = "";
             key.append(mw->getModule()->getModel()->plugin->slug.c_str());
-            key.append("/");
+            key.append("-");
             key.append(mw->getModule()->getModel()->name.c_str());
             key.append("-panel");
             DEBUG(
@@ -74,14 +97,6 @@ struct RenderWidget : ModuleWidget {
           }
         }
       }
-      // if (panel) {
-      // } else if (widget) {
-      //   std::string key = "";
-      //   key.append(mw->getModule()->getModel()->plugin->slug.c_str());
-      //   key.append("/");
-      //   key.append(mw->getModule()->getModel()->name.c_str());
-      //   key.append("-panel (Widget)");
-      // }
     }
   }
 
@@ -173,26 +188,19 @@ struct RenderWidget : ModuleWidget {
     fbw->addChild(mwc);
 
     rack::app::ModuleWidget* mw = moduleWidget->getModel()->createModuleWidget(NULL);
-    // rack::widget::Widget* parent = moduleWidget->parent;
-    // parent->removeChild(moduleWidget);
-    // rack::app::ModuleWidget* mw = moduleWidget;
-
-    logChildren(moduleWidget->getModule()->getModel()->name, mw);
 
     // abandon children
-    std::list<rack::widget::Widget*> abandonedChildren;
-    auto it = mw->children.begin();
-    while (it != mw->children.end()) {
-      if (dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
-        abandonedChildren.push_back(*it);
-        it = mw->children.erase(it);
-        // (*it)->setVisible(false);
-      } else {
-        ++it;
-      }
-    }
-
-    logChildren(moduleWidget->getModule()->getModel()->name, mw);
+    // std::list<rack::widget::Widget*> abandonedChildren;
+    // auto it = mw->children.begin();
+    // while (it != mw->children.end()) {
+    //   if (dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
+    //     abandonedChildren.push_back(*it);
+    //     it = mw->children.erase(it);
+    //     // (*it)->setVisible(false);
+    //   } else {
+    //     ++it;
+    //   }
+    // }
 
     mwc->box.size = mw->box.size;
     fbw->box.size = mw->box.size;
@@ -248,37 +256,138 @@ struct RenderWidget : ModuleWidget {
 
   void appendContextMenu(Menu* menu) override {
     menu->addChild(new MenuSeparator);
-    // menu->addChild(createMenuItem("Refresh framebuffers", "", [=]() {
-    //   refreshFramebuffers();
-    // }));
-
-    // if (framebuffers.size() > 0) {
-    //   menu->addChild(new rack::ui::MenuSeparator);
-    //   menu->addChild(createSubmenuItem("framebuffers", "",
-    //     [=](Menu* menu) {
-    //       for (std::pair<std::string, rack::widget::FramebufferWidget*> pair : framebuffers) {
-    //         rack::widget::FramebufferWidget* fb = pair.second;
-    //         menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
-    //           GLint w = fb->getFramebufferSize().x;
-    //           GLint h = fb->getFramebufferSize().y;
-    //           nvgluBindFramebuffer(fb->getFramebuffer());
-    //           unsigned char* pixels = (unsigned char*)malloc(w * h * 4);
-    //           glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels); 
-    //           nvgluBindFramebuffer(NULL);
-
-    //           std::string dir = rack::asset::user("fb_test");
-    //           rack::system::createDirectory(dir);
-    //           stbi_write_png(rack::system::join(dir, "test.png").c_str(), w, h, 4, pixels, w * 4);
-    //           free(pixels);
-    //         }));
-    //       }
-    //     }
-    //   ));
-    // }
-
     menu->addChild(createMenuItem("Refresh modules", "", [=]() {
       collectModuleWidgets();
     }));
+    menu->addChild(createMenuItem("Refresh framebuffers", "", [=]() {
+      refreshFramebuffers();
+    }));
+
+    if (framebuffers.size() > 0) {
+      menu->addChild(new rack::ui::MenuSeparator);
+      menu->addChild(createSubmenuItem("framebuffers", "",
+        [=](Menu* menu) {
+          for (std::pair<std::string, rack::widget::FramebufferWidget*> pair : framebuffers) {
+            rack::widget::FramebufferWidget* fb = pair.second;
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+              widget::FramebufferWidget* fbcontainer = new widget::FramebufferWidget;
+              fbcontainer->children.push_back(fb->parent);
+
+              float zoom = 3.f;
+              fbcontainer->render(math::Vec(zoom, zoom));
+              // CRASH
+              // try: rack::widget::FramebufferWidget* fbToRender = this guy;
+              // then render from step()
+              // then delete
+
+              nvgluBindFramebuffer(fb->getFramebuffer());
+              int width, height;
+              nvgReset(APP->window->vg);
+              nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
+              uint8_t* pixels = new uint8_t[height * width * 4];
+              glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+              flipBitmap(pixels, width, height, 4);
+
+              // Write pixels to PNG
+              std::string renderPath = rack::asset::user("fb_test");
+              rack::system::createDirectory(renderPath);
+              std::string filename = pair.first;
+              filename.append(".png");
+              std::string filepath = rack::system::join(renderPath, filename.c_str());
+              stbi_write_png(
+                filepath.c_str(),
+                width,
+                height,
+                4,
+                pixels,
+                width * 4
+              );
+
+              delete[] pixels;
+              nvgluBindFramebuffer(NULL);
+              fbcontainer->children.clear();
+              delete fbcontainer;
+            }));
+          }
+        }
+      ));
+    }
+
+    if (moduleWidgets.size() > 0) {
+      menu->addChild(new rack::ui::MenuSeparator);
+      menu->addChild(createSubmenuItem("live render", "",
+        [=](Menu* menu) {
+          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
+            rack::app::ModuleWidget* moduleWidget = pair.second;
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+              widget::FramebufferWidget* fbcontainer = new widget::FramebufferWidget;
+              ModuleWidgetContainer* mwcontainer = new ModuleWidgetContainer;
+              fbcontainer->addChild(mwcontainer);
+
+              // rack::app::ModuleWidget* mw = moduleWidget->getModel()->createModuleWidget(NULL);
+              rack::app::ModuleWidget* mw = moduleWidget->getModel()->createModuleWidget(moduleWidget->getModule());
+
+              mwcontainer->box.size = mw->box.size;
+              fbcontainer->box.size = mw->box.size;
+
+              // unparent
+              // rack::widget::Widget* parent = mw->parent;
+              // parent->removeChild(mw);
+
+              mwcontainer->addChild(mw);
+              DEBUG("CRASH?");
+
+              // fbcontainer->step();
+              // fbcontainer->setDirty();
+
+              float zoom = 3.f;
+              fbcontainer->render(math::Vec(zoom, zoom));
+
+              nvgluBindFramebuffer(fbcontainer->getFramebuffer());
+              int width, height;
+              // nvgReset(APP->window->vg);
+              nvgImageSize(APP->window->vg, fbcontainer->getImageHandle(), &width, &height);
+              uint8_t* pixels = new uint8_t[height * width * 4];
+              glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+              flipBitmap(pixels, width, height, 4);
+
+              // Write pixels to PNG
+              std::string renderPath = rack::asset::user("fb_test");
+              rack::system::createDirectory(renderPath);
+              std::string filename = pair.first;
+              filename.append(".png");
+              std::string filepath = rack::system::join(renderPath, filename.c_str());
+              stbi_write_png(
+                filepath.c_str(),
+                width,
+                height,
+                4,
+                pixels,
+                width * 4
+              );
+
+              int debugr = 0;
+              DEBUG("CRSH? %d", ++debugr);
+              delete[] pixels;
+              DEBUG("CRSH? %d", ++debugr);
+              nvgluBindFramebuffer(NULL);
+              DEBUG("CRSH? %d", ++debugr);
+
+              mw->setModule(NULL);
+              DEBUG("CRSH? %d", ++debugr);
+              // reparent
+              // mwcontainer->removeChild(mw);
+              // parent->addChild(mw);
+              
+              // fbcontainer->children.clear();
+              delete fbcontainer;
+              DEBUG("CRSH? %d", ++debugr);
+            }));
+          }
+        }
+      ));
+    }
+
 
     if (moduleWidgets.size() > 0) {
       menu->addChild(new rack::ui::MenuSeparator);
@@ -288,7 +397,7 @@ struct RenderWidget : ModuleWidget {
           rack::app::ModuleWidget* mw = pair.second;
 
           menu->addChild(createMenuItem(key.c_str(), "", [=]() {
-            renderModuleWidget(key, mw);
+            // renderModuleWidget(key, mw);
           }));
         }
       }));
