@@ -118,10 +118,8 @@ struct RenderWidget : ModuleWidget {
     delete fb;
   }
 
-  void renderDummyPanel(rack::app::ModuleWidget* moduleWidget) {
-    rack::app::ModuleWidget* mw = makeDummyModuleWidget(moduleWidget);
 
-    // abandon children
+  void abandonChildren(rack::app::ModuleWidget* mw) {
     auto it = mw->children.begin();
     while (it != mw->children.end()) {
       if (dynamic_cast<rack::app::SvgScrew*>(*it) || dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
@@ -130,6 +128,11 @@ struct RenderWidget : ModuleWidget {
         ++it;
       }
     }
+  }
+
+  void renderDummyPanel(rack::app::ModuleWidget* moduleWidget) {
+    rack::app::ModuleWidget* mw = makeDummyModuleWidget(moduleWidget);
+    abandonChildren(mw);
 
     widget::FramebufferWidget* fb = wrapModuleWidget(mw);
 
