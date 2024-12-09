@@ -124,7 +124,7 @@ struct RenderWidget : ModuleWidget {
     // abandon children
     auto it = mw->children.begin();
     while (it != mw->children.end()) {
-      if (dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
+      if (dynamic_cast<rack::app::SvgScrew*>(*it) || dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
         it = mw->children.erase(it);
       } else {
         ++it;
