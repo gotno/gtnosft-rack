@@ -141,15 +141,14 @@ struct RenderWidget : ModuleWidget {
     delete fb;
   }
 
-  // WILL CRASH
-  void renderSurrogateModuleNaive(rack::app::ModuleWidget* moduleWidget) {
-    widget::FramebufferWidget* fb =
-      wrapModuleWidget(
-        makeSurrogateModuleWidget(moduleWidget)
-      );
+  void renderSurrogateModule(rack::app::ModuleWidget* moduleWidget) {
+    rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
+    widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
 
-    renderPng("render_surrogate_naive", makeFilename(moduleWidget), fb);
+    renderPng("render_surrogate", makeFilename(moduleWidget), fb);
 
+    // nullify the underlying module so it isn't destroyed with the surrogate
+    surrogate->module = NULL;
     delete fb;
   }
 
@@ -332,12 +331,12 @@ struct RenderWidget : ModuleWidget {
 
       menu->addChild(new rack::ui::MenuSeparator);
 
-      menu->addChild(createSubmenuItem("render surrogate module (naive- crash)", "",
+      menu->addChild(createSubmenuItem("live render surrogate module", "",
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
             menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
-              renderSurrogateModuleNaive(moduleWidget);
+              renderSurrogateModule(moduleWidget);
             }));
           }
         }
