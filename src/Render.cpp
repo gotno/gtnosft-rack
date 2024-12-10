@@ -5,6 +5,8 @@
 
 #include <chrono>
 
+#include "osc/oscClient.h"
+
 
 struct Render : Module {
   enum ParamId {
@@ -31,6 +33,16 @@ struct Render : Module {
 struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::widget::FramebufferWidget*> framebuffers;
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
+
+  oscClient* client;
+
+  RenderWidget() {
+    client = new oscClient();
+  }
+
+  ~RenderWidget() {
+    delete client;
+  }
 
   struct ModuleWidgetContainer : widget::Widget {
     void draw(const DrawArgs& args) override {
