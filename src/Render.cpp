@@ -3,27 +3,29 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#include <chrono>
+
 
 struct Render : Module {
-	enum ParamId {
-		PARAMS_LEN
-	};
-	enum InputId {
-		INPUTS_LEN
-	};
-	enum OutputId {
-		OUTPUTS_LEN
-	};
-	enum LightId {
-		LIGHTS_LEN
-	};
+  enum ParamId {
+    PARAMS_LEN
+  };
+  enum InputId {
+    INPUTS_LEN
+  };
+  enum OutputId {
+    OUTPUTS_LEN
+  };
+  enum LightId {
+    LIGHTS_LEN
+  };
 
-	Render() {
-		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-	}
+  Render() {
+    config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
+  }
 
-	void process(const ProcessArgs& args) override {
-	}
+  void process(const ProcessArgs& args) override {
+  }
 };
 
 struct RenderWidget : ModuleWidget {
@@ -37,10 +39,10 @@ struct RenderWidget : ModuleWidget {
     }
   };
 
-	RenderWidget(Render* module) {
-		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Render.svg")));
-	}
+  RenderWidget(Render* module) {
+    setModule(module);
+    setPanel(createPanel(asset::plugin(pluginInstance, "res/Render.svg")));
+  }
 
   virtual void step() override {
     ModuleWidget::step();
