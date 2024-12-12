@@ -4,9 +4,9 @@
 #include "stb_image_write.h"
 
 #include <chrono>
+#include <GL/gl.h>
 
 #include "osc/oscClient.h"
-
 
 struct Render : Module {
   enum ParamId {
