@@ -10,13 +10,27 @@ CXXFLAGS +=
 # Static libraries are fine, but they should be added to this plugin's build system.
 LDFLAGS +=
 
+include $(RACK_DIR)/arch.mk
+
+MACHINE = $(shell $(CC) -dumpmachine)
+ifneq (, $(findstring mingw, $(MACHINE)))
+	SOURCES += $(wildcard dep/oscpack/ip/win32/*.cpp) 
+	LDFLAGS += -lws2_32 -lwinmm
+	LDFLAGS += -L$(RACK_DIR)/dep/lib
+else
+	SOURCES += $(wildcard dep/oscpack/ip/posix/*.cpp) 
+endif
+
 # Add .cpp files to the build
 SOURCES += $(wildcard src/*.cpp)
+SOURCES += $(wildcard dep/oscpack/ip/*.cpp)
+SOURCES += $(wildcard dep/oscpack/osc/*.cpp)
 
 # Add files to the ZIP package when running `make dist`
 # The compiled plugin and "plugin.json" are automatically added.
 DISTRIBUTABLES += res
 DISTRIBUTABLES += $(wildcard LICENSE*)
+DISTRIBUTABLES += dep/oscpack/LICENSE
 DISTRIBUTABLES += $(wildcard presets)
 
 # Include the Rack plugin Makefile framework
