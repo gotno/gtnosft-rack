@@ -38,6 +38,15 @@ struct RenderWidget : ModuleWidget {
 
   RenderWidget() {
     client = new oscClient();
+    client->sendMessage(
+      client->makeMessage("/echo")
+        << "hello?"
+        << osc::EndMessage
+    );
+    // osc::OutboundPacketStream message(client->msgBuffer, MSG_BUFFER_SIZE);
+    // message << osc::BeginMessage("/echo")
+    //   << std::string("hello?").c_str() << osc::EndMessage;
+    // client->sendMessage(message);
   }
 
   ~RenderWidget() {

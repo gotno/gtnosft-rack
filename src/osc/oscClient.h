@@ -5,8 +5,8 @@
 #include "../../dep/oscpack/osc/OscOutboundPacketStream.h"
 
 #define MSG_BUFFER_SIZE (1024 * 1000)
-#define ENDPOINT "localhost"
-#define PORT 9999
+#define ENDPOINT "127.0.0.1"
+#define PORT 7000
 
 struct oscClient {
   char* msgBuffer;
