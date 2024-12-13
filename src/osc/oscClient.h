@@ -4,7 +4,7 @@
 #include "../../dep/oscpack/ip/IpEndpointName.h"
 #include "../../dep/oscpack/osc/OscOutboundPacketStream.h"
 
-#define MSG_BUFFER_SIZE (1024 * 1000)
+#define MSG_BUFFER_SIZE (1024 * 64)
 #define ENDPOINT "127.0.0.1"
 #define PORT 7000
 
@@ -18,7 +18,7 @@ struct oscClient {
   }
 
   ~oscClient() {
-    delete msgBuffer;
+    delete[] msgBuffer;
   }
 
   osc::OutboundPacketStream makeMessage(std::string address) {
@@ -27,7 +27,11 @@ struct oscClient {
     return message;
   }
 
-  void sendMessage(osc::OutboundPacketStream message) {
+  void endMessage(osc::OutboundPacketStream& message) {
+    message << osc::EndMessage;
+  }
+
+  void sendMessage(osc::OutboundPacketStream& message) {
     // this _looks like_ it only sends the data present and not the whole buffer? good.
     /* DEBUG("data: %s, size: %lld", message.Data(), message.Size()); */
     UdpTransmitSocket(endpoint).Send(message.Data(), message.Size());

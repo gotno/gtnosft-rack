@@ -34,19 +34,14 @@ struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::widget::FramebufferWidget*> framebuffers;
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
 
-  oscClient* client;
+  oscClient* client = NULL;
 
-  RenderWidget() {
+  RenderWidget(Render* module) {
+    setModule(module);
+    setPanel(createPanel(asset::plugin(pluginInstance, "res/Render.svg")));
+
+    if (!module) return;
     client = new oscClient();
-    client->sendMessage(
-      client->makeMessage("/echo")
-        << "hello?"
-        << osc::EndMessage
-    );
-    // osc::OutboundPacketStream message(client->msgBuffer, MSG_BUFFER_SIZE);
-    // message << osc::BeginMessage("/echo")
-    //   << std::string("hello?").c_str() << osc::EndMessage;
-    // client->sendMessage(message);
   }
 
   ~RenderWidget() {
@@ -60,13 +55,9 @@ struct RenderWidget : ModuleWidget {
     }
   };
 
-  RenderWidget(Render* module) {
-    setModule(module);
-    setPanel(createPanel(asset::plugin(pluginInstance, "res/Render.svg")));
-  }
-
   virtual void step() override {
     ModuleWidget::step();
+
   }
 
   // make a new ModuleWidget with no Module
@@ -304,22 +295,28 @@ struct RenderWidget : ModuleWidget {
 
   void appendContextMenu(Menu* menu) override {
     menu->addChild(new MenuSeparator);
+    menu->addChild(createMenuItem("Echo", "", [&] {
+      auto message = client->makeMessage("/echo");
+      message << "hello";
+      client->endMessage(message);
+      client->sendMessage(message);
+    }));
 
-    menu->addChild(createMenuItem("Refresh modules", "", [=]() {
+    menu->addChild(new MenuSeparator);
+    menu->addChild(createMenuItem("Refresh modules", "", [&]() {
       refreshModuleWidgets();
     }));
 
-    menu->addChild(createMenuItem("Refresh framebuffers", "", [=]() {
+    menu->addChild(createMenuItem("Refresh framebuffers", "", [&]() {
       refreshFramebuffers();
     }));
 
     if (framebuffers.size() > 0) {
       menu->addChild(new rack::ui::MenuSeparator);
-
       menu->addChild(createSubmenuItem("render panel framebuffer", "",
         [=](Menu* menu) {
           for (std::pair<std::string, rack::widget::FramebufferWidget*> pair : framebuffers) {
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [&]() {
               renderFramebuffer(pair.first, pair.second);
             }));
           }
@@ -329,12 +326,11 @@ struct RenderWidget : ModuleWidget {
 
     if (moduleWidgets.size() > 0) {
       menu->addChild(new rack::ui::MenuSeparator);
-
       menu->addChild(createSubmenuItem("render dummy module", "",
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [&]() {
               renderDummyModule(moduleWidget);
             }));
           }
@@ -345,7 +341,7 @@ struct RenderWidget : ModuleWidget {
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [&]() {
               renderDummyPanel(moduleWidget);
             }));
           }
@@ -358,7 +354,7 @@ struct RenderWidget : ModuleWidget {
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [&]() {
               renderSurrogateModule(moduleWidget);
             }));
           }
@@ -369,7 +365,7 @@ struct RenderWidget : ModuleWidget {
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [&]() {
               renderModuleDirect(moduleWidget);
             }));
           }
