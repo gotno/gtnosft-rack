@@ -6,7 +6,7 @@
 #include <chrono>
 #include <GL/gl.h>
 
-#include "osc/oscClient.h"
+#include "osc/OscClient.h"
 
 struct Render : Module {
   enum ParamId {
@@ -34,18 +34,18 @@ struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::widget::FramebufferWidget*> framebuffers;
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
 
-  oscClient* client = NULL;
+  OscClient* osctx = NULL;
 
   RenderWidget(Render* module) {
     setModule(module);
     setPanel(createPanel(asset::plugin(pluginInstance, "res/Render.svg")));
 
     if (!module) return;
-    client = new oscClient();
+    osctx = new OscClient();
   }
 
   ~RenderWidget() {
-    delete client;
+    delete osctx;
   }
 
   struct ModuleWidgetContainer : widget::Widget {
@@ -296,10 +296,10 @@ struct RenderWidget : ModuleWidget {
   void appendContextMenu(Menu* menu) override {
     menu->addChild(new MenuSeparator);
     menu->addChild(createMenuItem("Echo", "", [&] {
-      auto message = client->makeMessage("/echo");
+      auto message = osctx->makeMessage("/echo");
       message << "hello";
-      client->endMessage(message);
-      client->sendMessage(message);
+      osctx->endMessage(message);
+      osctx->sendMessage(message);
     }));
 
     menu->addChild(new MenuSeparator);

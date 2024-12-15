@@ -8,16 +8,16 @@
 #define ENDPOINT "127.0.0.1"
 #define PORT 7000
 
-struct oscClient {
+struct OscClient {
   char* msgBuffer;
   IpEndpointName endpoint;
 
-  oscClient() {
+  OscClient() {
     msgBuffer = new char[MSG_BUFFER_SIZE];
     endpoint = IpEndpointName(ENDPOINT, PORT);
   }
 
-  ~oscClient() {
+  ~OscClient() {
     delete[] msgBuffer;
   }
 
