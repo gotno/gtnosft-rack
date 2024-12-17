@@ -6,7 +6,7 @@
 #include <chrono>
 #include <GL/gl.h>
 
-#include "osc/oscClient.h"
+#include "osc/OscClient.h"
 
 struct Render : Module {
   enum ParamId {
@@ -34,18 +34,18 @@ struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::widget::FramebufferWidget*> framebuffers;
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
 
-  oscClient* client = NULL;
+  OscClient* osctx = NULL;
 
   RenderWidget(Render* module) {
     setModule(module);
     setPanel(createPanel(asset::plugin(pluginInstance, "res/Render.svg")));
 
     if (!module) return;
-    client = new oscClient();
+    osctx = new OscClient();
   }
 
   ~RenderWidget() {
-    delete client;
+    delete osctx;
   }
 
   struct ModuleWidgetContainer : widget::Widget {
@@ -102,6 +102,7 @@ struct RenderWidget : ModuleWidget {
     int width, height;
     // nvgReset(APP->window->vg);
     nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
+    INFO("render png pixel size %dw/%dh: %d bytes", width, height, width * height * 4);
     uint8_t* pixels = new uint8_t[height * width * 4];
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     flipBitmap(pixels, width, height, 4);
@@ -303,10 +304,10 @@ struct RenderWidget : ModuleWidget {
   void appendContextMenu(Menu* menu) override {
     menu->addChild(new MenuSeparator);
     menu->addChild(createMenuItem("Echo", "", [&] {
-      auto message = client->makeMessage("/echo");
+      auto message = osctx->makeMessage("/echo");
       message << "hello";
-      client->endMessage(message);
-      client->sendMessage(message);
+      osctx->endMessage(message);
+      osctx->sendMessage(message);
     }));
 
     menu->addChild(new MenuSeparator);
