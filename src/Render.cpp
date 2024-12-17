@@ -4,7 +4,11 @@
 #include "stb_image_write.h"
 
 #include <chrono>
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
 #include <GL/gl.h>
+#endif
 
 #include "osc/OscClient.h"
 
