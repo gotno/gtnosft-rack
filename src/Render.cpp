@@ -100,6 +100,7 @@ struct RenderWidget : ModuleWidget {
     int width, height;
     // nvgReset(APP->window->vg);
     nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
+    INFO("render png pixel size %dw/%dh: %d bytes", width, height, width * height * 4);
     uint8_t* pixels = new uint8_t[height * width * 4];
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     flipBitmap(pixels, width, height, 4);
