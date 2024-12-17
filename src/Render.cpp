@@ -93,6 +93,8 @@ struct RenderWidget : ModuleWidget {
 
   // render FramebufferWidget to png
   void renderPng(std::string directory, std::string filename, rack::widget::FramebufferWidget* fb) {
+    // auto start = std::chrono::high_resolution_clock::now();
+
     float zoom = 3.f;
     fb->render(math::Vec(zoom, zoom));
 
@@ -119,6 +121,11 @@ struct RenderWidget : ModuleWidget {
 
     delete[] pixels;
     nvgluBindFramebuffer(NULL);
+
+    // auto end = std::chrono::high_resolution_clock::now();
+    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+    // DEBUG("render png execution time: %lld microseconds", duration.count());
   }
 
   void renderDummyModule(rack::app::ModuleWidget* moduleWidget) {
