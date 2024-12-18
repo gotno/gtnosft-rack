@@ -18,4 +18,4 @@ struct ChunkedImage {
   ~ChunkedImage() {
     delete[] pixels;
   }
-}
+};
