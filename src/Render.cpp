@@ -7,6 +7,7 @@
 #include <GL/gl.h>
 
 #include "osc/OscClient.h"
+#include "osc/ChunkedImage.h"
 
 struct Render : Module {
   enum ParamId {
