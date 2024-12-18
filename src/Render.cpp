@@ -4,7 +4,11 @@
 #include "stb_image_write.h"
 
 #include <chrono>
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
 #include <GL/gl.h>
+#endif
 
 #include "osc/OscClient.h"
 #include "osc/ChunkedImage.h"
@@ -94,6 +98,8 @@ struct RenderWidget : ModuleWidget {
 
   // render FramebufferWidget to png
   void renderPng(std::string directory, std::string filename, rack::widget::FramebufferWidget* fb) {
+    // auto start = std::chrono::high_resolution_clock::now();
+
     float zoom = 3.f;
     fb->render(math::Vec(zoom, zoom));
 
@@ -122,6 +128,11 @@ struct RenderWidget : ModuleWidget {
 
     delete[] pixels;
     nvgluBindFramebuffer(NULL);
+
+    // auto end = std::chrono::high_resolution_clock::now();
+    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+    // DEBUG("render png execution time: %lld microseconds", duration.count());
   }
 
   void renderDummyModule(rack::app::ModuleWidget* moduleWidget) {
@@ -298,7 +309,7 @@ struct RenderWidget : ModuleWidget {
 
   void appendContextMenu(Menu* menu) override {
     menu->addChild(new MenuSeparator);
-    menu->addChild(createMenuItem("Echo", "", [&] {
+    menu->addChild(createMenuItem("Echo", "", [=] {
       auto message = osctx->makeMessage("/echo");
       message << "hello";
       osctx->endMessage(message);
@@ -306,11 +317,11 @@ struct RenderWidget : ModuleWidget {
     }));
 
     menu->addChild(new MenuSeparator);
-    menu->addChild(createMenuItem("Refresh modules", "", [&]() {
+    menu->addChild(createMenuItem("Refresh modules", "", [=]() {
       refreshModuleWidgets();
     }));
 
-    menu->addChild(createMenuItem("Refresh framebuffers", "", [&]() {
+    menu->addChild(createMenuItem("Refresh framebuffers", "", [=]() {
       refreshFramebuffers();
     }));
 
@@ -319,7 +330,7 @@ struct RenderWidget : ModuleWidget {
       menu->addChild(createSubmenuItem("render panel framebuffer", "",
         [=](Menu* menu) {
           for (std::pair<std::string, rack::widget::FramebufferWidget*> pair : framebuffers) {
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [&]() {
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
               renderFramebuffer(pair.first, pair.second);
             }));
           }
@@ -333,7 +344,7 @@ struct RenderWidget : ModuleWidget {
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [&]() {
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
               renderDummyModule(moduleWidget);
             }));
           }
@@ -344,7 +355,7 @@ struct RenderWidget : ModuleWidget {
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [&]() {
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
               renderDummyPanel(moduleWidget);
             }));
           }
@@ -352,12 +363,11 @@ struct RenderWidget : ModuleWidget {
       ));
 
       menu->addChild(new rack::ui::MenuSeparator);
-
       menu->addChild(createSubmenuItem("live render surrogate module", "",
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [&]() {
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
               renderSurrogateModule(moduleWidget);
             }));
           }
@@ -368,7 +378,7 @@ struct RenderWidget : ModuleWidget {
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [&]() {
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
               renderModuleDirect(moduleWidget);
             }));
           }
