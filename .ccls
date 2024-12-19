@@ -1,6 +1,10 @@
 clang
 %c -std=c11
-%cpp -std=c++11
+%cpp -std=c++17
 %cpp -stdlib=libc++
 -Isrc
--I../rack-gotno/include/
+-I../../rack-src/rack-gotno/include/
+-I../../rack-src/rack-gotno/dep/include/
+-I/usr/include/c++/9/
+-I/usr/include/cpp/
+-I/usr/include/x86_64/linux/cpp/
