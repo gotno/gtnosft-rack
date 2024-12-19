@@ -1,19 +1,36 @@
 #include "plugin.hpp"
 
-#include "../../dep/oscpack/ip/UdpSocket.h"
-#include "../../dep/oscpack/ip/IpEndpointName.h"
-#include "../../dep/oscpack/osc/OscOutboundPacketStream.h"
+#include "oscpack/ip/UdpSocket.h"
+#include "oscpack/ip/IpEndpointName.h"
+#include "oscpack/osc/OscOutboundPacketStream.h"
 
-#define MSG_BUFFER_SIZE (1024 * 64)
+#include <thread>
+#include <queue>
+
+#define MSG_BUFFER_SIZE 65507 // oscpack MAX_BUFFER_SIZE
 #define ENDPOINT "127.0.0.1"
 #define PORT 7000
 
 struct OscClient {
-  char* msgBuffer;
+  uint8_t* msgBuffer;
   IpEndpointName endpoint;
 
+  // message queue
+  /* std::thread queueWorker; */
+  /* std::atomic<bool> queueWorkerRunning; */
+  /* std::queue<Command> commandQueue; */
+  /* std::mutex qmutex; */
+  /* std::condition_variable queueLockCondition; */
+  /* float_time_point getCurrentTime(); */
+
+  /* void enqueueCommand(Command command); */
+  /* void startQueueWorker(); */
+  /* void processQueue(); */
+  /* void stopQueueWorker(); */
+
+
   OscClient() {
-    msgBuffer = new char[MSG_BUFFER_SIZE];
+    msgBuffer = new uint8_t[MSG_BUFFER_SIZE];
     endpoint = IpEndpointName(ENDPOINT, PORT);
   }
 
