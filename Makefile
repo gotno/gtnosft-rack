@@ -23,6 +23,7 @@ endif
 
 # Add .cpp files to the build
 SOURCES += $(wildcard src/*.cpp)
+SOURCES += $(wildcard src/osc/*.cpp)
 SOURCES += $(wildcard dep/oscpack/ip/*.cpp)
 SOURCES += $(wildcard dep/oscpack/osc/*.cpp)
 

@@ -4,14 +4,15 @@
 #include "stb_image_write.h"
 
 #include <chrono>
+
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
 #else
 #include <GL/gl.h>
 #endif
 
-#include "osc/OscClient.h"
-#include "osc/ChunkedImage.h"
+#include "osc/OscClient.hpp"
+/* #include "osc/ChunkedImage.h" */
 
 struct Render : Module {
   enum ParamId {
@@ -36,6 +37,7 @@ struct Render : Module {
 };
 
 struct RenderWidget : ModuleWidget {
+  int msgInt{0};
   std::map<std::string, rack::widget::FramebufferWidget*> framebuffers;
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
 
@@ -314,6 +316,10 @@ struct RenderWidget : ModuleWidget {
       message << "hello";
       osctx->endMessage(message);
       osctx->sendMessage(message);
+    }));
+
+    menu->addChild(createMenuItem("Enqueue", "", [=] {
+      osctx->enqueueMessage(++msgInt);
     }));
 
     menu->addChild(new MenuSeparator);

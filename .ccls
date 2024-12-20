@@ -3,13 +3,14 @@ clang
 %cpp -std=c++17
 %cpp -stdlib=libc++
 
+-isystem/usr/include/c++/9
+-isystem/usr/include/x86_64-linux-gnu/c++/9
+
 -Isrc
--Idep
+-Isrc/osc
+-Idep/oscpack/osc
+-Idep/ip
+-Idep/ip/win32
 
--I../rack-gotno/include/
--I../rack-gotno/dep/include/
--I../../rack-src/rack-gotno/include/
--I../../rack-src/rack-gotno/dep/include/
-
--I/usr/include/cpp/17
--I/usr/include/x86_64/linux/cpp/17
+-I../rack-git/include
+-I../rack-git/dep/include
