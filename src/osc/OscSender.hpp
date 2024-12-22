@@ -12,9 +12,9 @@
 #define ENDPOINT "127.0.0.1"
 #define PORT 7000
 
-struct OscClient {
-  OscClient();
-  ~OscClient();
+struct OscSender {
+  OscSender();
+  ~OscSender();
 
   char* msgBuffer;
   IpEndpointName endpoint;

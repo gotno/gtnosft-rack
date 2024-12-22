@@ -11,7 +11,7 @@
 #include <GL/gl.h>
 #endif
 
-#include "osc/OscClient.hpp"
+#include "osc/OscSender.hpp"
 /* #include "osc/ChunkedImage.h" */
 
 struct Render : Module {
@@ -41,14 +41,14 @@ struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::widget::FramebufferWidget*> framebuffers;
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
 
-  OscClient* osctx = NULL;
+  OscSender* osctx = NULL;
 
   RenderWidget(Render* module) {
     setModule(module);
     setPanel(createPanel(asset::plugin(pluginInstance, "res/Render.svg")));
 
     if (!module) return;
-    osctx = new OscClient();
+    osctx = new OscSender();
   }
 
   ~RenderWidget() {
