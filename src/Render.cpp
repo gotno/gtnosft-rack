@@ -12,7 +12,7 @@
 #endif
 
 #include "osc/OscSender.hpp"
-/* #include "osc/ChunkedImage.h" */
+#include "osc/OscReceiver.hpp"
 
 struct Render : Module {
   enum ParamId {
@@ -42,6 +42,7 @@ struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
 
   OscSender* osctx = NULL;
+  OscReceiver* oscrx = NULL;
 
   RenderWidget(Render* module) {
     setModule(module);
@@ -49,10 +50,12 @@ struct RenderWidget : ModuleWidget {
 
     if (!module) return;
     osctx = new OscSender();
+    oscrx = new OscReceiver();
   }
 
   ~RenderWidget() {
     delete osctx;
+    delete oscrx;
   }
 
   struct ModuleWidgetContainer : widget::Widget {

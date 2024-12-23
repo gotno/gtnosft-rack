@@ -9,8 +9,8 @@
 #include "../../dep/oscpack/ip/UdpSocket.h"
 
 #define MSG_BUFFER_SIZE 65507 // oscpack MAX_BUFFER_SIZE
-#define ENDPOINT "127.0.0.1"
-#define PORT 7000
+#define TX_ENDPOINT "127.0.0.1"
+#define TX_PORT 7000
 
 struct OscSender {
   OscSender();

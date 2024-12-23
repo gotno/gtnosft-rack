@@ -1,18 +1,25 @@
-/* #include <atomic> */
-/* #include <thread> */
-/* #include <queue> */
-/* #include <mutex> */
-/* #include <condition_variable> */
+#include <thread>
 
-/* #include "../../dep/oscpack/ip/IpEndpointName.h" */
-/* #include "../../dep/oscpack/osc/OscOutboundPacketStream.h" */
-/* #include "../../dep/oscpack/ip/UdpSocket.h" */
+#include "../../dep/oscpack/ip/IpEndpointName.h"
+#include "../../dep/oscpack/ip/UdpSocket.h"
+#include "../../dep/oscpack/osc/OscPacketListener.h"
+#include "../../dep/oscpack/osc/OscReceivedElements.h"
 
-/* #define MSG_BUFFER_SIZE 65507 // oscpack MAX_BUFFER_SIZE */
-/* #define ENDPOINT "127.0.0.1" */
-/* #define PORT 7000 */
+#define RX_ENDPOINT "127.0.0.1"
+#define RX_PORT 7001
 
-struct OscReceiver {
+struct OscReceiver : public osc::OscPacketListener {
   OscReceiver();
   ~OscReceiver();
+
+  IpEndpointName endpoint;
+  UdpListeningReceiveSocket* rxSocket = NULL;
+	std::thread listenerThread;
+
+  void startListener();
+  void endListener();
+  void ProcessMessage(
+    const osc::ReceivedMessage& message,
+    const IpEndpointName& remoteEndpoint
+  ) override;
 };

@@ -3,7 +3,7 @@
 
 OscSender::OscSender() {
   msgBuffer = new char[MSG_BUFFER_SIZE];
-  endpoint = IpEndpointName(ENDPOINT, PORT);
+  endpoint = IpEndpointName(TX_ENDPOINT, TX_PORT);
   startQueueWorker();
 }
 
