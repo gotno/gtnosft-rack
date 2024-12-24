@@ -22,4 +22,8 @@ struct OscReceiver : public osc::OscPacketListener {
     const osc::ReceivedMessage& message,
     const IpEndpointName& remoteEndpoint
   ) override;
+  void routeMessage(
+    std::string path,
+    osc::ReceivedMessage::const_iterator& arg
+  );
 };

@@ -30,20 +30,20 @@ void OscReceiver::ProcessMessage(
 ) {
   (void)remoteEndpoint;
 
-  std::string path(message.AddressPattern());
-  INFO("oscrx received message on path %s", path.c_str());
-  if (path.compare(std::string("/echo")) == 0) {
-    try {
-      osc::ReceivedMessage::const_iterator arg = message.ArgumentsBegin();
+  INFO("oscrx received message on path %s", message.AddressPattern());
 
-      std::string echo;
-      echo = (arg++)->AsString();
-
-      INFO("ECHO: %s", echo.c_str());
-
-      if (arg != message.ArgumentsEnd()) throw osc::ExcessArgumentException();
-    } catch(osc::Exception& e) {
-      INFO("Error parsing OSC message %s: %s", message.AddressPattern(), e.what());
-    }
+  try {
+    osc::ReceivedMessage::const_iterator arg = message.ArgumentsBegin();
+    routeMessage(std::string(message.AddressPattern()), arg);
+    if (arg != message.ArgumentsEnd()) throw osc::ExcessArgumentException();
+  } catch(osc::Exception& e) {
+    INFO("error parsing OSC message %s: %s", message.AddressPattern(), e.what());
   }
+}
+
+void OscReceiver::routeMessage(
+  std::string path,
+  osc::ReceivedMessage::const_iterator& arg
+) {
+  if (path == "/echo") INFO("ECHO: %s", (arg++)->AsString());
 }
