@@ -42,8 +42,6 @@ void OscSender::stopQueueWorker() {
 }
 
 void OscSender::enqueueMessage(MessagePacker* packer) {
-  if (!queueWorkerRunning) return;
-
   std::unique_lock<std::mutex> locker(qmutex);
   messageQueue.push(packer);
   locker.unlock();
