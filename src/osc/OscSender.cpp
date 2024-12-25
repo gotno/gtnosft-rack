@@ -1,6 +1,7 @@
 #include "plugin.hpp"
 #include "OscSender.hpp"
 #include "MessagePacker/MessagePacker.hpp"
+#include "MessagePacker/NoopPacker.hpp"
 
 OscSender::OscSender() {
   msgBuffer = new char[MSG_BUFFER_SIZE];
@@ -36,7 +37,7 @@ void OscSender::startQueueWorker() {
 void OscSender::stopQueueWorker() {
   queueWorkerRunning = false;
   // one last notify_one to kick it out the loop
-  enqueueMessage(new MessagePacker());
+  enqueueMessage(new NoopPacker());
   if (queueWorker.joinable()) queueWorker.join();
 }
 
@@ -59,7 +60,7 @@ void OscSender::processQueue() {
 
     INFO("message queue packing message for %s", packer->path.c_str());
 
-    if (packer->path != "") {
+    if (!packer->isNoop()) {
       osc::OutboundPacketStream message = makeMessage(packer->path);
       packer->pack(message);
       endMessage(message);
