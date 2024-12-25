@@ -1,5 +1,5 @@
 #include <string>
-#include "../../dep/oscpack/osc/OscOutboundPacketStream.h"
+#include "../../../dep/oscpack/osc/OscOutboundPacketStream.h"
 
 struct MessagePacker {
   MessagePacker();

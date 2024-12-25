@@ -1,6 +1,6 @@
 #include "plugin.hpp"
 #include "OscSender.hpp"
-#include "MessagePacker.hpp"
+#include "MessagePacker/MessagePacker.hpp"
 
 OscSender::OscSender() {
   msgBuffer = new char[MSG_BUFFER_SIZE];

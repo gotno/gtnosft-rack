@@ -1,5 +1,5 @@
 #include "MessagePacker.hpp"
-#include "ChunkedImage.hpp"
+#include "../ChunkedImage.hpp"
 
 struct ImageChunkPacker : MessagePacker {
   ImageChunkPacker(ChunkedImage* _chunkedImage);

@@ -14,7 +14,7 @@
 #include "osc/OscSender.hpp"
 #include "osc/OscReceiver.hpp"
 
-#include "osc/EchoPacker.hpp"
+#include "osc/MessagePacker/EchoPacker.hpp"
 
 struct Render : Module {
   enum ParamId {
