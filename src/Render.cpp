@@ -14,6 +14,8 @@
 #include "osc/OscSender.hpp"
 #include "osc/OscReceiver.hpp"
 
+#include "osc/EchoPacker.hpp"
+
 struct Render : Module {
   enum ParamId {
     PARAMS_LEN
@@ -37,7 +39,6 @@ struct Render : Module {
 };
 
 struct RenderWidget : ModuleWidget {
-  int msgInt{0};
   std::map<std::string, rack::widget::FramebufferWidget*> framebuffers;
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
 
@@ -315,14 +316,7 @@ struct RenderWidget : ModuleWidget {
   void appendContextMenu(Menu* menu) override {
     menu->addChild(new MenuSeparator);
     menu->addChild(createMenuItem("Echo", "", [=] {
-      auto message = osctx->makeMessage("/echo");
-      message << "hello";
-      osctx->endMessage(message);
-      osctx->sendMessage(message);
-    }));
-
-    menu->addChild(createMenuItem("Enqueue", "", [=] {
-      osctx->enqueueMessage(++msgInt);
+      osctx->enqueueMessage(new EchoPacker("YOOO DUUDE"));
     }));
 
     menu->addChild(new MenuSeparator);

@@ -1,5 +1,6 @@
 #include "plugin.hpp"
 #include "OscSender.hpp"
+#include "MessagePacker.hpp"
 
 OscSender::OscSender() {
   msgBuffer = new char[MSG_BUFFER_SIZE];
@@ -12,7 +13,7 @@ OscSender::~OscSender() {
   delete[] msgBuffer;
 }
 
-osc::OutboundPacketStream OscSender::makeMessage(std::string address) {
+osc::OutboundPacketStream OscSender::makeMessage(const std::string& address) {
   osc::OutboundPacketStream message(msgBuffer, MSG_BUFFER_SIZE);
   message << osc::BeginMessage(address.c_str());
   return message;
@@ -34,13 +35,14 @@ void OscSender::startQueueWorker() {
 
 void OscSender::stopQueueWorker() {
   queueWorkerRunning = false;
-  enqueueMessage(-1); // one last notify_one to kick it out the loop
+  // one last notify_one to kick it out the loop
+  enqueueMessage(new MessagePacker());
   if (queueWorker.joinable()) queueWorker.join();
 }
 
-void OscSender::enqueueMessage(int item) {
+void OscSender::enqueueMessage(MessagePacker* packer) {
   std::unique_lock<std::mutex> locker(qmutex);
-  messageQueue.push(item);
+  messageQueue.push(packer);
   locker.unlock();
   queueLockCondition.notify_one();
 }
@@ -52,9 +54,19 @@ void OscSender::processQueue() {
     std::unique_lock<std::mutex> locker(qmutex);
     queueLockCondition.wait(locker, [this](){ return !messageQueue.empty(); });
 
-    int qItem = messageQueue.front();
+    MessagePacker* packer = messageQueue.front();
     messageQueue.pop();
 
-    INFO("message queue: %d", qItem);
+    INFO("message queue packing message for %s", packer->path.c_str());
+
+    if (packer->path != "") {
+      osc::OutboundPacketStream message = makeMessage(packer->path);
+      packer->pack(message);
+      endMessage(message);
+      sendMessage(message);
+    }
+
+    delete packer;
+    packer = NULL;
   }
 }

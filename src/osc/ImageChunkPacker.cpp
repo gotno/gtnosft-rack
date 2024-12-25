@@ -1,13 +1,13 @@
-#include "ImageChunkPackager.hpp"
+#include "ImageChunkPacker.hpp"
 
-ImageChunkPackager::ImageChunkPackager(ChunkedImage* _chunkedImage):
+ImageChunkPacker::ImageChunkPacker(ChunkedImage* _chunkedImage):
   chunkedImage(_chunkedImage) {}
 
-ImageChunkPackager::~ImageChunkPackager() {
+ImageChunkPacker::~ImageChunkPacker() {
   chunkedImage = NULL;
 }
 
-void ImageChunkPackager::process(osc::OutboundPacketStream& message) {
+void ImageChunkPacker::pack(osc::OutboundPacketStream& message) {
   const int32_t& chunkSize = ChunkedImage::CHUNK_SIZE;
   char chunk[chunkSize];
   memcpy(chunk, chunkedImage->pixels + chunkSize * chunkNum, chunkSize); 
