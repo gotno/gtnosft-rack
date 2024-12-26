@@ -15,6 +15,7 @@
 #include "osc/OscReceiver.hpp"
 
 #include "osc/MessagePacker/EchoPacker.hpp"
+#include "osc/MessagePacker/BlobTestPacker.hpp"
 
 struct Render : Module {
   enum ParamId {
@@ -317,6 +318,9 @@ struct RenderWidget : ModuleWidget {
     menu->addChild(new MenuSeparator);
     menu->addChild(createMenuItem("Echo", "", [=] {
       osctx->enqueueMessage(new EchoPacker("YOOO DUUDE"));
+    }));
+    menu->addChild(createMenuItem("Test that blob?", "", [=] {
+      osctx->enqueueMessage(new BlobTestPacker());
     }));
 
     menu->addChild(new MenuSeparator);
