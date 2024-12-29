@@ -25,6 +25,7 @@ endif
 SOURCES += $(wildcard src/*.cpp)
 SOURCES += $(wildcard src/osc/*.cpp)
 SOURCES += $(wildcard src/osc/MessagePacker/*.cpp)
+SOURCES += $(wildcard src/osc/ChunkedSend/*.cpp)
 SOURCES += $(wildcard dep/oscpack/ip/*.cpp)
 SOURCES += $(wildcard dep/oscpack/osc/*.cpp)
 

@@ -13,9 +13,11 @@
 
 #include "osc/OscSender.hpp"
 #include "osc/OscReceiver.hpp"
+#include "osc/ChunkedManager.hpp"
 
 #include "osc/MessagePacker/EchoPacker.hpp"
 #include "osc/MessagePacker/BlobTestPacker.hpp"
+#include "osc/ChunkedSend/ChunkedTest.hpp"
 
 struct Render : Module {
   enum ParamId {
@@ -45,6 +47,7 @@ struct RenderWidget : ModuleWidget {
 
   OscSender* osctx = NULL;
   OscReceiver* oscrx = NULL;
+  ChunkedManager* chunkman = NULL;
 
   RenderWidget(Render* module) {
     setModule(module);
@@ -53,11 +56,13 @@ struct RenderWidget : ModuleWidget {
     if (!module) return;
     osctx = new OscSender();
     oscrx = new OscReceiver();
+    chunkman = new ChunkedManager(osctx);
   }
 
   ~RenderWidget() {
     delete osctx;
     delete oscrx;
+    delete chunkman;
   }
 
   struct ModuleWidgetContainer : widget::Widget {
@@ -105,7 +110,7 @@ struct RenderWidget : ModuleWidget {
 
   // render FramebufferWidget to png
   void renderPng(std::string directory, std::string filename, rack::widget::FramebufferWidget* fb) {
-    // auto start = std::chrono::high_resolution_clock::now();
+    // auto start = std::chrono::steady_clock::now();
 
     float zoom = 3.f;
     fb->render(math::Vec(zoom, zoom));
@@ -136,7 +141,7 @@ struct RenderWidget : ModuleWidget {
     delete[] pixels;
     nvgluBindFramebuffer(NULL);
 
-    // auto end = std::chrono::high_resolution_clock::now();
+    // auto end = std::chrono::steady_clock::now();
     // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
     // DEBUG("render png execution time: %lld microseconds", duration.count());
@@ -319,8 +324,30 @@ struct RenderWidget : ModuleWidget {
     menu->addChild(createMenuItem("Echo", "", [=] {
       osctx->enqueueMessage(new EchoPacker("YOOO DUUDE"));
     }));
-    menu->addChild(createMenuItem("Test that blob?", "", [=] {
+
+    menu->addChild(createMenuItem("Blob test", "", [=] {
       osctx->enqueueMessage(new BlobTestPacker());
+    }));
+
+    menu->addChild(createMenuItem("Chunked send test", "", [=] {
+      size_t size = 50;
+      uint8_t* data = new uint8_t[size];
+      for (uint8_t i = 0; i < size; i++) data[i] = i + 1;
+      chunkman->add(new ChunkedTest(data, size));
+    }));
+
+    menu->addChild(createMenuItem("Log test pointer math", "", [] {
+      uint8_t* arr = new uint8_t[100];
+      for (int i = 0; i < 100; i++) arr[i] = i;
+
+      INFO("arr[68] = %d", arr[68]);
+      INFO("arr + 68 = %d", *(arr + 68));
+
+      for (int i = 0; i < 100; i += 10) {
+        INFO("arr + %d = %d", i, *(arr + i));
+      }
+
+      delete[] arr;
     }));
 
     menu->addChild(new MenuSeparator);

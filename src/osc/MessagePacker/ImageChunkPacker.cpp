@@ -1,30 +1,29 @@
 #include "ImageChunkPacker.hpp"
 
-ImageChunkPacker::ImageChunkPacker(ChunkedImage* _chunkedImage):
-  chunkedImage(_chunkedImage) {}
+#include "../ChunkedSend/ChunkedImage.hpp"
+#include "../../../dep/oscpack/osc/OscTypes.h"
+
+ImageChunkPacker::ImageChunkPacker(int32_t _chunkNum, ChunkedImage* _chunkedImage):
+  chunkNum(_chunkNum), chunkedImage(_chunkedImage) {
+    path = "/chunked_image";
+  }
 
 ImageChunkPacker::~ImageChunkPacker() {
   chunkedImage = NULL;
 }
 
 void ImageChunkPacker::pack(osc::OutboundPacketStream& message) {
-  const int32_t& chunkSize = ChunkedImage::CHUNK_SIZE;
-  char chunk[chunkSize];
-  memcpy(chunk, chunkedImage->pixels + chunkSize * chunkNum, chunkSize); 
-
-	/* * int: image width */
-	/* * int: image height */
-	/* * int: total chunks */
-	/* * int: start index for `memcpy` */
-	/* * blob: the chunk */
-	/* * int as uid */
+  const int32_t& chunkSize = chunkedImage->chunkSize;
+  osc::Blob chunk(chunkedImage->data + chunkSize * chunkNum, chunkSize);
 
   message << chunkedImage->id
-		<< chunkedImage->width
-		<< chunkedImage->height
+    << chunkedImage->width
+    << chunkedImage->height
+    << chunkedImage->numChunks
+    << chunkSize
     << chunkNum
-		<< chunkedImage->numChunks
-		<< chunkSize
-		<< chunk
-		;
+    << chunk
+    ;
+
+  chunkedImage->registerChunkSent(chunkNum);
 }
