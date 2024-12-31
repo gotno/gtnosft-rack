@@ -8,9 +8,14 @@
 #define RX_ENDPOINT "127.0.0.1"
 #define RX_PORT 7001
 
+class ChunkedManager;
+
 struct OscReceiver : public osc::OscPacketListener {
-  OscReceiver();
+  OscReceiver(ChunkedManager* chunkedManager);
   ~OscReceiver();
+
+private:
+  ChunkedManager* chunkman;
 
   IpEndpointName endpoint;
   UdpListeningReceiveSocket* rxSocket = NULL;

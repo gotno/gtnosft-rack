@@ -8,6 +8,7 @@ ChunkedSend::ChunkedSend(uint8_t* _data, size_t _size):
   }
 
 ChunkedSend::~ChunkedSend() {
+  logCompletionDuration();
   delete[] data;
 }
 
@@ -20,6 +21,7 @@ void ChunkedSend::init() {
 
 void ChunkedSend::ack(int32_t chunkNum) {
   getChunkStatus(chunkNum).registerAcked();
+  // logCompletionDuration(chunkNum);
 }
 
 void ChunkedSend::getUnackedChunkNums(std::vector<int32_t>& chunkNums) {
@@ -38,4 +40,38 @@ ChunkStatus& ChunkedSend::getChunkStatus(int32_t chunkNum) {
 
 MessagePacker* ChunkedSend::getPackerForChunk(int32_t chunkNum) {
   return new MessagePacker();
+}
+
+void ChunkedSend::logCompletionDuration(int32_t chunkNum) {
+  INFO(
+    "chunked send %d chunk %d ack'd in %lld microseconds",
+    id,
+    chunkNum,
+    getChunkStatus(chunkNum).getRoundTripDuration()
+  );
+}
+
+void ChunkedSend::logCompletionDuration() {
+  if (sendFailed()) return;
+
+  auto firstSend = chunkStatuses.at(0).firstSendTime;
+  auto lastAck = chunkStatuses.at(0).ackTime;
+
+  for (auto& pair : chunkStatuses)
+    if (pair.second.ackTime > lastAck)
+      lastAck = pair.second.ackTime;
+
+  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
+    lastAck - firstSend
+  ).count();
+
+  INFO("chunked send %d total round trip %lld microseconds", id, duration);
+}
+
+bool ChunkedSend::sendFailed() {
+  for (auto& pair : chunkStatuses)
+    if (pair.second.sends >= MAX_SENDS)
+      return true;
+
+  return false;
 }

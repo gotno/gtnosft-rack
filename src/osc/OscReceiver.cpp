@@ -1,8 +1,12 @@
 #include "plugin.hpp"
+
 #include "OscReceiver.hpp"
 
-OscReceiver::OscReceiver() {
+#include "ChunkedManager.hpp"
+
+OscReceiver::OscReceiver(ChunkedManager* chunkedManager) {
   endpoint = IpEndpointName(RX_ENDPOINT, RX_PORT);
+  chunkman = chunkedManager;
   startListener();
 }
 
@@ -37,7 +41,7 @@ void OscReceiver::ProcessMessage(
     routeMessage(std::string(message.AddressPattern()), arg);
     if (arg != message.ArgumentsEnd()) throw osc::ExcessArgumentException();
   } catch(osc::Exception& e) {
-    INFO("error parsing OSC message %s: %s", message.AddressPattern(), e.what());
+    WARN("error parsing OSC message %s: %s", message.AddressPattern(), e.what());
   }
 }
 
@@ -46,4 +50,10 @@ void OscReceiver::routeMessage(
   osc::ReceivedMessage::const_iterator& arg
 ) {
   if (path == "/echo") INFO("ECHO: %s", (arg++)->AsString());
+  if (path == "/ack_chunk") {
+    int32_t chunkedId, chunkNum;
+    chunkedId = (arg++)->AsInt32();
+    chunkNum = (arg++)->AsInt32();
+    chunkman->ack(chunkedId, chunkNum);
+  }
 }

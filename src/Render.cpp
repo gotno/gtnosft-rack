@@ -55,8 +55,8 @@ struct RenderWidget : ModuleWidget {
 
     if (!module) return;
     osctx = new OscSender();
-    oscrx = new OscReceiver();
     chunkman = new ChunkedManager(osctx);
+    oscrx = new OscReceiver(chunkman);
   }
 
   ~RenderWidget() {

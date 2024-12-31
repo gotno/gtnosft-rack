@@ -22,12 +22,13 @@ struct ChunkStatus {
   time_point ackTime;
 
   void registerSend() {
-    if (sends == 0) firstSendTime =  std::chrono::steady_clock::now();
+    if (sends == 0) firstSendTime = std::chrono::steady_clock::now();
     ++sends;
   }
 
   void registerAcked() {
-    if (!acked) ackTime = std::chrono::steady_clock::now();
+    if (acked) return;
+    ackTime = std::chrono::steady_clock::now();
     acked = true;
   }
 
@@ -48,9 +49,8 @@ struct ChunkedSend {
   ChunkedSend(uint8_t* _data, size_t _size);
   virtual ~ChunkedSend();
 
-  // any chunk over max sends?
-  // static const uint8_t MAX_SENDS = 3;
-  // bool sendFailed();
+  static const uint8_t MAX_SENDS = 3;
+  bool sendFailed();
 
   int32_t id;
   uint8_t* data;
@@ -67,4 +67,7 @@ struct ChunkedSend {
   ChunkStatus& getChunkStatus(int32_t chunkNum);
 
   virtual MessagePacker* getPackerForChunk(int32_t chunkNum);
+
+  void logCompletionDuration(int32_t chunkNum);
+  void logCompletionDuration();
 };

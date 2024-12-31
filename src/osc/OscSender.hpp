@@ -22,6 +22,9 @@ struct OscSender {
   OscSender();
   ~OscSender();
 
+  void enqueueMessage(MessagePacker* packer);
+
+private:
   char* msgBuffer;
   IpEndpointName endpoint;
   osc::OutboundPacketStream makeMessage(const std::string& address);
@@ -36,6 +39,5 @@ struct OscSender {
   std::condition_variable queueLockCondition;
   void startQueueWorker();
   void stopQueueWorker();
-	void enqueueMessage(MessagePacker* packer);
-	void processQueue();
+  void processQueue();
 };
