@@ -146,6 +146,7 @@ struct RenderWidget : ModuleWidget {
     nvgluBindFramebuffer(NULL);
   }
 
+  // render module without actual data, as in library
   void renderDummyModule(rack::app::ModuleWidget* moduleWidget) {
     widget::FramebufferWidget* fb =
       wrapModuleWidget(
@@ -158,6 +159,7 @@ struct RenderWidget : ModuleWidget {
   }
 
 
+  // remove params/ports/lights
   void abandonChildren(rack::app::ModuleWidget* mw) {
     auto it = mw->children.begin();
     while (it != mw->children.end()) {
@@ -169,6 +171,7 @@ struct RenderWidget : ModuleWidget {
     }
   }
 
+  // render panel with no params/ports/lights and without actual data
   void renderDummyPanel(rack::app::ModuleWidget* moduleWidget) {
     rack::app::ModuleWidget* mw = makeDummyModuleWidget(moduleWidget);
     abandonChildren(mw);
@@ -180,6 +183,7 @@ struct RenderWidget : ModuleWidget {
     delete fb;
   }
 
+  // render surrogate ModuleWidget with actual module data
   void renderSurrogateModule(rack::app::ModuleWidget* moduleWidget) {
     rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
     widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
@@ -191,6 +195,8 @@ struct RenderWidget : ModuleWidget {
     delete fb;
   }
 
+  // render the ModuleWidget directly
+  // TODO: this would be ideal, but why is it blank?
   void renderModuleDirect(rack::app::ModuleWidget* mw) {
     rack::widget::Widget* parent = mw->parent;
     parent->removeChild(mw);
@@ -333,20 +339,6 @@ struct RenderWidget : ModuleWidget {
       uint8_t* data = new uint8_t[size];
       for (uint8_t i = 0; i < size; i++) data[i] = i + 1;
       chunkman->add(new ChunkedTest(data, size));
-    }));
-
-    menu->addChild(createMenuItem("Log test pointer math", "", [] {
-      uint8_t* arr = new uint8_t[100];
-      for (int i = 0; i < 100; i++) arr[i] = i;
-
-      INFO("arr[68] = %d", arr[68]);
-      INFO("arr + 68 = %d", *(arr + 68));
-
-      for (int i = 0; i < 100; i += 10) {
-        INFO("arr + %d = %d", i, *(arr + i));
-      }
-
-      delete[] arr;
     }));
 
     menu->addChild(new MenuSeparator);
