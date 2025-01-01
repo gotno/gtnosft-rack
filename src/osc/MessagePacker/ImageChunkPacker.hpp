@@ -2,15 +2,14 @@
 
 #include "plugin.hpp"
 
-#include "MessagePacker.hpp"
+#include "ChunkPacker.hpp"
 
 class ChunkedImage;
 
-struct ImageChunkPacker : MessagePacker {
+struct ImageChunkPacker : ChunkPacker {
   ImageChunkPacker(int32_t chunkNum, ChunkedImage* _chunkedImage);
   ~ImageChunkPacker() override;
 
-  int32_t chunkNum{0};
   ChunkedImage* chunkedImage{NULL};
 
   void pack(osc::OutboundPacketStream& message) override;

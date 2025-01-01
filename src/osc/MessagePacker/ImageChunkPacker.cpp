@@ -4,26 +4,19 @@
 #include "../../../dep/oscpack/osc/OscTypes.h"
 
 ImageChunkPacker::ImageChunkPacker(int32_t _chunkNum, ChunkedImage* _chunkedImage):
-  chunkNum(_chunkNum), chunkedImage(_chunkedImage) {
+  ChunkPacker(_chunkNum, _chunkedImage), chunkedImage(_chunkedImage) {
     path = "/chunked_image";
   }
 
 ImageChunkPacker::~ImageChunkPacker() {
+  ChunkPacker::~ChunkPacker();
   chunkedImage = NULL;
 }
 
 void ImageChunkPacker::pack(osc::OutboundPacketStream& message) {
-  const int32_t& chunkSize = chunkedImage->chunkSize;
-  osc::Blob chunk(chunkedImage->data + chunkSize * chunkNum, chunkSize);
+  ChunkPacker::pack(message);
 
-  message << chunkedImage->id
-    << chunkedImage->width
+  message << chunkedImage->width
     << chunkedImage->height
-    << chunkedImage->numChunks
-    << chunkSize
-    << chunkNum
-    << chunk
     ;
-
-  chunkedImage->registerChunkSent(chunkNum);
 }
