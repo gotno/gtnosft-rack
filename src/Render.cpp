@@ -91,7 +91,7 @@ struct RenderWidget : ModuleWidget {
     std::string f = "";
     f.append(mw->getModule()->getModel()->plugin->slug.c_str());
     f.append("-");
-    f.append(mw->getModule()->getModel()->name.c_str());
+    f.append(mw->getModule()->getModel()->slug.c_str());
     return f;
   }
 
