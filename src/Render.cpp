@@ -108,24 +108,28 @@ struct RenderWidget : ModuleWidget {
     return fbcontainer;
   }
 
-  // render FramebufferWidget to png
-  void renderPng(std::string directory, std::string filename, rack::widget::FramebufferWidget* fb) {
-    // auto start = std::chrono::steady_clock::now();
-
-    float zoom = 3.f;
+  // render FramebufferWidget to rgba pixel array
+  uint8_t* renderPixels(rack::widget::FramebufferWidget* fb, int& width, int& height, float zoom = 3.f) {
     fb->render(math::Vec(zoom, zoom));
 
     nvgluBindFramebuffer(fb->getFramebuffer());
-    int width, height;
-    // nvgReset(APP->window->vg);
+
     nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
-    INFO("render png pixel size %dw/%dh: %d bytes", width, height, width * height * 4);
-    // audio2 1,026,000
+
     uint8_t* pixels = new uint8_t[height * width * 4];
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     flipBitmap(pixels, width, height, 4);
 
-    // Write pixels to PNG
+    return pixels;
+  }
+
+  // render FramebufferWidget to png
+  void renderPng(std::string directory, std::string filename, rack::widget::FramebufferWidget* fb) {
+    // auto start = std::chrono::steady_clock::now();
+
+    int width, height;
+    uint8_t* pixels = renderPixels(fb, width, height);
+
     std::string renderPath = rack::asset::user(directory);
     rack::system::createDirectory(renderPath);
     std::string filepath = rack::system::join(renderPath, filename + ".png");
@@ -140,11 +144,6 @@ struct RenderWidget : ModuleWidget {
 
     delete[] pixels;
     nvgluBindFramebuffer(NULL);
-
-    // auto end = std::chrono::steady_clock::now();
-    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-
-    // DEBUG("render png execution time: %lld microseconds", duration.count());
   }
 
   void renderDummyModule(rack::app::ModuleWidget* moduleWidget) {
