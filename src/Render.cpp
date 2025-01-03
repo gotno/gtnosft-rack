@@ -18,6 +18,7 @@
 #include "osc/MessagePacker/EchoPacker.hpp"
 #include "osc/MessagePacker/BlobTestPacker.hpp"
 #include "osc/ChunkedSend/ChunkedTest.hpp"
+#include "osc/ChunkedSend/ChunkedImage.hpp"
 
 struct Render : Module {
   enum ParamId {
@@ -183,7 +184,7 @@ struct RenderWidget : ModuleWidget {
     delete fb;
   }
 
-  // render surrogate ModuleWidget with actual module data
+  // render surrogate ModuleWidget with actual module data, save png
   void renderSurrogateModule(rack::app::ModuleWidget* moduleWidget) {
     rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
     widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
@@ -191,6 +192,19 @@ struct RenderWidget : ModuleWidget {
     renderPng("render_surrogate", makeFilename(moduleWidget), fb);
 
     // nullify the underlying module so it isn't destroyed with the surrogate
+    surrogate->module = NULL;
+    delete fb;
+  }
+
+  // render surrogate ModuleWidget with actual module data, send
+  void sendSurrogateModuleRender(rack::app::ModuleWidget* moduleWidget) {
+    rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
+    widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
+
+    int width, height;
+    uint8_t* pixels = renderPixels(fb, width, height);
+    chunkman->add(new ChunkedImage(pixels, width, height));
+
     surrogate->module = NULL;
     delete fb;
   }
@@ -394,6 +408,17 @@ struct RenderWidget : ModuleWidget {
             rack::app::ModuleWidget* moduleWidget = pair.second;
             menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
               renderSurrogateModule(moduleWidget);
+            }));
+          }
+        }
+      ));
+
+      menu->addChild(createSubmenuItem("send rendered surrogate module", "",
+        [=](Menu* menu) {
+          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
+            rack::app::ModuleWidget* moduleWidget = pair.second;
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+              sendSurrogateModuleRender(moduleWidget);
             }));
           }
         }
