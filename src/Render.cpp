@@ -121,6 +121,9 @@ struct RenderWidget : ModuleWidget {
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     flipBitmap(pixels, width, height, 4);
 
+    // audio2: 1026000 bytes / 1.026 megabytes
+    // INFO("image size: %d bytes", width * height * 4);
+
     return pixels;
   }
 

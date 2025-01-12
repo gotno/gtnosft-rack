@@ -12,8 +12,20 @@ ChunkPacker::~ChunkPacker() {
   chunkedSend = NULL;
 }
 
+bool ChunkPacker::isNoop() {
+  return !chunkedSend;
+}
+
+void ChunkPacker::finish() {
+  chunkedSend->registerChunkSent(chunkNum);
+}
+
 void ChunkPacker::pack(osc::OutboundPacketStream& message) {
-  const int32_t& chunkSize = chunkedSend->chunkSize;
+  const int32_t chunkSize =
+    chunkNum == chunkedSend->numChunks - 1
+      ? chunkedSend->size - (chunkedSend->numChunks - 1) * chunkedSend->chunkSize
+      : chunkedSend->chunkSize;
+
   osc::Blob chunk(chunkedSend->data + chunkSize * chunkNum, chunkSize);
 
   message << chunkedSend->id

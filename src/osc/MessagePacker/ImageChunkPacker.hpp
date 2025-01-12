@@ -8,7 +8,6 @@ class ChunkedImage;
 
 struct ImageChunkPacker : ChunkPacker {
   ImageChunkPacker(int32_t chunkNum, ChunkedImage* _chunkedImage);
-  ~ImageChunkPacker() override;
 
   ChunkedImage* chunkedImage{NULL};
 

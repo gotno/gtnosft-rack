@@ -33,35 +33,29 @@ ChunkedSend* ChunkedManager::getChunked(int32_t id) {
 }
 
 void ChunkedManager::processChunked(int32_t id) {
+  ChunkedSend* chunkedSend = getChunked(id);
+
+  bool sendFailed = chunkedSend->sendFailed();
+  if (sendFailed) WARN("processing chunked send %d: send failed", id);
+
   std::vector<int32_t> unackedChunkNums;
-  getChunked(id)->getUnackedChunkNums(unackedChunkNums);
-  bool sendFailed = getChunked(id)->sendFailed();
+  chunkedSend->getUnackedChunkNums(unackedChunkNums);
+  if (unackedChunkNums.size() == 0)
+    INFO("processing chunked send %d: finished", id);
 
   if (sendFailed || unackedChunkNums.size() == 0) {
-    if (sendFailed) {
-      WARN("processing chunked send %d: send failed", id);
-    } else {
-      INFO("processing chunked send %d: finished", id);
-    }
-
-    delete getChunked(id);
+    delete chunkedSend;
     chunkedSends.erase(id);
     return;
   }
 
-  INFO(
-    "processing chunked send %d: %lld unacked chunks",
-    id,
-    unackedChunkNums.size()
-  );
-
   for (int32_t chunkNum : unackedChunkNums)
-    osctx->enqueueMessage(getChunked(id)->getPackerForChunk(chunkNum));
+    osctx->enqueueMessage(chunkedSend->getPackerForChunk(chunkNum));
 
   std::thread([&, id]() { reprocessChunked(id); }).detach();
 }
 
 void ChunkedManager::reprocessChunked(int32_t id) {
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
-  processChunked(id);
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  if (chunkedExists(id)) processChunked(id);
 }

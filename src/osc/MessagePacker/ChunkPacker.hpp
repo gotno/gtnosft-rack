@@ -13,5 +13,7 @@ struct ChunkPacker : MessagePacker {
   int32_t chunkNum{0};
   ChunkedSend* chunkedSend{NULL};
 
+  bool isNoop() override;
+  void finish() override;
   void pack(osc::OutboundPacketStream& message) override;
 };

@@ -34,7 +34,7 @@ void OscReceiver::ProcessMessage(
 ) {
   (void)remoteEndpoint;
 
-  INFO("oscrx received message on path %s", message.AddressPattern());
+  // INFO("oscrx received message on path %s", message.AddressPattern());
 
   try {
     osc::ReceivedMessage::const_iterator arg = message.ArgumentsBegin();

@@ -5,13 +5,8 @@
 
 ImageChunkPacker::ImageChunkPacker(int32_t _chunkNum, ChunkedImage* _chunkedImage):
   ChunkPacker(_chunkNum, _chunkedImage), chunkedImage(_chunkedImage) {
-    path = "/chunked_image";
+    path = "/chunked_texture";
   }
-
-ImageChunkPacker::~ImageChunkPacker() {
-  ChunkPacker::~ChunkPacker();
-  chunkedImage = NULL;
-}
 
 void ImageChunkPacker::pack(osc::OutboundPacketStream& message) {
   ChunkPacker::pack(message);

@@ -15,27 +15,30 @@ ChunkedSend::~ChunkedSend() {
 void ChunkedSend::init() {
   // integer ceiling
   numChunks = (size + chunkSize - 1) / chunkSize;
-  for (int32_t i = 0; i < numChunks; i++)
-    chunkStatuses.emplace(i, ChunkStatus(i));
 }
 
 void ChunkedSend::ack(int32_t chunkNum) {
-  getChunkStatus(chunkNum).registerAcked();
-  // logCompletionDuration(chunkNum);
+  std::lock_guard<std::mutex> locker(statusMutex);
+  chunkAckTimes.insert({chunkNum, std::chrono::steady_clock::now()});
 }
 
 void ChunkedSend::getUnackedChunkNums(std::vector<int32_t>& chunkNums) {
-  for (auto& pair : chunkStatuses)
-    if (!pair.second.acked) chunkNums.push_back(pair.first);
+  int32_t chunkNum{-1};
+
+  std::lock_guard<std::mutex> locker(statusMutex);
+
+  while(++chunkNum < numChunks && chunkNums.size() < BATCH_SIZE) {
+    if (!chunkAckTimes.count(chunkNum))
+      chunkNums.push_back(chunkNum);
+  }
 }
 
 void ChunkedSend::registerChunkSent(int32_t chunkNum) {
-  getChunkStatus(chunkNum).registerSend();
-}
+  std::lock_guard<std::mutex> locker(statusMutex);
 
-ChunkStatus& ChunkedSend::getChunkStatus(int32_t chunkNum) {
-  assert(chunkStatuses.count(chunkNum) != 0);
-  return chunkStatuses.at(chunkNum);
+  chunkSendTimes.insert({chunkNum, std::chrono::steady_clock::now()});
+  auto pair = chunkSendCounts.insert({chunkNum, 0});
+  if (!pair.second) ++chunkSendCounts.at(chunkNum);
 }
 
 MessagePacker* ChunkedSend::getPackerForChunk(int32_t chunkNum) {
@@ -43,34 +46,42 @@ MessagePacker* ChunkedSend::getPackerForChunk(int32_t chunkNum) {
 }
 
 void ChunkedSend::logCompletionDuration(int32_t chunkNum) {
+  if (!chunkAckTimes.count(chunkNum)) return;
+
+  size_t duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+    chunkAckTimes.at(chunkNum) - chunkSendTimes.at(chunkNum)
+  ).count();
+
   INFO(
-    "chunked send %d chunk %d ack'd in %lld microseconds",
+    "chunked send %d chunk %d ack'd in %lld milliseconds",
     id,
     chunkNum,
-    getChunkStatus(chunkNum).getRoundTripDuration()
+    duration
   );
 }
 
 void ChunkedSend::logCompletionDuration() {
   if (sendFailed()) return;
 
-  auto firstSend = chunkStatuses.at(0).firstSendTime;
-  auto lastAck = chunkStatuses.at(0).ackTime;
+  auto firstSend = chunkSendTimes.at(0);
+  auto lastAck = chunkAckTimes.at(0);
 
-  for (auto& pair : chunkStatuses)
-    if (pair.second.ackTime > lastAck)
-      lastAck = pair.second.ackTime;
+  for (const auto& pair : chunkAckTimes)
+    if (pair.second > lastAck)
+      lastAck = pair.second;
 
-  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
     lastAck - firstSend
   ).count();
 
-  INFO("chunked send %d total round trip %lld microseconds", id, duration);
+  INFO("chunked send %d total round trip %lld milliseconds", id, duration);
 }
 
 bool ChunkedSend::sendFailed() {
-  for (auto& pair : chunkStatuses)
-    if (pair.second.sends >= MAX_SENDS)
+  std::lock_guard<std::mutex> locker(statusMutex);
+
+  for (const auto& pair : chunkSendCounts)
+    if (pair.second >= MAX_SENDS)
       return true;
 
   return false;

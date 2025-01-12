@@ -25,8 +25,6 @@ void OscSender::endMessage(osc::OutboundPacketStream& message) {
 }
 
 void OscSender::sendMessage(osc::OutboundPacketStream& message) {
-  // this _looks like_ it only sends the data present and not the whole buffer? good.
-  /* DEBUG("data: %s, size: %lld", message.Data(), message.Size()); */
   UdpTransmitSocket(endpoint).Send(message.Data(), message.Size());
 }
 
@@ -58,16 +56,17 @@ void OscSender::processQueue() {
     MessagePacker* packer = messageQueue.front();
     messageQueue.pop();
 
-    INFO("message queue packing message for %s", packer->path.c_str());
-
     if (!packer->isNoop()) {
+      // INFO("message queue packing message for %s", packer->path.c_str());
       osc::OutboundPacketStream message = makeMessage(packer->path);
+
       packer->pack(message);
       endMessage(message);
       sendMessage(message);
+
+      packer->finish();
     }
 
     delete packer;
-    packer = NULL;
   }
 }
