@@ -13,7 +13,8 @@ ChunkPacker::~ChunkPacker() {
 }
 
 bool ChunkPacker::isNoop() {
-  return !chunkedSend;
+  // send already finished, or this chunk already ack'd
+  return !chunkedSend || chunkedSend->chunkAckTimes.count(chunkNum);
 }
 
 void ChunkPacker::finish() {
