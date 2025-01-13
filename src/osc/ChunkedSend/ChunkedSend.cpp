@@ -27,7 +27,8 @@ void ChunkedSend::getUnackedChunkNums(std::vector<int32_t>& chunkNums) {
 
   std::lock_guard<std::mutex> locker(statusMutex);
 
-  while(++chunkNum < numChunks && chunkNums.size() < BATCH_SIZE) {
+  // while(++chunkNum < numChunks && chunkNums.size() < BATCH_SIZE) {
+  while(++chunkNum < numChunks) {
     if (!chunkAckTimes.count(chunkNum))
       chunkNums.push_back(chunkNum);
   }

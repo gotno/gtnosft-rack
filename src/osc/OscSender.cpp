@@ -65,6 +65,9 @@ void OscSender::processQueue() {
       sendMessage(message);
 
       packer->finish();
+
+      if (packer->postSendDelay > 0)
+        std::this_thread::sleep_for(std::chrono::milliseconds(packer->postSendDelay));
     }
 
     delete packer;
