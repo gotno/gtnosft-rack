@@ -175,6 +175,12 @@ struct RenderWidget : ModuleWidget {
     }
   }
 
+  // remove children->front(), which should be Internal->panel
+  void abandonPanel(rack::app::ModuleWidget* mw) {
+    auto it = mw->children.begin();
+    mw->children.erase(it);
+  }
+
   // render panel with no params/ports/lights and without actual data
   void renderDummyPanel(rack::app::ModuleWidget* moduleWidget) {
     rack::app::ModuleWidget* mw = makeDummyModuleWidget(moduleWidget);
