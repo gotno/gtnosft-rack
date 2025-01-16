@@ -34,6 +34,7 @@ SOURCES += $(wildcard dep/oscpack/osc/*.cpp)
 DISTRIBUTABLES += res
 DISTRIBUTABLES += $(wildcard LICENSE*)
 DISTRIBUTABLES += dep/oscpack/LICENSE
+DISTRIBUTABLES += dep/qoi/LICENSE
 DISTRIBUTABLES += $(wildcard presets)
 
 include $(RACK_DIR)/plugin.mk
