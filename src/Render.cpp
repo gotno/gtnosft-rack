@@ -153,19 +153,6 @@ struct RenderWidget : ModuleWidget {
     nvgluBindFramebuffer(NULL);
   }
 
-  // render module without actual data, as in library
-  void renderDummyModule(rack::app::ModuleWidget* moduleWidget) {
-    widget::FramebufferWidget* fb =
-      wrapModuleWidget(
-        makeDummyModuleWidget(moduleWidget)
-      );
-
-    renderPng("render_dummy", makeFilename(moduleWidget), fb);
-
-    delete fb;
-  }
-
-
   // remove params/ports/lights
   void abandonChildren(rack::app::ModuleWidget* mw) {
     auto it = mw->children.begin();
@@ -184,6 +171,18 @@ struct RenderWidget : ModuleWidget {
     mw->children.erase(it);
   }
 
+  // render module without actual data, as in library preview
+  void renderDummyModule(rack::app::ModuleWidget* moduleWidget) {
+    widget::FramebufferWidget* fb =
+      wrapModuleWidget(
+        makeDummyModuleWidget(moduleWidget)
+      );
+
+    renderPng("render_dummy_module", makeFilename(moduleWidget), fb);
+
+    delete fb;
+  }
+
   // render panel with no params/ports/lights and without actual data
   void renderDummyPanel(rack::app::ModuleWidget* moduleWidget) {
     rack::app::ModuleWidget* mw = makeDummyModuleWidget(moduleWidget);
@@ -200,6 +199,8 @@ struct RenderWidget : ModuleWidget {
   void renderSurrogateModule(rack::app::ModuleWidget* moduleWidget) {
     rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
     widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
+    abandonChildren(surrogate);
+    abandonPanel(surrogate);
 
     renderPng("render_surrogate", makeFilename(moduleWidget), fb);
 
@@ -256,9 +257,11 @@ struct RenderWidget : ModuleWidget {
   }
 
   // render surrogate ModuleWidget with actual module data, send
-  void sendSurrogateModuleRender(rack::app::ModuleWidget* moduleWidget) {
+  void sendSurrogateModuleRender(rack::app::ModuleWidget* moduleWidget, bool isOverlay = false) {
     rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
     widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
+    abandonChildren(surrogate);
+    abandonPanel(surrogate);
 
     int width, height;
     uint8_t* pixels = renderPixels(fb, width, height, isOverlay ? 1.f : 3.f);
@@ -397,14 +400,8 @@ struct RenderWidget : ModuleWidget {
     }
   }
 
-  void renderFramebuffer(std::string filename, rack::widget::FramebufferWidget* fb) {
-    widget::FramebufferWidget* fbcontainer = new widget::FramebufferWidget;
-    fbcontainer->children.push_back(fb);
-
-    renderPng("render_framebuffer", filename, fbcontainer);
-
-    fbcontainer->children.clear();
-    delete fbcontainer;
+  void renderPanelFramebuffer(std::string filename, rack::widget::FramebufferWidget* fb) {
+    renderPng("render_panel_framebuffer", filename, fb);
   }
 
   static void flipBitmap(uint8_t* pixels, int width, int height, int depth) {
