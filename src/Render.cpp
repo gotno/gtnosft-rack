@@ -15,10 +15,7 @@
 #include "osc/OscReceiver.hpp"
 #include "osc/ChunkedManager.hpp"
 
-#include "osc/MessagePacker/EchoPacker.hpp"
-#include "osc/MessagePacker/BlobTestPacker.hpp"
 #include "osc/MessagePacker/ModuleInfoPacker.hpp"
-#include "osc/ChunkedSend/ChunkedTest.hpp"
 #include "osc/ChunkedSend/ChunkedImage.hpp"
 
 struct Render : Module {
@@ -123,16 +120,11 @@ struct RenderWidget : ModuleWidget {
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     flipBitmap(pixels, width, height, 4);
 
-    // audio2: 1026000 bytes / 1.026 megabytes
-    // INFO("image size: %d bytes", width * height * 4);
-
     return pixels;
   }
 
   // render FramebufferWidget to png
   void renderPng(std::string directory, std::string filename, rack::widget::FramebufferWidget* fb) {
-    // auto start = std::chrono::steady_clock::now();
-
     int width, height;
     uint8_t* pixels = renderPixels(fb, width, height);
 
@@ -152,7 +144,7 @@ struct RenderWidget : ModuleWidget {
     nvgluBindFramebuffer(NULL);
   }
 
-  // remove params/ports/lights
+  // remove params/ports/lights from ModuleWidget
   void abandonChildren(rack::app::ModuleWidget* mw) {
     auto it = mw->children.begin();
     while (it != mw->children.end()) {
@@ -164,47 +156,21 @@ struct RenderWidget : ModuleWidget {
     }
   }
 
-  // remove children->front(), which should be Internal->panel
+  // remove children->front() from ModuleWidget, which should be Internal->panel
   void abandonPanel(rack::app::ModuleWidget* mw) {
     auto it = mw->children.begin();
     mw->children.erase(it);
   }
 
-  // render module without actual data, as in library preview
-  void renderDummyModule(rack::app::ModuleWidget* moduleWidget) {
+  // render module without actual data, as in library preview, save
+  void saveModulePreviewRender(rack::app::ModuleWidget* moduleWidget) {
     widget::FramebufferWidget* fb =
       wrapModuleWidget(
         makeDummyModuleWidget(moduleWidget)
       );
 
-    renderPng("render_dummy_module", makeFilename(moduleWidget), fb);
+    renderPng("render_module_preview", makeFilename(moduleWidget), fb);
 
-    delete fb;
-  }
-
-  // render panel with no params/ports/lights and without actual data
-  void renderDummyPanel(rack::app::ModuleWidget* moduleWidget) {
-    rack::app::ModuleWidget* mw = makeDummyModuleWidget(moduleWidget);
-    abandonChildren(mw);
-
-    widget::FramebufferWidget* fb = wrapModuleWidget(mw);
-
-    renderPng("render_dummy_panel", makeFilename(moduleWidget), fb);
-
-    delete fb;
-  }
-
-  // render surrogate ModuleWidget with actual module data, save png
-  void renderSurrogateModule(rack::app::ModuleWidget* moduleWidget) {
-    rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
-    widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
-    abandonChildren(surrogate);
-    abandonPanel(surrogate);
-
-    renderPng("render_surrogate", makeFilename(moduleWidget), fb);
-
-    // nullify the underlying module so it isn't destroyed with the surrogate
-    surrogate->module = NULL;
     delete fb;
   }
 
@@ -255,44 +221,8 @@ struct RenderWidget : ModuleWidget {
     delete fb;
   }
 
-  // render surrogate ModuleWidget with actual module data, send
-  void sendSurrogateModuleRender(rack::app::ModuleWidget* moduleWidget, bool isOverlay = false) {
-    rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
-    widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
-    abandonChildren(surrogate);
-    abandonPanel(surrogate);
-
-    int width, height;
-    uint8_t* pixels = renderPixels(fb, width, height, isOverlay ? 1.f : 3.f);
-
-    ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
-    chunked->compress();
-    chunkman->add(chunked);
-
-    surrogate->module = NULL;
-    delete fb;
-  }
-
   void sendModuleInfo(rack::app::ModuleWidget* moduleWidget) {
     osctx->enqueueMessage(new ModuleInfoPacker(moduleWidget));
-  }
-
-  // render the ModuleWidget directly
-  // TODO: this would be ideal, but why is it blank?
-  void renderModuleDirect(rack::app::ModuleWidget* mw) {
-    rack::widget::Widget* parent = mw->parent;
-    parent->removeChild(mw);
-
-    widget::FramebufferWidget* fb = wrapModuleWidget(mw);
-
-    // correct size, but blank?
-    renderPng("render_direct", makeFilename(mw), fb);
-
-    // front() is ModuleWidgetContainer
-    fb->children.front()->removeChild(mw);
-    parent->addChild(mw);
-
-    delete fb;
   }
 
   rack::widget::FramebufferWidget* getPanelFramebuffer(
@@ -374,10 +304,6 @@ struct RenderWidget : ModuleWidget {
     }
   }
 
-  void renderPanelFramebuffer(std::string filename, rack::widget::FramebufferWidget* fb) {
-    renderPng("render_panel_framebuffer", filename, fb);
-  }
-
   static void flipBitmap(uint8_t* pixels, int width, int height, int depth) {
     for (int y = 0; y < height / 2; y++) {
       int flipY = height - y - 1;
@@ -391,36 +317,31 @@ struct RenderWidget : ModuleWidget {
   void appendContextMenu(Menu* menu) override {
     menu->addChild(new MenuSeparator);
 
-    if (moduleWidgetToStream) {
-      menu->addChild(createMenuItem("stop streaming", "", [=]() {
-        moduleWidgetToStream = NULL;
-      }));
-    }
-
-    menu->addChild(new MenuSeparator);
-
-    menu->addChild(createMenuItem("Echo", "", [=] {
-      osctx->enqueueMessage(new EchoPacker("YOOO DUUDE"));
-    }));
-
-    menu->addChild(createMenuItem("Blob test", "", [=] {
-      osctx->enqueueMessage(new BlobTestPacker());
-    }));
-
-    menu->addChild(createMenuItem("Chunked send test", "", [=] {
-      size_t size = 50;
-      uint8_t* data = new uint8_t[size];
-      for (uint8_t i = 0; i < size; i++) data[i] = i + 1;
-      chunkman->add(new ChunkedTest(data, size));
-    }));
-
-    menu->addChild(new MenuSeparator);
-    menu->addChild(createMenuItem("Refresh modules", "", [=]() {
+    menu->addChild(createMenuItem("refresh modules", "", [=]() {
       refreshModuleWidgets();
     }));
 
     if (moduleWidgets.size() > 0) {
       menu->addChild(new rack::ui::MenuSeparator);
+
+      if (moduleWidgetToStream) {
+        menu->addChild(createMenuItem("stop streaming", "", [=]() {
+          moduleWidgetToStream = NULL;
+        }));
+      }
+
+      menu->addChild(createSubmenuItem("set streamed widget", "",
+        [=](Menu* menu) {
+          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
+            rack::app::ModuleWidget* moduleWidget = pair.second;
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+              sendModuleInfo(moduleWidget);
+              sendPanelRender(moduleWidget);
+              moduleWidgetToStream = moduleWidget;
+            }));
+          }
+        }
+      ));
 
       menu->addChild(createSubmenuItem("send panel", "",
         [=](Menu* menu) {
@@ -451,7 +372,7 @@ struct RenderWidget : ModuleWidget {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
             menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
-              sendOverlayRender(moduleWidget);
+              sendOverlayRender(moduleWidget, /* zoom */ 3.f);
             }));
           }
         }
@@ -468,77 +389,17 @@ struct RenderWidget : ModuleWidget {
         }
       ));
 
-      menu->addChild(new rack::ui::MenuSeparator);
-
-      menu->addChild(createSubmenuItem("render dummy module", "",
+      menu->addChild(createSubmenuItem("save module preview render", "",
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
             menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
-              renderDummyModule(moduleWidget);
+              saveModulePreviewRender(moduleWidget);
             }));
           }
         }
       ));
 
-      menu->addChild(createSubmenuItem("render dummy panel", "",
-        [=](Menu* menu) {
-          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
-            rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
-              renderDummyPanel(moduleWidget);
-            }));
-          }
-        }
-      ));
-
-      menu->addChild(new rack::ui::MenuSeparator);
-      menu->addChild(createSubmenuItem("live render surrogate module", "",
-        [=](Menu* menu) {
-          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
-            rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
-              renderSurrogateModule(moduleWidget);
-            }));
-          }
-        }
-      ));
-
-      menu->addChild(createSubmenuItem("send rendered surrogate module", "",
-        [=](Menu* menu) {
-          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
-            rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
-              sendModuleInfo(moduleWidget);
-              sendSurrogateModuleRender(moduleWidget);
-            }));
-          }
-        }
-      ));
-
-      menu->addChild(createSubmenuItem("set streamed widget", "",
-        [=](Menu* menu) {
-          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
-            rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
-              sendModuleInfo(moduleWidget);
-              sendPanelRender(moduleWidget);
-              moduleWidgetToStream = moduleWidget;
-            }));
-          }
-        }
-      ));
-
-      menu->addChild(createSubmenuItem("render direct (reparented)", "",
-        [=](Menu* menu) {
-          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
-            rack::app::ModuleWidget* moduleWidget = pair.second;
-            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
-              renderModuleDirect(moduleWidget);
-            }));
-          }
-        }
-      ));
     }
   }
 };
