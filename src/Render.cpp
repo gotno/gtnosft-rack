@@ -44,7 +44,6 @@ struct Render : Module {
 };
 
 struct RenderWidget : ModuleWidget {
-  std::map<std::string, rack::widget::FramebufferWidget*> framebuffers;
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
 
   rack::app::ModuleWidget* moduleWidgetToStream{NULL};
@@ -309,31 +308,6 @@ struct RenderWidget : ModuleWidget {
     return fb;
   }
 
-  void refreshFramebuffers() {
-    framebuffers.clear();
-
-    for (int64_t& moduleId: APP->engine->getModuleIds()) {
-      rack::app::ModuleWidget* mw = APP->scene->rack->getModule(moduleId);
-
-      rack::widget::Widget* panel;
-      rack::widget::FramebufferWidget* fb;
-
-      if ((panel = dynamic_cast<rack::widget::Widget*>(mw->children.front()))) {
-        for (rack::widget::Widget* child : panel->children) {
-          if ((fb = dynamic_cast<rack::widget::FramebufferWidget*>(child))) {
-
-            std::string key = "";
-            key.append(mw->getModule()->getModel()->plugin->slug.c_str());
-            key.append("-");
-            key.append(mw->getModule()->getModel()->name.c_str());
-            framebuffers.emplace(key, fb);
-            break;
-          }
-        }
-      }
-    }
-  }
-
   void refreshModuleWidgets() {
     moduleWidgets.clear();
 
@@ -443,10 +417,6 @@ struct RenderWidget : ModuleWidget {
     menu->addChild(new MenuSeparator);
     menu->addChild(createMenuItem("Refresh modules", "", [=]() {
       refreshModuleWidgets();
-    }));
-
-    menu->addChild(createMenuItem("Refresh framebuffers", "", [=]() {
-      refreshFramebuffers();
     }));
 
     if (moduleWidgets.size() > 0) {
