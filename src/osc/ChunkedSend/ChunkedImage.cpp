@@ -9,13 +9,17 @@ ChunkedImage::ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height):
   ChunkedSend(_pixels, _width * _height * ChunkedImage::DEPTH),
   width(_width), height(_height) {
     chunkSize = MAX_CHUNK_SIZE - 1024;
-    // chunkSize = 1024 * 32;
-
-    isCompressed = compressData();
-    if (!isCompressed) WARN("unable to compress image data!");
-
-    init();
+    calculateNumChunks();
   }
+
+void ChunkedImage::compress() {
+  if ((isCompressed = compressData())) {
+    calculateNumChunks();
+    return;
+  }
+
+  WARN("unable to compress image!");
+}
 
 bool ChunkedImage::compressData() {
   qoi_desc desc;
@@ -29,12 +33,16 @@ bool ChunkedImage::compressData() {
 
   if (!compressedData) return false;
 
-  INFO("image %d bytes, %d compressed", width * height * ChunkedImage::DEPTH, compressedLength);
+  // INFO(
+  //   "image %d bytes, %d compressed",
+  //   width * height * ChunkedImage::DEPTH,
+  //   compressedLength
+  // );
 
   delete[] data;
   data = new uint8_t[compressedLength];
   size = compressedLength;
-  memcpy(data, compressedData, compressedLength);
+  memcpy(data, compressedData, size);
   free(compressedData);
 
   return true;

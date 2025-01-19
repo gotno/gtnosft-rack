@@ -22,17 +22,19 @@ void ChunkPacker::finish() {
 }
 
 void ChunkPacker::pack(osc::OutboundPacketStream& message) {
-  const int32_t chunkSize =
+  const int32_t thisChunkSize =
     chunkNum == chunkedSend->numChunks - 1
       ? chunkedSend->size - (chunkedSend->numChunks - 1) * chunkedSend->chunkSize
       : chunkedSend->chunkSize;
+  const int32_t offset = chunkedSend->chunkSize * chunkNum;
 
-  osc::Blob chunk(chunkedSend->data + chunkSize * chunkNum, chunkSize);
+  osc::Blob chunk(chunkedSend->data + offset, thisChunkSize);
 
   message << chunkedSend->id
     << chunkNum
     << chunkedSend->numChunks
-    << chunkSize
+    << thisChunkSize
+    << chunkedSend->size
     << chunk
     ;
 

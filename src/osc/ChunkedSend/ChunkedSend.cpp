@@ -2,9 +2,10 @@
 
 #include "../MessagePacker/MessagePacker.hpp"
 
-ChunkedSend::ChunkedSend(uint8_t* _data, size_t _size):
+ChunkedSend::ChunkedSend(uint8_t* _data, int64_t _size):
   data(_data), size(_size) {
     id = ++idCounter;
+    calculateNumChunks();
   }
 
 ChunkedSend::~ChunkedSend() {
@@ -12,7 +13,7 @@ ChunkedSend::~ChunkedSend() {
   delete[] data;
 }
 
-void ChunkedSend::init() {
+void ChunkedSend::calculateNumChunks() {
   // integer ceiling
   numChunks = (size + chunkSize - 1) / chunkSize;
 }

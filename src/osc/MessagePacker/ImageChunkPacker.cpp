@@ -15,5 +15,6 @@ void ImageChunkPacker::pack(osc::OutboundPacketStream& message) {
   message << chunkedImage->width
     << chunkedImage->height
     << chunkedImage->isCompressed
+    << chunkedImage->isOverlay
     ;
 }

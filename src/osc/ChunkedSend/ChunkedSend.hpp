@@ -16,7 +16,7 @@ struct ChunkedSend {
     OscSender::MSG_BUFFER_SIZE - sizeof(idCounter);
   static const int32_t BATCH_SIZE{10};
 
-  ChunkedSend(uint8_t* _data, size_t _size);
+  ChunkedSend(uint8_t* _data, int64_t _size);
   virtual ~ChunkedSend();
 
   using time_point = std::chrono::_V2::steady_clock::time_point;
@@ -29,13 +29,13 @@ struct ChunkedSend {
 
   int32_t id;
   uint8_t* data;
-  size_t size;
+  int64_t size;
   int32_t numChunks;
   int32_t chunkSize = MAX_CHUNK_SIZE;
 
   std::mutex statusMutex;
 
-  void init();
+  void calculateNumChunks();
   void ack(int32_t chunkNum);
   void getUnackedChunkNums(std::vector<int32_t>& chunkNums);
   void registerChunkSent(int32_t chunkNum);
