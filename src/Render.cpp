@@ -17,6 +17,7 @@
 
 #include "osc/MessagePacker/EchoPacker.hpp"
 #include "osc/MessagePacker/BlobTestPacker.hpp"
+#include "osc/MessagePacker/ModuleInfoPacker.hpp"
 #include "osc/ChunkedSend/ChunkedTest.hpp"
 #include "osc/ChunkedSend/ChunkedImage.hpp"
 
@@ -46,6 +47,7 @@ struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::widget::FramebufferWidget*> framebuffers;
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
 
+  rack::app::ModuleWidget* moduleWidgetToStream{NULL};
   OscSender* osctx = NULL;
   OscReceiver* oscrx = NULL;
   ChunkedManager* chunkman = NULL;
@@ -76,6 +78,7 @@ struct RenderWidget : ModuleWidget {
   virtual void step() override {
     ModuleWidget::step();
 
+    if (moduleWidgetToStream) sendOverlayRender(moduleWidgetToStream);
   }
 
   // make a new ModuleWidget with no Module
@@ -205,17 +208,71 @@ struct RenderWidget : ModuleWidget {
     delete fb;
   }
 
+  // render only panel framebuffer, save
+  void savePanelRender(rack::app::ModuleWidget* moduleWidget, float zoom = 3.f) {
+    rack::widget::FramebufferWidget* fb = getPanelFramebuffer(moduleWidget);
+    renderPng("render_panel_framebuffer", makeFilename(moduleWidget), fb);
+  }
+
+  // render only panel framebuffer, compress & send
+  void sendPanelRender(rack::app::ModuleWidget* moduleWidget, float zoom = 3.f) {
+    rack::widget::FramebufferWidget* fb = getPanelFramebuffer(moduleWidget);
+
+    int width, height;
+    uint8_t* pixels = renderPixels(fb, width, height, zoom);
+
+    ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
+    chunked->compress();
+    chunkman->add(chunked);
+  }
+
+  // render only panel framebuffer, send
+  void sendPanelRenderUncompressed(rack::app::ModuleWidget* moduleWidget, float zoom = 3.f) {
+    rack::widget::FramebufferWidget* fb = getPanelFramebuffer(moduleWidget);
+
+    int width, height;
+    uint8_t* pixels = renderPixels(fb, width, height, zoom);
+    chunkman->add(new ChunkedImage(pixels, width, height));
+  }
+
+  // render module without panel or params/ports/lights, compress & send
+  // TODO: probably more efficient to hold on to the surrogate and update its module each time
+  void sendOverlayRender(rack::app::ModuleWidget* moduleWidget, float zoom = 1.f) {
+    rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
+    widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
+    abandonChildren(surrogate);
+    abandonPanel(surrogate);
+
+    int width, height;
+    uint8_t* pixels = renderPixels(fb, width, height, zoom);
+
+    ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
+    chunked->compress();
+    chunked->isOverlay = true;
+    chunkman->add(chunked);
+
+    surrogate->module = NULL;
+    delete fb;
+  }
+
   // render surrogate ModuleWidget with actual module data, send
   void sendSurrogateModuleRender(rack::app::ModuleWidget* moduleWidget) {
     rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
     widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
 
     int width, height;
-    uint8_t* pixels = renderPixels(fb, width, height);
-    chunkman->add(new ChunkedImage(pixels, width, height));
+    uint8_t* pixels = renderPixels(fb, width, height, isOverlay ? 1.f : 3.f);
+
+    ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
+    chunked->compress();
+    chunkman->add(chunked);
 
     surrogate->module = NULL;
     delete fb;
+  }
+
+  void sendModuleInfo(rack::app::ModuleWidget* moduleWidget) {
+    osctx->enqueueMessage(new ModuleInfoPacker(moduleWidget));
   }
 
   // render the ModuleWidget directly
@@ -234,6 +291,19 @@ struct RenderWidget : ModuleWidget {
     parent->addChild(mw);
 
     delete fb;
+  }
+
+  rack::widget::FramebufferWidget* getPanelFramebuffer(
+    rack::app::ModuleWidget* moduleWidget
+  ) {
+    rack::widget::Widget* panel = moduleWidget->children.front();
+    if (!panel) return NULL;
+
+    rack::widget::FramebufferWidget* fb =
+      dynamic_cast<rack::widget::FramebufferWidget*>(panel->children.front());
+    if (!fb) return NULL;
+
+    return fb;
   }
 
   void refreshFramebuffers() {
@@ -349,6 +419,15 @@ struct RenderWidget : ModuleWidget {
 
   void appendContextMenu(Menu* menu) override {
     menu->addChild(new MenuSeparator);
+
+    if (moduleWidgetToStream) {
+      menu->addChild(createMenuItem("stop streaming", "", [=]() {
+        moduleWidgetToStream = NULL;
+      }));
+    }
+
+    menu->addChild(new MenuSeparator);
+
     menu->addChild(createMenuItem("Echo", "", [=] {
       osctx->enqueueMessage(new EchoPacker("YOOO DUUDE"));
     }));
@@ -373,21 +452,57 @@ struct RenderWidget : ModuleWidget {
       refreshFramebuffers();
     }));
 
-    if (framebuffers.size() > 0) {
+    if (moduleWidgets.size() > 0) {
       menu->addChild(new rack::ui::MenuSeparator);
-      menu->addChild(createSubmenuItem("render panel framebuffer", "",
+
+      menu->addChild(createSubmenuItem("send panel", "",
         [=](Menu* menu) {
-          for (std::pair<std::string, rack::widget::FramebufferWidget*> pair : framebuffers) {
+          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
+            rack::app::ModuleWidget* moduleWidget = pair.second;
             menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
-              renderFramebuffer(pair.first, pair.second);
+              sendModuleInfo(moduleWidget);
+              sendPanelRender(moduleWidget);
             }));
           }
         }
       ));
-    }
 
-    if (moduleWidgets.size() > 0) {
+      menu->addChild(createSubmenuItem("send panel uncompressed", "",
+        [=](Menu* menu) {
+          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
+            rack::app::ModuleWidget* moduleWidget = pair.second;
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+              sendModuleInfo(moduleWidget);
+              sendPanelRenderUncompressed(moduleWidget);
+            }));
+          }
+        }
+      ));
+
+      menu->addChild(createSubmenuItem("send overlay", "",
+        [=](Menu* menu) {
+          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
+            rack::app::ModuleWidget* moduleWidget = pair.second;
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+              sendOverlayRender(moduleWidget);
+            }));
+          }
+        }
+      ));
+
+      menu->addChild(createSubmenuItem("save panel render", "",
+        [=](Menu* menu) {
+          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
+            rack::app::ModuleWidget* moduleWidget = pair.second;
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+              savePanelRender(moduleWidget);
+            }));
+          }
+        }
+      ));
+
       menu->addChild(new rack::ui::MenuSeparator);
+
       menu->addChild(createSubmenuItem("render dummy module", "",
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
@@ -399,7 +514,7 @@ struct RenderWidget : ModuleWidget {
         }
       ));
 
-      menu->addChild(createSubmenuItem("render dummy module, no children", "",
+      menu->addChild(createSubmenuItem("render dummy panel", "",
         [=](Menu* menu) {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
@@ -427,7 +542,21 @@ struct RenderWidget : ModuleWidget {
           for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
             rack::app::ModuleWidget* moduleWidget = pair.second;
             menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+              sendModuleInfo(moduleWidget);
               sendSurrogateModuleRender(moduleWidget);
+            }));
+          }
+        }
+      ));
+
+      menu->addChild(createSubmenuItem("set streamed widget", "",
+        [=](Menu* menu) {
+          for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
+            rack::app::ModuleWidget* moduleWidget = pair.second;
+            menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+              sendModuleInfo(moduleWidget);
+              sendPanelRender(moduleWidget);
+              moduleWidgetToStream = moduleWidget;
             }));
           }
         }
