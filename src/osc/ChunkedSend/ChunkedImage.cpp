@@ -3,7 +3,7 @@
 #include "../MessagePacker/ImageChunkPacker.hpp"
 
 #define QOI_IMPLEMENTATION
-#include "../../dep/qoi/qoi.h"
+#include "../../../dep/qoi/qoi.h"
 
 ChunkedImage::ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height):
   ChunkedSend(_pixels, _width * _height * ChunkedImage::DEPTH),
