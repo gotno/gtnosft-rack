@@ -11,6 +11,7 @@ struct ChunkedManager {
 
   void add(ChunkedSend* chunked);
   void ack(int32_t id, int32_t chunkNum);
+  bool isProcessing(int32_t id);
 
 private:
   OscSender* osctx{NULL};

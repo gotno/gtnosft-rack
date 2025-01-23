@@ -43,7 +43,7 @@ struct Render : Module {
 struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
 
-  rack::app::ModuleWidget* moduleWidgetToStream{NULL};
+  std::pair<int32_t, rack::app::ModuleWidget*> moduleWidgetToStream{0, NULL};
   OscSender* osctx = NULL;
   OscReceiver* oscrx = NULL;
   ChunkedManager* chunkman = NULL;
@@ -74,7 +74,9 @@ struct RenderWidget : ModuleWidget {
   virtual void step() override {
     ModuleWidget::step();
 
-    if (moduleWidgetToStream) sendOverlayRender(moduleWidgetToStream);
+    if (moduleWidgetToStream.second && !chunkman->isProcessing(moduleWidgetToStream.first)) {
+      moduleWidgetToStream.first = sendOverlayRender(moduleWidgetToStream.second);
+    }
   }
 
   // make a new ModuleWidget with no Module
@@ -203,7 +205,7 @@ struct RenderWidget : ModuleWidget {
 
   // render module without panel or params/ports/lights, compress & send
   // TODO: probably more efficient to hold on to the surrogate and update its module each time
-  void sendOverlayRender(rack::app::ModuleWidget* moduleWidget, float zoom = 1.f) {
+  int32_t sendOverlayRender(rack::app::ModuleWidget* moduleWidget, float zoom = 1.f) {
     rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
     widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
     abandonChildren(surrogate);
@@ -219,6 +221,8 @@ struct RenderWidget : ModuleWidget {
 
     surrogate->module = NULL;
     delete fb;
+
+    return chunked->id;
   }
 
   void sendModuleInfo(rack::app::ModuleWidget* moduleWidget) {
@@ -324,9 +328,9 @@ struct RenderWidget : ModuleWidget {
     if (moduleWidgets.size() > 0) {
       menu->addChild(new rack::ui::MenuSeparator);
 
-      if (moduleWidgetToStream) {
+      if (moduleWidgetToStream.second) {
         menu->addChild(createMenuItem("stop streaming", "", [=]() {
-          moduleWidgetToStream = NULL;
+          moduleWidgetToStream.second = NULL;
         }));
       }
 
@@ -337,7 +341,7 @@ struct RenderWidget : ModuleWidget {
             menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
               sendModuleInfo(moduleWidget);
               sendPanelRender(moduleWidget);
-              moduleWidgetToStream = moduleWidget;
+              moduleWidgetToStream.second = moduleWidget;
             }));
           }
         }
