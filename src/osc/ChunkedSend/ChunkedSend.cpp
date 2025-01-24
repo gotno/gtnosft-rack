@@ -9,7 +9,7 @@ ChunkedSend::ChunkedSend(uint8_t* _data, int64_t _size):
   }
 
 ChunkedSend::~ChunkedSend() {
-  logCompletionDuration();
+  // logCompletionDuration();
   delete[] data;
 }
 

@@ -44,8 +44,8 @@ void ChunkedManager::processChunked(int32_t id) {
 
   std::vector<int32_t> unackedChunkNums;
   chunkedSend->getUnackedChunkNums(unackedChunkNums);
-  if (unackedChunkNums.size() == 0)
-    INFO("processing chunked send %d: finished", id);
+  // if (unackedChunkNums.size() == 0)
+    // INFO("processing chunked send %d: finished", id);
 
   if (sendFailed || unackedChunkNums.size() == 0) {
     delete chunkedSend;
