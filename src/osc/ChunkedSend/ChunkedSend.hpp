@@ -26,6 +26,7 @@ struct ChunkedSend {
 
   static const uint8_t MAX_SENDS = 5;
   bool sendFailed();
+  bool sendSucceeded();
 
   int32_t id;
   uint8_t* data;

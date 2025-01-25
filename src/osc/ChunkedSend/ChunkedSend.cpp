@@ -79,6 +79,12 @@ void ChunkedSend::logCompletionDuration() {
   INFO("chunked send %d total round trip %lld milliseconds", id, duration);
 }
 
+bool ChunkedSend::sendSucceeded() {
+  std::lock_guard<std::mutex> locker(statusMutex);
+
+  return chunkAckTimes.size() == (uint32_t)numChunks;
+}
+
 bool ChunkedSend::sendFailed() {
   std::lock_guard<std::mutex> locker(statusMutex);
 
