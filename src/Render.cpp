@@ -75,7 +75,7 @@ struct RenderWidget : ModuleWidget {
     ModuleWidget::step();
 
     if (moduleWidgetToStream.second && !chunkman->isProcessing(moduleWidgetToStream.first)) {
-      moduleWidgetToStream.first = sendOverlayRender(moduleWidgetToStream.second);
+      moduleWidgetToStream.first = sendOverlayRender(moduleWidgetToStream.second, 2.f);
     }
   }
 
