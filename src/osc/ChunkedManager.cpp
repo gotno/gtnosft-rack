@@ -60,6 +60,6 @@ void ChunkedManager::processChunked(int32_t id) {
 }
 
 void ChunkedManager::reprocessChunked(int32_t id) {
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
   if (chunkedExists(id)) processChunked(id);
 }
