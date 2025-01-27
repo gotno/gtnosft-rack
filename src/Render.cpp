@@ -20,6 +20,10 @@
 
 struct Render : Module {
   enum ParamId {
+		REFRESH_MODULES_PARAM,
+		CLEAR_STREAMED_PARAM,
+		ZOOM_PARAM,
+		CHUNK_SIZE_PARAM,
     PARAMS_LEN
   };
   enum InputId {
@@ -34,6 +38,11 @@ struct Render : Module {
 
   Render() {
     config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
+		configParam(REFRESH_MODULES_PARAM, 0.f, 1.f, 0.f, "");
+		configParam(CLEAR_STREAMED_PARAM, 0.f, 1.f, 0.f, "");
+		configParam(ZOOM_PARAM, 0.4f, 3.f, 1.f, "render zoom", "x");
+    getParamQuantity(ZOOM_PARAM)->snapEnabled = true;
+		configSwitch(CHUNK_SIZE_PARAM, 0.f, 2.f, 2.f, "chunk size", {"16k", "32k", "64k"});
   }
 
   void process(const ProcessArgs& args) override {
@@ -51,6 +60,11 @@ struct RenderWidget : ModuleWidget {
   RenderWidget(Render* module) {
     setModule(module);
     setPanel(createPanel(asset::plugin(pluginInstance, "res/Render.svg")));
+
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(5.08, 21.0)), module, Render::REFRESH_MODULES_PARAM));
+		addParam(createParamCentered<VCVButton>(mm2px(Vec(15.24, 21.0)), module, Render::CLEAR_STREAMED_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.16, 31.0)), module, Render::ZOOM_PARAM));
+		addParam(createParamCentered<CKSSThreeHorizontal>(mm2px(Vec(10.16, 41.0)), module, Render::CHUNK_SIZE_PARAM));
 
     if (!module) return;
     osctx = new OscSender();
