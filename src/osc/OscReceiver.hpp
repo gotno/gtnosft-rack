@@ -1,4 +1,6 @@
 #include <thread>
+#include <map>
+#include <functional>
 
 #include "../../dep/oscpack/ip/IpEndpointName.h"
 #include "../../dep/oscpack/ip/UdpSocket.h"
@@ -27,8 +29,10 @@ private:
     const osc::ReceivedMessage& message,
     const IpEndpointName& remoteEndpoint
   ) override;
-  void routeMessage(
-    std::string path,
-    osc::ReceivedMessage::const_iterator& arg
-  );
+
+  std::map<
+    std::string,
+    std::function<void(osc::ReceivedMessage::const_iterator&)>
+  > routes;
+  void generateRoutes();
 };

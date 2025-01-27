@@ -6,11 +6,21 @@
 
 OscReceiver::OscReceiver(ChunkedManager* chunkedManager):
   chunkman(chunkedManager), endpoint(IpEndpointName(RX_ENDPOINT, RX_PORT)) {
+    generateRoutes();
     startListener();
   }
 
 OscReceiver::~OscReceiver() {
   endListener();
+}
+
+void OscReceiver::generateRoutes() {
+  routes.emplace("/ack_chunk", [&](osc::ReceivedMessage::const_iterator& args) {
+    int32_t chunkedId, chunkNum;
+    chunkedId = (args++)->AsInt32();
+    chunkNum = (args++)->AsInt32();
+    chunkman->ack(chunkedId, chunkNum);
+  });
 }
 
 void OscReceiver::startListener() {
@@ -36,23 +46,14 @@ void OscReceiver::ProcessMessage(
   // INFO("oscrx received message on path %s", message.AddressPattern());
 
   try {
-    osc::ReceivedMessage::const_iterator arg = message.ArgumentsBegin();
-    routeMessage(std::string(message.AddressPattern()), arg);
-    if (arg != message.ArgumentsEnd()) throw osc::ExcessArgumentException();
+    std::string address = message.AddressPattern();
+    if (!routes.count(address))  throw osc::Exception("no route for address");
+
+    osc::ReceivedMessage::const_iterator argsIterator = message.ArgumentsBegin();
+    routes.at(address)(argsIterator);
+
+    if (argsIterator != message.ArgumentsEnd()) throw osc::ExcessArgumentException();
   } catch(osc::Exception& e) {
     WARN("error parsing OSC message %s: %s", message.AddressPattern(), e.what());
-  }
-}
-
-void OscReceiver::routeMessage(
-  std::string path,
-  osc::ReceivedMessage::const_iterator& arg
-) {
-  if (path == "/echo") INFO("ECHO: %s", (arg++)->AsString());
-  if (path == "/ack_chunk") {
-    int32_t chunkedId, chunkNum;
-    chunkedId = (arg++)->AsInt32();
-    chunkNum = (arg++)->AsInt32();
-    chunkman->ack(chunkedId, chunkNum);
   }
 }
