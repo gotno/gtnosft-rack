@@ -4,11 +4,10 @@
 
 #include "ChunkedManager.hpp"
 
-OscReceiver::OscReceiver(ChunkedManager* chunkedManager) {
-  endpoint = IpEndpointName(RX_ENDPOINT, RX_PORT);
-  chunkman = chunkedManager;
-  startListener();
-}
+OscReceiver::OscReceiver(ChunkedManager* chunkedManager):
+  chunkman(chunkedManager), endpoint(IpEndpointName(RX_ENDPOINT, RX_PORT)) {
+    startListener();
+  }
 
 OscReceiver::~OscReceiver() {
   endListener();
