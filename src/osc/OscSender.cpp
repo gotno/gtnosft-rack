@@ -1,5 +1,5 @@
-#include "plugin.hpp"
 #include "OscSender.hpp"
+
 #include "MessagePacker/MessagePacker.hpp"
 #include "MessagePacker/NoopPacker.hpp"
 
