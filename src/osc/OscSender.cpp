@@ -16,12 +16,14 @@ OscSender::~OscSender() {
 
 osc::OutboundPacketStream OscSender::makeMessage(const std::string& address) {
   osc::OutboundPacketStream message(msgBuffer, MSG_BUFFER_SIZE);
-  message << osc::BeginMessage(address.c_str());
+  message << osc::BeginBundleImmediate
+    << osc::BeginMessage(address.c_str());
   return message;
 }
 
 void OscSender::endMessage(osc::OutboundPacketStream& message) {
-  message << osc::EndMessage;
+  message << osc::EndMessage
+    << osc::EndBundle;
 }
 
 void OscSender::sendMessage(osc::OutboundPacketStream& message) {
