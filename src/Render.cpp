@@ -60,6 +60,22 @@ void RenderWidget::step() {
   if (moduleWidgetToStream.second && !chunkman->isProcessing(moduleWidgetToStream.first)) {
     moduleWidgetToStream.first = sendOverlayRender(moduleWidgetToStream.second, 2.f);
   }
+
+  processActionQueue();
+}
+
+void RenderWidget::enqueueAction(Action action) {
+  std::lock_guard<std::mutex> locker(actionMutex);
+  actionQueue.push(action);
+}
+
+void RenderWidget::processActionQueue() {
+  std::lock_guard<std::mutex> locker(actionMutex);
+  while (!actionQueue.empty()) {
+    auto action = actionQueue.front();
+    action();
+    actionQueue.pop();
+  }
 }
 
 rack::app::ModuleWidget* RenderWidget::makeDummyModuleWidget(

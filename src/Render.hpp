@@ -1,6 +1,9 @@
 #include "plugin.hpp"
 
+#include <functional>
 #include <map>
+#include <mutex>
+#include <queue>
 #include <utility>
 
 class OscSender;
@@ -15,6 +18,8 @@ struct ModuleWidgetContainer : widget::Widget {
   }
 };
 
+typedef std::function<void(void)> Action;
+
 struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
   std::pair<int32_t, rack::app::ModuleWidget*> moduleWidgetToStream{0, NULL};
@@ -27,6 +32,12 @@ struct RenderWidget : ModuleWidget {
   ~RenderWidget();
 
   virtual void step() override;
+
+  // enqueue actions that need to run on the render thread
+  std::queue<Action> actionQueue;
+  std::mutex actionMutex;
+  void enqueueAction(Action action);
+  void processActionQueue();
 
   // make a new ModuleWidget with no Module
   rack::app::ModuleWidget* makeDummyModuleWidget(rack::app::ModuleWidget* mw);

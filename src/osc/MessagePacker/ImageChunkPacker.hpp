@@ -1,7 +1,5 @@
 #pragma once
 
-#include "plugin.hpp"
-
 #include "ChunkPacker.hpp"
 
 class ChunkedImage;

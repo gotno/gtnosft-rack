@@ -1,3 +1,5 @@
+#include "rack.hpp"
+
 #include "OscSender.hpp"
 
 #include "MessagePacker/MessagePacker.hpp"
