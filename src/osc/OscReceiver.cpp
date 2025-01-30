@@ -6,6 +6,8 @@
 #include "ChunkedManager.hpp"
 #include "OscSender.hpp"
 
+#include "MessagePacker/LoadedModulesPacker.hpp"
+
 OscReceiver::OscReceiver(
   RenderWidget* _ctrl,
   OscSender* oscSender,
@@ -23,12 +25,35 @@ OscReceiver::~OscReceiver() {
 }
 
 void OscReceiver::generateRoutes() {
-  routes.emplace("/ack_chunk", [&](osc::ReceivedMessage::const_iterator& args) {
-    int32_t chunkedId, chunkNum;
-    chunkedId = (args++)->AsInt32();
-    chunkNum = (args++)->AsInt32();
-    chunkman->ack(chunkedId, chunkNum);
-  });
+  routes.emplace(
+    "/ack_chunk",
+    [&](osc::ReceivedMessage::const_iterator& args) {
+      int32_t chunkedId, chunkNum;
+      chunkedId = (args++)->AsInt32();
+      chunkNum = (args++)->AsInt32();
+      chunkman->ack(chunkedId, chunkNum);
+    }
+  );
+
+  routes.emplace(
+    "/get/loaded_modules",
+    [this](osc::ReceivedMessage::const_iterator& args) {
+      (void)args;
+
+      ctrl->enqueueAction([this]() {
+        LoadedModulesPacker* packer = new LoadedModulesPacker();
+        std::vector<int64_t> moduleIds = APP->engine->getModuleIds();
+
+        for (const auto& id : moduleIds) {
+          rack::plugin::Model* model =
+            APP->engine->getModule(id)->getModel();
+            packer->addModule(id, model->plugin->slug, model->slug);
+        }
+
+        osctx->enqueueMessage(packer);
+      });
+    }
+  );
 }
 
 void OscReceiver::startListener() {
