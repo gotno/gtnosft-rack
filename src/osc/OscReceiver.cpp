@@ -2,10 +2,18 @@
 
 #include "OscReceiver.hpp"
 
+#include "../Render.hpp"
 #include "ChunkedManager.hpp"
+#include "OscSender.hpp"
 
-OscReceiver::OscReceiver(ChunkedManager* chunkedManager):
-  chunkman(chunkedManager), endpoint(IpEndpointName(RX_ENDPOINT, RX_PORT)) {
+OscReceiver::OscReceiver(
+  RenderWidget* _ctrl,
+  OscSender* oscSender,
+  ChunkedManager* chunkedManager
+): ctrl(_ctrl),
+  osctx(oscSender),
+  chunkman(chunkedManager),
+  endpoint(IpEndpointName(RX_ENDPOINT, RX_PORT)) {
     generateRoutes();
     startListener();
   }

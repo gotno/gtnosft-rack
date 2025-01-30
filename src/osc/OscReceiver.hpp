@@ -10,13 +10,21 @@
 #define RX_ENDPOINT "127.0.0.1"
 #define RX_PORT 7001
 
+class RenderWidget;
+class OscSender;
 class ChunkedManager;
 
 struct OscReceiver : public osc::OscPacketListener {
-  OscReceiver(ChunkedManager* chunkedManager);
+  OscReceiver(
+    RenderWidget* _ctrl,
+    OscSender* oscSender,
+    ChunkedManager* chunkedManager
+  );
   ~OscReceiver();
 
 private:
+  RenderWidget* ctrl;
+  OscSender* osctx;
   ChunkedManager* chunkman;
 
   IpEndpointName endpoint;

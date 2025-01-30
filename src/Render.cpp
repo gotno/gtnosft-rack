@@ -45,7 +45,7 @@ RenderWidget::RenderWidget(Render* module) {
   if (!module) return;
   osctx = new OscSender();
   chunkman = new ChunkedManager(osctx);
-  oscrx = new OscReceiver(osctx, chunkman);
+  oscrx = new OscReceiver(this, osctx, chunkman);
 }
 
 RenderWidget::~RenderWidget() {
