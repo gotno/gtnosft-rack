@@ -2,6 +2,7 @@
 
 #include <string>
 #include "../../../dep/oscpack/osc/OscOutboundPacketStream.h"
+#include "../../../dep/oscpack/osc/OscTypes.h"
 
 struct MessagePacker {
   MessagePacker() {}
