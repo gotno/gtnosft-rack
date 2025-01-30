@@ -62,8 +62,9 @@ void OscSender::processQueue() {
 
     if (!packer->isNoop()) {
       // INFO("message queue packing message for %s", packer->path.c_str());
-      osc::OutboundPacketStream message = makeMessage(packer->path);
+      if (packer->path.empty()) WARN("message packer has empty path");
 
+      osc::OutboundPacketStream message = makeMessage(packer->path);
       packer->pack(message);
       endMessage(message);
       sendMessage(message);
