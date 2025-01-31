@@ -28,9 +28,8 @@ void OscReceiver::generateRoutes() {
   routes.emplace(
     "/ack_chunk",
     [&](osc::ReceivedMessage::const_iterator& args) {
-      int32_t chunkedId, chunkNum;
-      chunkedId = (args++)->AsInt32();
-      chunkNum = (args++)->AsInt32();
+      int32_t chunkedId = (args++)->AsInt32();
+      int32_t chunkNum = (args++)->AsInt32();
       chunkman->ack(chunkedId, chunkNum);
     }
   );
@@ -45,9 +44,8 @@ void OscReceiver::generateRoutes() {
         std::vector<int64_t> moduleIds = APP->engine->getModuleIds();
 
         for (const auto& id : moduleIds) {
-          rack::plugin::Model* model =
-            APP->engine->getModule(id)->getModel();
-            packer->addModule(id, model->plugin->slug, model->slug);
+          rack::plugin::Model* model = APP->engine->getModule(id)->getModel();
+          packer->addModule(id, model->plugin->slug, model->slug);
         }
 
         osctx->enqueueMessage(packer);
@@ -80,7 +78,7 @@ void OscReceiver::ProcessMessage(
 
   try {
     std::string address = message.AddressPattern();
-    if (!routes.count(address))  throw osc::Exception("no route for address");
+    if (!routes.count(address)) throw osc::Exception("no route for address");
 
     osc::ReceivedMessage::const_iterator argsIterator = message.ArgumentsBegin();
     routes.at(address)(argsIterator);
