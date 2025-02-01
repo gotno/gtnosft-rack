@@ -5,11 +5,15 @@
 #define QOI_IMPLEMENTATION
 #include "../../../dep/qoi/qoi.h"
 
+#include <algorithm>
+
 ChunkedImage::ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height):
   ChunkedSend(_pixels, _width * _height * ChunkedImage::DEPTH),
   width(_width), height(_height) {
-    // chunkSize = MAX_CHUNK_SIZE - 1024;
-    chunkSize = 1024 * 32;
+    // last checked, metadata takes 84 bytes, but let's allow for a little more.
+    int32_t largestPossibleChunk = MAX_CHUNK_SIZE - 128;
+    int32_t preferredChunkSize = 1024 * 48;
+    chunkSize = std::min(preferredChunkSize, largestPossibleChunk);
     calculateNumChunks();
   }
 
