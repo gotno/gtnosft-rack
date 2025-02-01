@@ -52,6 +52,20 @@ void OscReceiver::generateRoutes() {
       });
     }
   );
+
+  routes.emplace(
+    "/set/param/value",
+    [&](osc::ReceivedMessage::const_iterator& args) {
+      int64_t moduleId = (args++)->AsInt64();
+      int32_t paramId = (args++)->AsInt32();
+      float value = (args++)->AsFloat();
+
+      ctrl->enqueueAction([moduleId, paramId, value]() {
+        APP->scene->rack->getModule(moduleId)->
+          getParam(paramId)->getParamQuantity()->setValue(value);
+      });
+    }
+  );
 }
 
 void OscReceiver::startListener() {
