@@ -74,7 +74,7 @@ void OscReceiver::ProcessMessage(
 ) {
   (void)remoteEndpoint;
 
-  // INFO("oscrx received message on path %s", message.AddressPattern());
+  DEBUG("oscrx received message on path %s", message.AddressPattern());
 
   try {
     std::string address = message.AddressPattern();
