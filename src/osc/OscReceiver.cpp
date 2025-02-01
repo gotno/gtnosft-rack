@@ -36,10 +36,10 @@ void OscReceiver::generateRoutes() {
 
   routes.emplace(
     "/get/loaded_modules",
-    [this](osc::ReceivedMessage::const_iterator& args) {
+    [&](osc::ReceivedMessage::const_iterator& args) {
       (void)args;
 
-      ctrl->enqueueAction([this]() {
+      ctrl->enqueueAction([&]() {
         LoadedModulesPacker* packer = new LoadedModulesPacker();
         std::vector<int64_t> moduleIds = APP->engine->getModuleIds();
 
