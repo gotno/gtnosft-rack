@@ -1,4 +1,5 @@
 #include "rack.hpp"
+#include "patch.hpp"
 
 #include "OscReceiver.hpp"
 
@@ -98,6 +99,20 @@ void OscReceiver::generateRoutes() {
       ctrl->enqueueAction([moduleId, paramId, value]() {
         APP->scene->rack->getModule(moduleId)->
           getParam(paramId)->getParamQuantity()->setValue(value);
+      });
+    }
+  );
+
+  routes.emplace(
+    "/patch/open",
+    [&](osc::ReceivedMessage::const_iterator& args) {
+      std::string path = (args++)->AsString();
+      ctrl->enqueueAction([&, path]() {
+        SceneAction::Create([&, path]() {
+          APP->patch->load(path);
+          APP->patch->path = path;
+          APP->history->setSaved();
+        });
       });
     }
   );
