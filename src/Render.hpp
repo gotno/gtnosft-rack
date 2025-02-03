@@ -11,7 +11,7 @@ class OscReceiver;
 class ChunkedManager;
 class Render;
 
-struct ModuleWidgetContainer : widget::Widget {
+struct ModuleWidgetContainer : rack::widget::Widget {
   void draw(const DrawArgs& args) override {
     Widget::draw(args);
     Widget::drawLayer(args, 1);
