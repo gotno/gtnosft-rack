@@ -20,6 +20,22 @@ struct ModuleWidgetContainer : widget::Widget {
 
 typedef std::function<void(void)> Action;
 
+struct SceneAction : rack::widget::Widget {
+  static void Create(Action action) {
+    SceneAction* sceneAction = new SceneAction(action);
+    APP->scene->addChild(sceneAction);
+  }
+
+  Action action;
+
+  SceneAction(Action a) : action(a) {}
+
+  void step() override {
+    action();
+    requestDelete();
+  }
+};
+
 struct RenderWidget : ModuleWidget {
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
   std::pair<int32_t, rack::app::ModuleWidget*> moduleWidgetToStream{0, NULL};
