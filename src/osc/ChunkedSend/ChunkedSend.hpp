@@ -13,8 +13,9 @@ class MessagePacker;
 
 struct ChunkedSend {
   inline static int32_t idCounter{0};
-  static const int32_t MAX_CHUNK_SIZE =
-    OscSender::MSG_BUFFER_SIZE - sizeof(idCounter);
+  // static const int32_t MAX_CHUNK_SIZE =
+  //   OscSender::MSG_BUFFER_SIZE - sizeof(idCounter);
+  static const int32_t MAX_CHUNK_SIZE = 1232 - sizeof(idCounter);
   static const int32_t BATCH_SIZE{10};
 
   ChunkedSend(uint8_t* _data, int64_t _size);
