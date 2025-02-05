@@ -7,7 +7,6 @@
 #include "../../dep/oscpack/osc/OscPacketListener.h"
 #include "../../dep/oscpack/osc/OscReceivedElements.h"
 
-#define RX_ENDPOINT "127.0.0.1"
 #define RX_PORT 7001
 
 class RenderWidget;

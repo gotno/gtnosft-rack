@@ -16,7 +16,7 @@ OscReceiver::OscReceiver(
 ): ctrl(_ctrl),
   osctx(oscSender),
   chunkman(chunkedManager),
-  endpoint(IpEndpointName(RX_ENDPOINT, RX_PORT)) {
+  endpoint(IpEndpointName(IpEndpointName::ANY_ADDRESS, RX_PORT)) {
     generateRoutes();
     startListener();
   }
