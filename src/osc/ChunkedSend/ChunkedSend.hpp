@@ -21,7 +21,7 @@ struct ChunkedSend {
   ChunkedSend(uint8_t* _data, int64_t _size);
   virtual ~ChunkedSend();
 
-  using time_point = std::chrono::_V2::steady_clock::time_point;
+  using time_point = std::chrono::steady_clock::time_point;
   std::map<int32_t, time_point> chunkAckTimes;
   std::map<int32_t, time_point> chunkSendTimes;
   std::map<int32_t, uint8_t> chunkSendCounts;
