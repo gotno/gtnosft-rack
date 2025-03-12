@@ -62,6 +62,10 @@ void RenderWidget::step() {
   }
 
   processActionQueue();
+
+  // rack::settings::frameRateLimit;
+  // APP->window->getFrameDurationRemaining();
+  // APP->window->getLastFrameDuration();
 }
 
 void RenderWidget::enqueueAction(Action action) {
