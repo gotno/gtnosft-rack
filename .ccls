@@ -8,6 +8,7 @@ clang
 
 -Isrc
 -Isrc/osc
+-Idep
 -Idep/oscpack/osc
 -Idep/ip
 -Idep/ip/win32

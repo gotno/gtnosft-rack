@@ -2,10 +2,10 @@
 #include <map>
 #include <functional>
 
-#include "../../dep/oscpack/ip/IpEndpointName.h"
-#include "../../dep/oscpack/ip/UdpSocket.h"
-#include "../../dep/oscpack/osc/OscPacketListener.h"
-#include "../../dep/oscpack/osc/OscReceivedElements.h"
+#include "oscpack/ip/IpEndpointName.h"
+#include "oscpack/ip/UdpSocket.h"
+#include "oscpack/osc/OscPacketListener.h"
+#include "oscpack/osc/OscReceivedElements.h"
 
 #define RX_PORT 7001
 

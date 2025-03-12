@@ -6,9 +6,9 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "../../dep/oscpack/ip/IpEndpointName.h"
-#include "../../dep/oscpack/osc/OscOutboundPacketStream.h"
-#include "../../dep/oscpack/ip/UdpSocket.h"
+#include "oscpack/ip/IpEndpointName.h"
+#include "oscpack/osc/OscOutboundPacketStream.h"
+#include "oscpack/ip/UdpSocket.h"
 
 #define TX_ENDPOINT "127.0.0.1"
 #define TX_PORT 7000

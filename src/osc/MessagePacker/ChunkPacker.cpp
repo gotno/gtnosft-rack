@@ -1,7 +1,7 @@
 #include "ChunkPacker.hpp"
 
 #include "../ChunkedSend/ChunkedSend.hpp"
-#include "../../../dep/oscpack/osc/OscTypes.h"
+#include "oscpack/osc/OscTypes.h"
 
 ChunkPacker::ChunkPacker(int32_t _chunkNum, ChunkedSend* _chunkedSend):
   chunkNum(_chunkNum), chunkedSend(_chunkedSend) {

@@ -3,7 +3,7 @@
 #include "../MessagePacker/ImageChunkPacker.hpp"
 
 #define QOI_IMPLEMENTATION
-#include "../../../dep/qoi/qoi.h"
+#include "qoi/qoi.h"
 
 #include <algorithm>
 
