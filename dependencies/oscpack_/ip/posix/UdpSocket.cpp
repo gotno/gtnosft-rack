@@ -1,8 +1,8 @@
 /*
 	oscpack -- Open Sound Control (OSC) packet manipulation library
-    http://www.rossbencina.com/code/oscpack
+	http://www.rossbencina.com/code/oscpack
 
-    Copyright (c) 2004-2013 Ross Bencina <rossb@audiomulch.com>
+	Copyright (c) 2004-2013 Ross Bencina <rossb@audiomulch.com>
 
 	Permission is hereby granted, free of charge, to any person obtaining
 	a copy of this software and associated documentation files
@@ -34,14 +34,22 @@
 	requested that these non-binding requests be included whenever the
 	above license is reproduced.
 */
+#include "../UdpSocket.h"
 
-#include <winsock2.h>   // this must come first to prevent errors with MSVC7
-#include <windows.h>
-#include <mmsystem.h>   // for timeGetTime()
+#include <pthread.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <netinet/in.h> // for sockaddr_in
 
-#ifndef WINCE
 #include <signal.h>
-#endif
+#include <math.h>
+#include <errno.h>
+#include <string.h> 
 
 #include <algorithm>
 #include <cassert>
@@ -49,16 +57,14 @@
 #include <stdexcept>
 #include <vector>
 
-#include "../UdpSocket.h" // usually I'd include the module header first
-                          // but this is causing conflicts with BCB4 due to
-                          // std::size_t usage.
-
-#include "../NetworkingUtils.h"
 #include "../PacketListener.h"
 #include "../TimerListener.h"
 
 
-typedef int socklen_t;
+#if defined(__APPLE__) && !defined(_SOCKLEN_T)
+// pre system 10.3 didn't have socklen_t
+typedef ssize_t socklen_t;
+#endif
 
 
 static void SockaddrFromIpEndpointName( struct sockaddr_in& sockAddr, const IpEndpointName& endpoint )
@@ -73,8 +79,8 @@ static void SockaddrFromIpEndpointName( struct sockaddr_in& sockAddr, const IpEn
 
 	sockAddr.sin_port =
 		(endpoint.port == IpEndpointName::ANY_PORT)
-		? (short)0
-		: htons( (short)endpoint.port );
+		? 0
+		: htons( endpoint.port );
 }
 
 
@@ -92,12 +98,10 @@ static IpEndpointName IpEndpointNameFromSockaddr( const struct sockaddr_in& sock
 
 
 class UdpSocket::Implementation{
-    NetworkInitializer networkInitializer_;
-
 	bool isBound_;
 	bool isConnected_;
 
-	SOCKET socket_;
+	int socket_;
 	struct sockaddr_in connectedAddr_;
 	struct sockaddr_in sendToAddr_;
 
@@ -106,9 +110,9 @@ public:
 	Implementation()
 		: isBound_( false )
 		, isConnected_( false )
-		, socket_( INVALID_SOCKET )
+		, socket_( -1 )
 	{
-		if( (socket_ = socket( AF_INET, SOCK_DGRAM, 0 )) == INVALID_SOCKET ){
+		if( (socket_ = socket( AF_INET, SOCK_DGRAM, 0 )) == -1 ){
             throw std::runtime_error("unable to create udp socket\n");
         }
 
@@ -118,23 +122,25 @@ public:
 
 	~Implementation()
 	{
-		if (socket_ != INVALID_SOCKET) closesocket(socket_);
+		if (socket_ != -1) close(socket_);
 	}
 
 	void SetEnableBroadcast( bool enableBroadcast )
 	{
-		char broadcast = (char)((enableBroadcast) ? 1 : 0); // char on win32
+		int broadcast = (enableBroadcast) ? 1 : 0; // int on posix
 		setsockopt(socket_, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast));
 	}
 
 	void SetAllowReuse( bool allowReuse )
 	{
-		// Note: SO_REUSEADDR is non-deterministic for listening sockets on Win32. See MSDN article:
-		// "Using SO_REUSEADDR and SO_EXCLUSIVEADDRUSE"
-		// http://msdn.microsoft.com/en-us/library/ms740621%28VS.85%29.aspx
-
-		char reuseAddr = (char)((allowReuse) ? 1 : 0); // char on win32
+		int reuseAddr = (allowReuse) ? 1 : 0; // int on posix
 		setsockopt(socket_, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr));
+
+#ifdef __APPLE__
+		// needed also for OS X - enable multiple listeners for a single port on same network interface
+		int reusePort = (allowReuse) ? 1 : 0; // int on posix
+		setsockopt(socket_, SOL_SOCKET, SO_REUSEPORT, &reusePort, sizeof(reusePort));
+#endif
 	}
 
 	IpEndpointName LocalEndpointFor( const IpEndpointName& remoteEndpoint ) const
@@ -170,10 +176,11 @@ public:
 			// unconnect from the remote address
 		
 			struct sockaddr_in unconnectSockAddr;
-			SockaddrFromIpEndpointName( unconnectSockAddr, IpEndpointName() );
-
-			if( connect(socket_, (struct sockaddr *)&unconnectSockAddr, sizeof(unconnectSockAddr)) < 0 
-					&& WSAGetLastError() != WSAEADDRNOTAVAIL ){
+			std::memset( (char *)&unconnectSockAddr, 0, sizeof(unconnectSockAddr ) );
+			unconnectSockAddr.sin_family = AF_UNSPEC;
+			// address fields are zero
+			int connectResult = connect(socket_, (struct sockaddr *)&unconnectSockAddr, sizeof(unconnectSockAddr));
+			if ( connectResult < 0 && errno != EAFNOSUPPORT ) {
 				throw std::runtime_error("unable to un-connect udp socket\n");
 			}
 		}
@@ -196,15 +203,15 @@ public:
 	{
 		assert( isConnected_ );
 
-        send( socket_, data, (int)size, 0 );
+        send( socket_, data, size, 0 );
 	}
 
     void SendTo( const IpEndpointName& remoteEndpoint, const char *data, std::size_t size )
 	{
 		sendToAddr_.sin_addr.s_addr = htonl( remoteEndpoint.address );
-        sendToAddr_.sin_port = htons( (short)remoteEndpoint.port );
+        sendToAddr_.sin_port = htons( remoteEndpoint.port );
 
-        sendto( socket_, data, (int)size, 0, (sockaddr*)&sendToAddr_, sizeof(sendToAddr_) );
+        sendto( socket_, data, size, 0, (sockaddr*)&sendToAddr_, sizeof(sendToAddr_) );
 	}
 
 	void Bind( const IpEndpointName& localEndpoint )
@@ -228,7 +235,7 @@ public:
 		struct sockaddr_in fromAddr;
         socklen_t fromAddrLen = sizeof(fromAddr);
              	 
-        int result = recvfrom(socket_, data, (int)size, 0,
+        ssize_t result = recvfrom(socket_, data, size, 0,
                     (struct sockaddr *) &fromAddr, (socklen_t*)&fromAddrLen);
 		if( result < 0 )
 			return 0;
@@ -236,10 +243,10 @@ public:
 		remoteEndpoint.address = ntohl(fromAddr.sin_addr.s_addr);
 		remoteEndpoint.port = ntohs(fromAddr.sin_port);
 
-		return result;
+		return (std::size_t)result;
 	}
 
-	SOCKET& Socket() { return socket_; }
+	int Socket() { return socket_; }
 };
 
 UdpSocket::UdpSocket()
@@ -322,39 +329,37 @@ extern "C" /*static*/ void InterruptSignalHandler( int );
 /*static*/ void InterruptSignalHandler( int )
 {
 	multiplexerInstanceToAbortWithSigInt_->AsynchronousBreak();
-#ifndef WINCE
-    signal( SIGINT, SIG_DFL );
-#endif
+	signal( SIGINT, SIG_DFL );
 }
 
 
 class SocketReceiveMultiplexer::Implementation{
-    NetworkInitializer networkInitializer_;
-
 	std::vector< std::pair< PacketListener*, UdpSocket* > > socketListeners_;
 	std::vector< AttachedTimerListener > timerListeners_;
 
 	volatile bool break_;
-	HANDLE breakEvent_;
+	int breakPipe_[2]; // [0] is the reader descriptor and [1] the writer
 
 	double GetCurrentTimeMs() const
 	{
-#ifndef WINCE
-		return timeGetTime(); // FIXME: bad choice if you want to run for more than 40 days
-#else
-        return 0;
-#endif
-    }
+		struct timeval t;
+
+		gettimeofday( &t, 0 );
+
+		return ((double)t.tv_sec*1000.) + ((double)t.tv_usec / 1000.);
+	}
 
 public:
     Implementation()
 	{
-		breakEvent_ = CreateEvent( NULL, FALSE, FALSE, NULL );
+		if( pipe(breakPipe_) != 0 )
+			throw std::runtime_error( "creation of asynchronous break pipes failed\n" );
 	}
 
     ~Implementation()
 	{
-		CloseHandle( breakEvent_ );
+		close( breakPipe_[0] );
+		close( breakPipe_[1] );
 	}
 
     void AttachSocketListener( UdpSocket *socket, PacketListener *listener )
@@ -400,95 +405,123 @@ public:
     void Run()
 	{
 		break_ = false;
+        char *data = 0;
+        
+        try{
+            
+            // configure the master fd_set for select()
 
-		// prepare the window events which we use to wake up on incoming data
-		// we use this instead of select() primarily to support the AsyncBreak() 
-		// mechanism.
+            fd_set masterfds, tempfds;
+            FD_ZERO( &masterfds );
+            FD_ZERO( &tempfds );
+            
+            // in addition to listening to the inbound sockets we
+            // also listen to the asynchronous break pipe, so that AsynchronousBreak()
+            // can break us out of select() from another thread.
+            FD_SET( breakPipe_[0], &masterfds );
+            int fdmax = breakPipe_[0];		
 
-		std::vector<HANDLE> events( socketListeners_.size() + 1, 0 );
-		int j=0;
-		for( std::vector< std::pair< PacketListener*, UdpSocket* > >::iterator i = socketListeners_.begin();
-				i != socketListeners_.end(); ++i, ++j ){
+            for( std::vector< std::pair< PacketListener*, UdpSocket* > >::iterator i = socketListeners_.begin();
+                    i != socketListeners_.end(); ++i ){
 
-			HANDLE event = CreateEvent( NULL, FALSE, FALSE, NULL );
-			WSAEventSelect( i->second->impl_->Socket(), event, FD_READ ); // note that this makes the socket non-blocking which is why we can safely call RecieveFrom() on all sockets below
-			events[j] = event;
-		}
-
-
-		events[ socketListeners_.size() ] = breakEvent_; // last event in the collection is the break event
-
-		
-		// configure the timer queue
-		double currentTimeMs = GetCurrentTimeMs();
-
-		// expiry time ms, listener
-		std::vector< std::pair< double, AttachedTimerListener > > timerQueue_;
-		for( std::vector< AttachedTimerListener >::iterator i = timerListeners_.begin();
-				i != timerListeners_.end(); ++i )
-			timerQueue_.push_back( std::make_pair( currentTimeMs + i->initialDelayMs, *i ) );
-		std::sort( timerQueue_.begin(), timerQueue_.end(), CompareScheduledTimerCalls );
-
-		const int MAX_BUFFER_SIZE = 65507;
-		char *data = new char[ MAX_BUFFER_SIZE ];
-		IpEndpointName remoteEndpoint;
-
-		while( !break_ ){
-
-			double currentTimeMs = GetCurrentTimeMs();
-
-            DWORD waitTime = INFINITE;
-            if( !timerQueue_.empty() ){
-
-                waitTime = (DWORD)( timerQueue_.front().first >= currentTimeMs
-                            ? timerQueue_.front().first - currentTimeMs
-                            : 0 );
+                if( fdmax < i->second->impl_->Socket() )
+                    fdmax = i->second->impl_->Socket();
+                FD_SET( i->second->impl_->Socket(), &masterfds );
             }
 
-			DWORD waitResult = WaitForMultipleObjects( (DWORD)socketListeners_.size() + 1, &events[0], FALSE, waitTime );
-			if( break_ )
-				break;
 
-			if( waitResult != WAIT_TIMEOUT ){
-				for( int i = waitResult - WAIT_OBJECT_0; i < (int)socketListeners_.size(); ++i ){
-					std::size_t size = socketListeners_[i].second->ReceiveFrom( remoteEndpoint, data, MAX_BUFFER_SIZE );
-					if( size > 0 ){
-						socketListeners_[i].first->ProcessPacket( data, (int)size, remoteEndpoint );
-						if( break_ )
-							break;
-					}
-				}
-			}
+            // configure the timer queue
+            double currentTimeMs = GetCurrentTimeMs();
 
-			// execute any expired timers
-			currentTimeMs = GetCurrentTimeMs();
-			bool resort = false;
-			for( std::vector< std::pair< double, AttachedTimerListener > >::iterator i = timerQueue_.begin();
-					i != timerQueue_.end() && i->first <= currentTimeMs; ++i ){
+            // expiry time ms, listener
+            std::vector< std::pair< double, AttachedTimerListener > > timerQueue_;
+            for( std::vector< AttachedTimerListener >::iterator i = timerListeners_.begin();
+                    i != timerListeners_.end(); ++i )
+                timerQueue_.push_back( std::make_pair( currentTimeMs + i->initialDelayMs, *i ) );
+            std::sort( timerQueue_.begin(), timerQueue_.end(), CompareScheduledTimerCalls );
 
-				i->second.listener->TimerExpired();
-				if( break_ )
-					break;
+            const int MAX_BUFFER_SIZE = 4098;
+            data = new char[ MAX_BUFFER_SIZE ];
+            IpEndpointName remoteEndpoint;
 
-				i->first += i->second.periodMs;
-				resort = true;
-			}
-			if( resort )
-				std::sort( timerQueue_.begin(), timerQueue_.end(), CompareScheduledTimerCalls );
-		}
+            struct timeval timeout;
 
-		delete [] data;
+            while( !break_ ){
+                tempfds = masterfds;
 
-		// free events
-		j = 0;
-		for( std::vector< std::pair< PacketListener*, UdpSocket* > >::iterator i = socketListeners_.begin();
-				i != socketListeners_.end(); ++i, ++j ){
+                struct timeval *timeoutPtr = 0;
+                if( !timerQueue_.empty() ){
+                    double timeoutMs = timerQueue_.front().first - GetCurrentTimeMs();
+                    if( timeoutMs < 0 )
+                        timeoutMs = 0;
+                
+                    long timoutSecondsPart = (long)(timeoutMs * .001);
+                    timeout.tv_sec = (time_t)timoutSecondsPart;
+                    // 1000000 microseconds in a second
+                    timeout.tv_usec = (suseconds_t)((timeoutMs - (timoutSecondsPart * 1000)) * 1000);
+                    timeoutPtr = &timeout;
+                }
 
-			WSAEventSelect( i->second->impl_->Socket(), events[j], 0 ); // remove association between socket and event
-			CloseHandle( events[j] );
-			unsigned long enableNonblocking = 0;
-			ioctlsocket( i->second->impl_->Socket(), FIONBIO, &enableNonblocking );  // make the socket blocking again
-		}
+                if( select( fdmax + 1, &tempfds, 0, 0, timeoutPtr ) < 0 ){
+                    if( break_ ){
+                        break;
+                    }else if( errno == EINTR ){
+                        // on returning an error, select() doesn't clear tempfds.
+                        // so tempfds would remain all set, which would cause read( breakPipe_[0]...
+                        // below to block indefinitely. therefore if select returns EINTR we restart
+                        // the while() loop instead of continuing on to below.
+                        continue;
+                    }else{
+                        throw std::runtime_error("select failed\n");
+                    }
+                }
+
+                if( FD_ISSET( breakPipe_[0], &tempfds ) ){
+                    // clear pending data from the asynchronous break pipe
+                    char c;
+                    read( breakPipe_[0], &c, 1 );
+                }
+                
+                if( break_ )
+                    break;
+
+                for( std::vector< std::pair< PacketListener*, UdpSocket* > >::iterator i = socketListeners_.begin();
+                        i != socketListeners_.end(); ++i ){
+
+                    if( FD_ISSET( i->second->impl_->Socket(), &tempfds ) ){
+
+                        std::size_t size = i->second->ReceiveFrom( remoteEndpoint, data, MAX_BUFFER_SIZE );
+                        if( size > 0 ){
+                            i->first->ProcessPacket( data, (int)size, remoteEndpoint );
+                            if( break_ )
+                                break;
+                        }
+                    }
+                }
+
+                // execute any expired timers
+                currentTimeMs = GetCurrentTimeMs();
+                bool resort = false;
+                for( std::vector< std::pair< double, AttachedTimerListener > >::iterator i = timerQueue_.begin();
+                        i != timerQueue_.end() && i->first <= currentTimeMs; ++i ){
+
+                    i->second.listener->TimerExpired();
+                    if( break_ )
+                        break;
+
+                    i->first += i->second.periodMs;
+                    resort = true;
+                }
+                if( resort )
+                    std::sort( timerQueue_.begin(), timerQueue_.end(), CompareScheduledTimerCalls );
+            }
+
+            delete [] data;
+        }catch(...){
+            if( data )
+                delete [] data;
+            throw;
+        }
 	}
 
     void Break()
@@ -499,7 +532,9 @@ public:
     void AsynchronousBreak()
 	{
 		break_ = true;
-		SetEvent( breakEvent_ );
+
+		// Send a termination message to the asynchronous break pipe, so select() will return
+		write( breakPipe_[1], "!", 1 );
 	}
 };
 
@@ -549,13 +584,9 @@ void SocketReceiveMultiplexer::RunUntilSigInt()
 {
 	assert( multiplexerInstanceToAbortWithSigInt_ == 0 ); /* at present we support only one multiplexer instance running until sig int */
 	multiplexerInstanceToAbortWithSigInt_ = this;
-#ifndef WINCE
-    signal( SIGINT, InterruptSignalHandler );
-#endif
+	signal( SIGINT, InterruptSignalHandler );
 	impl_->Run();
-#ifndef WINCE
 	signal( SIGINT, SIG_DFL );
-#endif
 	multiplexerInstanceToAbortWithSigInt_ = 0;
 }
 
