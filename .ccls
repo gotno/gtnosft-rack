@@ -9,10 +9,12 @@ clang
 -Isrc
 -Isrc/osc
 -Idependencies
+-Idependencies/oscpack
 -Idependencies/oscpack/osc
 -Idependencies/oscpack/ip
 -Idependencies/oscpack/ip/win32
 -Idependencies/qoi
+-Idependencies/asio
 
 -I../rack-git/include
 -I../rack-git/dep/include

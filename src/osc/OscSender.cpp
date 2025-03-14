@@ -1,4 +1,5 @@
 #include "rack.hpp"
+#include "asio/asio.hpp"
 
 #include "OscSender.hpp"
 
@@ -9,6 +10,10 @@ OscSender::OscSender() {
   msgBuffer = new char[MSG_BUFFER_SIZE];
   endpoint = IpEndpointName(TX_ENDPOINT, TX_PORT);
   startQueueWorker();
+  INFO(
+    "OscSender broadcast address: %s",
+    asio::ip::address_v4::broadcast().to_string().c_str()
+  );
 }
 
 OscSender::~OscSender() {
