@@ -1,6 +1,6 @@
 clang
 %c -std=c11
-%cpp -std=c++17
+%cpp -std=c++20
 %cpp -stdlib=libc++
 
 -isystem/usr/include/c++/9
@@ -8,10 +8,11 @@ clang
 
 -Isrc
 -Isrc/osc
--Idep
--Idep/oscpack/osc
--Idep/ip
--Idep/ip/win32
+-Idependencies
+-Idependencies/oscpack/osc
+-Idependencies/oscpack/ip
+-Idependencies/oscpack/ip/win32
+-Idependencies/qoi
 
 -I../rack-git/include
 -I../rack-git/dep/include
