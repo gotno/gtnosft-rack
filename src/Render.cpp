@@ -355,7 +355,7 @@ void RenderWidget::flipBitmap(uint8_t* pixels, int width, int height, int depth)
 void RenderWidget::appendContextMenu(Menu* menu) {
   menu->addChild(new MenuSeparator);
 
-  menu->addChild(createMenuItem("refresh modules", "", [=]() {
+  menu->addChild(createMenuItem("refresh modules", "", [=, this]() {
     refreshModuleWidgets();
   }));
 
@@ -363,16 +363,16 @@ void RenderWidget::appendContextMenu(Menu* menu) {
     menu->addChild(new rack::ui::MenuSeparator);
 
     if (moduleWidgetToStream.second) {
-      menu->addChild(createMenuItem("stop streaming", "", [=]() {
+      menu->addChild(createMenuItem("stop streaming", "", [=, this]() {
         moduleWidgetToStream.second = NULL;
       }));
     }
 
     menu->addChild(createSubmenuItem("set streamed widget", "",
-      [=](Menu* menu) {
+      [=, this](Menu* menu) {
         for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
           rack::app::ModuleWidget* moduleWidget = pair.second;
-          menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+          menu->addChild(createMenuItem(pair.first.c_str(), "", [=, this]() {
             sendModuleInfo(moduleWidget);
             sendPanelRender(moduleWidget);
             moduleWidgetToStream.second = moduleWidget;
@@ -382,10 +382,10 @@ void RenderWidget::appendContextMenu(Menu* menu) {
     ));
 
     menu->addChild(createSubmenuItem("send panel", "",
-      [=](Menu* menu) {
+      [=, this](Menu* menu) {
         for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
           rack::app::ModuleWidget* moduleWidget = pair.second;
-          menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+          menu->addChild(createMenuItem(pair.first.c_str(), "", [=, this]() {
             sendModuleInfo(moduleWidget);
             sendPanelRender(moduleWidget);
           }));
@@ -394,10 +394,10 @@ void RenderWidget::appendContextMenu(Menu* menu) {
     ));
 
     menu->addChild(createSubmenuItem("send panel uncompressed", "",
-      [=](Menu* menu) {
+      [=, this](Menu* menu) {
         for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
           rack::app::ModuleWidget* moduleWidget = pair.second;
-          menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+          menu->addChild(createMenuItem(pair.first.c_str(), "", [=, this]() {
             sendModuleInfo(moduleWidget);
             sendPanelRenderUncompressed(moduleWidget);
           }));
@@ -406,10 +406,10 @@ void RenderWidget::appendContextMenu(Menu* menu) {
     ));
 
     menu->addChild(createSubmenuItem("send overlay", "",
-      [=](Menu* menu) {
+      [=, this](Menu* menu) {
         for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
           rack::app::ModuleWidget* moduleWidget = pair.second;
-          menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+          menu->addChild(createMenuItem(pair.first.c_str(), "", [=, this]() {
             sendOverlayRender(moduleWidget, /* zoom */ 3.f);
           }));
         }
@@ -417,10 +417,10 @@ void RenderWidget::appendContextMenu(Menu* menu) {
     ));
 
     menu->addChild(createSubmenuItem("save panel render", "",
-      [=](Menu* menu) {
+      [=, this](Menu* menu) {
         for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
           rack::app::ModuleWidget* moduleWidget = pair.second;
-          menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+          menu->addChild(createMenuItem(pair.first.c_str(), "", [=, this]() {
             savePanelRender(moduleWidget);
           }));
         }
@@ -428,10 +428,10 @@ void RenderWidget::appendContextMenu(Menu* menu) {
     ));
 
     menu->addChild(createSubmenuItem("save module preview render", "",
-      [=](Menu* menu) {
+      [=, this](Menu* menu) {
         for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
           rack::app::ModuleWidget* moduleWidget = pair.second;
-          menu->addChild(createMenuItem(pair.first.c_str(), "", [=]() {
+          menu->addChild(createMenuItem(pair.first.c_str(), "", [=, this]() {
             saveModulePreviewRender(moduleWidget);
           }));
         }
