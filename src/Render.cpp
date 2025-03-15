@@ -15,6 +15,7 @@
 
 #include "osc/MessagePacker/ModuleInfoPacker.hpp"
 #include "osc/ChunkedSend/ChunkedImage.hpp"
+#include "osc/MessagePacker/BasicHeartbeatPacker.hpp"
 
 struct Render : Module {
   enum ParamId {
@@ -66,6 +67,8 @@ void RenderWidget::step() {
   // rack::settings::frameRateLimit;
   // APP->window->getFrameDurationRemaining();
   // APP->window->getLastFrameDuration();
+
+  osctx->enqueueMessage(new BasicHeartbeatPacker());
 }
 
 void RenderWidget::enqueueAction(Action action) {

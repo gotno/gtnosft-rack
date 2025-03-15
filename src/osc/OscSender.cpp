@@ -6,14 +6,16 @@
 #include "MessagePacker/MessagePacker.hpp"
 #include "MessagePacker/NoopPacker.hpp"
 
+// start broadcasting empty heartbeat
+// rx /subscribe/heartbeat: that ip/port
+// stop broadcasting
+// set ip/port
+// start sending heartbeat subs: cpu
 OscSender::OscSender() {
   msgBuffer = new char[MSG_BUFFER_SIZE];
-  endpoint = IpEndpointName(TX_ENDPOINT, TX_PORT);
+  endpoint = IpEndpointName("255.255.255.255", TX_PORT);
+  // endpoint = IpEndpointName(TX_ENDPOINT, TX_PORT);
   startQueueWorker();
-  INFO(
-    "OscSender broadcast address: %s",
-    asio::ip::address_v4::broadcast().to_string().c_str()
-  );
 }
 
 OscSender::~OscSender() {
