@@ -15,7 +15,7 @@ include $(RACK_DIR)/arch.mk
 MACHINE = $(shell $(CC) -dumpmachine)
 ifneq (, $(findstring mingw, $(MACHINE)))
 	SOURCES += $(wildcard dependencies/oscpack/ip/win32/*.cpp)
-	LDFLAGS += -lws2_32 -lwinmm
+	LDFLAGS += -lws2_32 -lwinmm -liphlpapi
 	LDFLAGS += -lopengl32
 	LDFLAGS += -L$(RACK_DIR)/dep/lib
 else
