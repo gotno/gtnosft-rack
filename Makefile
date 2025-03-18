@@ -10,6 +10,7 @@ CXXFLAGS += -std=c++20
 # Careful about linking to shared libraries, since you can't assume much about the user's environment and library search path.
 # Static libraries are fine, but they should be added to this plugin's build system.
 
+# defines for ARCH_WIN, ARCH_LIN, ARCH_MAC
 include $(RACK_DIR)/arch.mk
 
 MACHINE = $(shell $(CC) -dumpmachine)
@@ -22,6 +23,11 @@ else
 	SOURCES += $(wildcard dependencies/oscpack/ip/posix/*.cpp)
 	LDFLAGS += -lstdc++
 endif
+
+ifdef ARCH_MAC
+	LDFLAGS += -framework CoreFoundation -framework SystemConfiguration
+endif
+
 
 # Add .cpp files to the build
 SOURCES += $(wildcard src/*.cpp)
