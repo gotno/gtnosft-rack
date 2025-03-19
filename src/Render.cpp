@@ -42,8 +42,8 @@ struct Render : Module {
 RenderWidget::RenderWidget(Render* module) {
   setModule(module);
   setPanel(createPanel(asset::plugin(pluginInstance, "res/Render.svg")));
-
   if (!module) return;
+
   osctx = new OscSender();
   chunkman = new ChunkedManager(osctx);
   oscrx = new OscReceiver(this, osctx, chunkman);
@@ -59,6 +59,7 @@ RenderWidget::~RenderWidget() {
 
 void RenderWidget::step() {
   ModuleWidget::step();
+  if (!module) return;
 
   if (moduleWidgetToStream.second && !chunkman->isProcessing(moduleWidgetToStream.first)) {
     moduleWidgetToStream.first = sendOverlayRender(moduleWidgetToStream.second, 2.f);
