@@ -11,7 +11,7 @@
 #include "oscpack/ip/UdpSocket.h"
 
 #define TX_ENDPOINT "127.0.0.1"
-#define TX_PORT 4924
+#define TX_PORT 7746 // RSIM
 
 class MessagePacker;
 class ChunkedImage;

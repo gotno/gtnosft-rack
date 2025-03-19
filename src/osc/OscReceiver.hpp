@@ -7,7 +7,7 @@
 #include "oscpack/osc/OscPacketListener.h"
 #include "oscpack/osc/OscReceivedElements.h"
 
-#define RX_PORT 7001
+#define RX_PORT 7746 // RSIM
 
 class RenderWidget;
 class OscSender;
