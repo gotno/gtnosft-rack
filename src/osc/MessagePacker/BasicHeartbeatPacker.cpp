@@ -5,4 +5,5 @@ BasicHeartbeatPacker::BasicHeartbeatPacker() {
 }
 
 void BasicHeartbeatPacker::pack(osc::OutboundPacketStream& message) {
+  INFO("BEAT");
 }

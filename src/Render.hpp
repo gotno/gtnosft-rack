@@ -6,6 +6,8 @@
 #include <queue>
 #include <utility>
 
+#include "util/StepDivider.hpp"
+
 class OscSender;
 class OscReceiver;
 class ChunkedManager;
@@ -43,6 +45,7 @@ struct RenderWidget : ModuleWidget {
   OscSender* osctx = NULL;
   OscReceiver* oscrx = NULL;
   ChunkedManager* chunkman = NULL;
+  StepDivider heartbeatDivider;
 
   RenderWidget(Render* module);
   ~RenderWidget();

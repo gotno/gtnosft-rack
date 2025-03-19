@@ -4,7 +4,7 @@
 
 // counts calls to step(), returning true every `milliseconds` (approximately)
 struct StepDivider {
-  StepDivider(uint32_t _milliseconds): milliseconds(_milliseconds) {
+  StepDivider() {
     reset();
   }
 
@@ -21,8 +21,13 @@ struct StepDivider {
     return false;
   }
 
+  void setMilliseconds(const uint32_t& ms) {
+    milliseconds = ms;
+    reset();
+  }
+
 private:
-  uint32_t milliseconds;
+  uint32_t milliseconds{1000};
   uint8_t currentStep, maxSteps;
   float lastFrameRateLimit;
 

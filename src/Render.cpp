@@ -47,6 +47,8 @@ RenderWidget::RenderWidget(Render* module) {
   osctx = new OscSender();
   chunkman = new ChunkedManager(osctx);
   oscrx = new OscReceiver(this, osctx, chunkman);
+
+  heartbeatDivider.setMilliseconds(1000);
 }
 
 RenderWidget::~RenderWidget() {
@@ -64,11 +66,9 @@ void RenderWidget::step() {
 
   processActionQueue();
 
-  // rack::settings::frameRateLimit;
-  // APP->window->getFrameDurationRemaining();
-  // APP->window->getLastFrameDuration();
 
-  osctx->enqueueMessage(new BasicHeartbeatPacker());
+  if (heartbeatDivider.process())
+    osctx->enqueueMessage(new BasicHeartbeatPacker());
 }
 
 void RenderWidget::enqueueAction(Action action) {
