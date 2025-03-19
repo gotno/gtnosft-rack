@@ -5,7 +5,7 @@
 #include "MessagePacker/MessagePacker.hpp"
 #include "MessagePacker/NoopPacker.hpp"
 
-#include "NetworkUtil.hpp"
+#include "../util/Network.hpp"
 
 // start broadcasting empty heartbeat
 // rx /subscribe/heartbeat: that ip/port
@@ -19,14 +19,14 @@ OscSender::OscSender() {
   startQueueWorker();
 
   std::string ip, netmask;
-  if (NetworkUtil::get_network_info(ip, netmask)) {
+  if (Network::get_network_info(ip, netmask)) {
     INFO("ZZZ ip: %s, netmask: %s", ip.c_str(), netmask.c_str());
   } else {
-    INFO("ZZZ unable to determine ip and netmast");
+    INFO("ZZZ unable to determine ip and netmask");
   }
 
   std::string broadcast_ip;
-  if (NetworkUtil::calculate_broadcast_address(broadcast_ip)) {
+  if (Network::calculate_broadcast_address(broadcast_ip)) {
     INFO("ZZZ broadcast_ip: %s", broadcast_ip.c_str());
   } else {
     INFO("ZZZ unable to determine broadcast address");

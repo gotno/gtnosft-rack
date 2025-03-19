@@ -18,7 +18,7 @@
 #include <vector>
 #include <string>
 
-namespace NetworkUtil {
+namespace Network {
 
 struct AdapterInfo {
     std::string name;
@@ -255,4 +255,4 @@ bool calculate_broadcast_address(std::string& broadcast_address) {
   return true;
 }
 
-} // namespace NetworkUtil
+} // namespace Network
