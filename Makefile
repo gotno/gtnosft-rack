@@ -3,7 +3,6 @@ RACK_DIR ?= ../..
 
 # FLAGS will be passed to both the C and C++ compiler
 FLAGS += -I./dependencies
-FLAGS += -I./dependencies/asio
 CFLAGS +=
 CXXFLAGS += -std=c++20
 
@@ -43,7 +42,6 @@ DISTRIBUTABLES += res
 DISTRIBUTABLES += $(wildcard LICENSE*)
 DISTRIBUTABLES += dependencies/oscpack/LICENSE
 DISTRIBUTABLES += dependencies/qoi/LICENSE
-DISTRIBUTABLES += dependencies/asio/LICENSE_1_0.txt
 DISTRIBUTABLES += $(wildcard presets)
 
 include $(RACK_DIR)/plugin.mk
