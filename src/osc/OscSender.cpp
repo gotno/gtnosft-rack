@@ -7,30 +7,30 @@
 
 #include "../util/Network.hpp"
 
-// start broadcasting empty heartbeat
-// rx /subscribe/heartbeat: that ip/port
-// stop broadcasting
-// set ip/port
-// start sending heartbeat subs: cpu
 OscSender::OscSender() {
   msgBuffer = new char[MSG_BUFFER_SIZE];
-  endpoint = IpEndpointName("255.255.255.255", TX_PORT);
-  // endpoint = IpEndpointName(TX_ENDPOINT, TX_PORT);
-  startQueueWorker();
+
+  // ANY_ADDRESS by default
+  directEndpoint = IpEndpointName(TX_PORT);
+  broadcastEndpoint = IpEndpointName(TX_PORT);
 
   std::string ip, netmask;
   if (Network::get_network_info(ip, netmask)) {
     INFO("ZZZ ip: %s, netmask: %s", ip.c_str(), netmask.c_str());
   } else {
-    INFO("ZZZ unable to determine ip and netmask");
+    WARN("ZZZ unable to determine ip and netmask");
   }
 
   std::string broadcast_ip;
   if (Network::calculate_broadcast_address(broadcast_ip)) {
     INFO("ZZZ broadcast_ip: %s", broadcast_ip.c_str());
+    broadcastEndpoint = IpEndpointName(broadcast_ip.c_str(), TX_PORT);
   } else {
-    INFO("ZZZ unable to determine broadcast address");
+    WARN("ZZZ unable to determine broadcast address");
   }
+  setSendMode(SendMode::Broadcast);
+
+  startQueueWorker();
 }
 
 OscSender::~OscSender() {
@@ -53,8 +53,40 @@ void OscSender::endMessage(osc::OutboundPacketStream& message) {
     << osc::EndBundle;
 }
 
+void OscSender::setSendMode(SendMode inSendMode, std::string ip) {
+  sendMode = inSendMode;
+
+  if (sendMode == SendMode::Direct)
+    directEndpoint = IpEndpointName(ip.c_str(), TX_PORT);
+}
+
 void OscSender::sendMessage(osc::OutboundPacketStream& message) {
-  UdpTransmitSocket(endpoint).Send(message.Data(), message.Size());
+  try {
+    UdpSocket sock;
+
+    if (sendMode == SendMode::Broadcast) {
+      sock.SetEnableBroadcast(true);
+      sock.Connect(broadcastEndpoint);
+    } else {
+      sock.Connect(directEndpoint);
+    }
+
+    sock.Send(message.Data(), message.Size());
+  } catch(std::exception& e) {
+    char* ip;
+    if (sendMode == SendMode::Broadcast) {
+      broadcastEndpoint.AddressAsString(ip);
+    } else {
+      directEndpoint.AddressAsString(ip);
+    }
+
+    WARN(
+      "error sending OSC message to %s in %s mode: %s",
+      ip,
+      sendMode == SendMode::Broadcast ? "broadcast" : "direct",
+      e.what()
+    );
+  }
 }
 
 void OscSender::startQueueWorker() {
