@@ -21,7 +21,7 @@ enum class SendMode {
 };
 
 struct OscSender {
-  static const int32_t MSG_BUFFER_SIZE = 65507; // oscpack MAX_BUFFER_SIZE
+  static const int32_t MSG_BUFFER_SIZE = 1280; // safely under 1500 octect MTU?
 
   OscSender();
   ~OscSender();
