@@ -1,3 +1,5 @@
+#include "rack.hpp"
+
 #ifdef ARCH_WIN
 #include <winsock2.h>
 #include <iphlpapi.h>
@@ -64,6 +66,8 @@ std::vector<AdapterInfo> get_all_adapters() {
   for (PIP_ADAPTER_ADDRESSES pAdapter = pAddresses; pAdapter != nullptr; pAdapter = pAdapter->Next) {
     // skip disabled adapters
     if (pAdapter->OperStatus != IfOperStatusUp) continue;
+    // skip anything that isn't ethernet or wifi
+    if (pAdapter->IfType != IF_TYPE_ETHERNET_CSMACD && pAdapter->IfType != IF_TYPE_IEEE80211) continue;
       
     AdapterInfo adapter;
       
@@ -77,22 +81,19 @@ std::vector<AdapterInfo> get_all_adapters() {
       WideCharToMultiByte(CP_UTF8, 0, pAdapter->Description, -1, buffer.data(), len, NULL, NULL);
       adapter.description = std::string(buffer.data());
     }
+    // skip virtual adapters
+    if (adapter.description.find("Virtual") != std::string::npos) continue;
       
     // determine if it's wifi or ethernet
-    adapter.is_wifi =
-      adapter.description.find("Wi-Fi") != std::string::npos || 
-      adapter.description.find("Wireless") != std::string::npos;
-    adapter.is_ethernet =
-      adapter.description.find("Ethernet") != std::string::npos || 
-      pAdapter->IfType == IF_TYPE_ETHERNET_CSMACD;
-      
+    adapter.is_wifi = pAdapter->IfType == IF_TYPE_IEEE80211;
+    adapter.is_ethernet = pAdapter->IfType == IF_TYPE_ETHERNET_CSMACD;
+
     // check if it's connected (has an IP address)
     adapter.is_connected = pAdapter->OperStatus == IfOperStatusUp && pAdapter->FirstUnicastAddress != nullptr;
+    if (!adapter.is_connected) continue;
       
     // look at all unicast addresses
-    for (PIP_ADAPTER_UNICAST_ADDRESS pUnicast = pAdapter->FirstUnicastAddress; 
-      pUnicast != nullptr; 
-      pUnicast = pUnicast->Next) {
+    for (PIP_ADAPTER_UNICAST_ADDRESS pUnicast = pAdapter->FirstUnicastAddress; pUnicast != nullptr; pUnicast = pUnicast->Next) {
           
       if (pUnicast->Address.lpSockaddr->sa_family == AF_INET) {
         // get IP address
