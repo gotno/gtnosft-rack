@@ -10,7 +10,7 @@
 #include "oscpack/osc/OscOutboundPacketStream.h"
 #include "oscpack/ip/UdpSocket.h"
 
-#define TX_PORT 7746 // RSIM
+#include "OscConstants.hpp"
 
 class MessagePacker;
 class ChunkedImage;
@@ -21,8 +21,6 @@ enum class SendMode {
 };
 
 struct OscSender {
-  static const int32_t MSG_BUFFER_SIZE = 1280; // safely under 1500 octect MTU?
-
   OscSender();
   ~OscSender();
 
