@@ -43,8 +43,6 @@ void OscReceiver::ProcessMessage(
   const osc::ReceivedMessage& message,
   const IpEndpointName& remoteEndpoint
 ) {
-  (void)remoteEndpoint;
-
   DEBUG("oscrx received message on path %s", message.AddressPattern());
 
   try {
@@ -52,7 +50,7 @@ void OscReceiver::ProcessMessage(
     if (!routes.count(address)) throw osc::Exception("no route for address");
 
     osc::ReceivedMessage::const_iterator argsIterator = message.ArgumentsBegin();
-    routes.at(address)(argsIterator);
+    routes.at(address)(argsIterator, remoteEndpoint);
 
     if (argsIterator != message.ArgumentsEnd()) throw osc::ExcessArgumentException();
   } catch(osc::Exception& e) {
@@ -63,7 +61,7 @@ void OscReceiver::ProcessMessage(
 void OscReceiver::generateRoutes() {
   routes.emplace(
     "/ack_chunk",
-    [&](osc::ReceivedMessage::const_iterator& args) {
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int32_t chunkedId = (args++)->AsInt32();
       int32_t chunkNum = (args++)->AsInt32();
       chunkman->ack(chunkedId, chunkNum);
@@ -72,7 +70,7 @@ void OscReceiver::generateRoutes() {
 
   routes.emplace(
     "/get/loaded_modules",
-    [&](osc::ReceivedMessage::const_iterator& args) {
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       (void)args;
 
       ctrl->enqueueAction([&]() {
@@ -91,7 +89,7 @@ void OscReceiver::generateRoutes() {
 
   routes.emplace(
     "/set/param/value",
-    [&](osc::ReceivedMessage::const_iterator& args) {
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
       int32_t paramId = (args++)->AsInt32();
       float value = (args++)->AsFloat();
@@ -105,7 +103,7 @@ void OscReceiver::generateRoutes() {
 
   routes.emplace(
     "/patch/open",
-    [&](osc::ReceivedMessage::const_iterator& args) {
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       std::string path = (args++)->AsString();
       ctrl->enqueueAction([&, path]() {
         SceneAction::Create([&, path]() {
@@ -117,11 +115,10 @@ void OscReceiver::generateRoutes() {
     }
   );
 
-  // template
-  //
+  // TEMPLATE
   // routes.emplace(
   //   "",
-  //   [&](osc::ReceivedMessage::const_iterator& args) {
+  //   [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName& remoteEndpoint) {
   //     ctrl->enqueueAction([&]() {
   //     });
   //   }
