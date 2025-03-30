@@ -15,7 +15,6 @@
 
 #include "osc/MessagePacker/ModuleInfoPacker.hpp"
 #include "osc/ChunkedSend/ChunkedImage.hpp"
-#include "osc/MessagePacker/BasicHeartbeatPacker.hpp"
 
 struct Render : Module {
   enum ParamId {
@@ -47,8 +46,6 @@ RenderWidget::RenderWidget(Render* module) {
   osctx = new OscSender();
   chunkman = new ChunkedManager(osctx);
   oscrx = new OscReceiver(this, osctx, chunkman);
-
-  heartbeatDivider.setMilliseconds(1000);
 }
 
 RenderWidget::~RenderWidget() {
@@ -66,10 +63,6 @@ void RenderWidget::step() {
   }
 
   processActionQueue();
-
-
-  if (heartbeatDivider.process())
-    osctx->enqueueMessage(new BasicHeartbeatPacker());
 }
 
 void RenderWidget::enqueueAction(Action action) {
