@@ -6,5 +6,6 @@ BroadcastHeartbeatPacker::BroadcastHeartbeatPacker() {
 }
 
 void BroadcastHeartbeatPacker::pack(osc::OutboundPacketStream& message) {
-  message << RX_PORT;
+  message << RX_PORT
+    << HEARTBEAT_DELAY;
 }

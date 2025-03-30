@@ -19,6 +19,7 @@ OscReceiver::OscReceiver(
   endpoint(IpEndpointName(IpEndpointName::ANY_ADDRESS, RX_PORT)) {
     generateRoutes();
     startListener();
+    startHeartbeat();
   }
 
 OscReceiver::~OscReceiver() {
@@ -37,6 +38,33 @@ void OscReceiver::endListener() {
   listenerThread.join();
   delete rxSocket;
   rxSocket = NULL;
+}
+
+void OscReceiver::startHeartbeat() {
+  heartbeatInterval = Timer::setInterval(heartbeatIntervalDelay, [this] {
+    ctrl->enqueueAction([this]() {
+      osctx->sendHeartbeat();
+    });
+
+    std::scoped_lock<std::mutex> lock(heartbeatMutex);
+
+    // client isn't sending heartbeats or hasn't started yet
+    if (lastHeartbeatRxTime == std::chrono::steady_clock::time_point::min())
+      return;
+
+    auto now = std::chrono::steady_clock::now();
+    auto delayMs = std::chrono::milliseconds(heartbeatIntervalDelay);
+
+    if (lastHeartbeatRxTime < (now - delayMs)) ++missedHeartbeats;
+
+    // client is gone, switch back to broadcasting
+    if (missedHeartbeats >= maxMissedHeartbeats) {
+      lastHeartbeatRxTime = std::chrono::steady_clock::time_point::min();
+      osctx->setBroadcasting();
+    }
+  });
+
+  heartbeatInterval.start();
 }
 
 void OscReceiver::ProcessMessage(
@@ -59,6 +87,25 @@ void OscReceiver::ProcessMessage(
 }
 
 void OscReceiver::generateRoutes() {
+  routes.emplace(
+    "/register",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName& remoteEndpoint) {
+      char* ip = (char*)malloc(IpEndpointName::ADDRESS_STRING_LENGTH + 1);
+      remoteEndpoint.AddressAsString(ip);
+      osctx->setDirect(ip);
+      free(ip);
+    }
+  );
+
+  routes.emplace(
+    "/keepalive",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      std::scoped_lock<std::mutex> lock(heartbeatMutex);
+      missedHeartbeats = 0;
+      lastHeartbeatRxTime = std::chrono::steady_clock::now();
+    }
+  );
+
   routes.emplace(
     "/ack_chunk",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {

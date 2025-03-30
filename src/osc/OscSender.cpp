@@ -5,31 +5,21 @@
 #include "MessagePacker/MessagePacker.hpp"
 #include "MessagePacker/NoopPacker.hpp"
 
+#include "MessagePacker/BroadcastHeartbeatPacker.hpp"
+#include "MessagePacker/DirectHeartbeatPacker.hpp"
+
 #include "../util/Network.hpp"
 
 OscSender::OscSender() {
   msgBuffer = new char[MSG_BUFFER_SIZE];
 
-  // ANY_ADDRESS by default
-  directEndpoint = IpEndpointName(TX_PORT);
-  broadcastEndpoint = IpEndpointName(TX_PORT);
-
-  std::string ip, netmask;
-  if (Network::get_network_info(ip, netmask)) {
-    INFO("ZZZ ip: %s, netmask: %s", ip.c_str(), netmask.c_str());
-  } else {
-    WARN("ZZZ unable to determine ip and netmask");
-  }
-
   std::string broadcast_ip;
   if (Network::calculate_broadcast_address(broadcast_ip)) {
-    INFO("ZZZ broadcast_ip: %s", broadcast_ip.c_str());
     broadcastEndpoint = IpEndpointName(broadcast_ip.c_str(), TX_PORT);
   } else {
-    WARN("ZZZ unable to determine broadcast address");
+    WARN("OSCctrl unable to determine network broadcast address!");
   }
-  setSendMode(SendMode::Broadcast);
-
+  setBroadcasting();
   startQueueWorker();
 }
 
@@ -50,28 +40,38 @@ void OscSender::endMessage(osc::OutboundPacketStream& message) {
     << osc::EndBundle;
 }
 
-void OscSender::setSendMode(SendMode inSendMode, std::string ip) {
-  sendMode = inSendMode;
+void OscSender::setBroadcasting() {
+  sendMode = SendMode::Broadcast;
+}
 
-  if (sendMode == SendMode::Direct)
-    directEndpoint = IpEndpointName(ip.c_str(), TX_PORT);
+bool OscSender::isBroadcasting() {
+  return sendMode == SendMode::Broadcast;
+}
+
+void OscSender::setDirect(char* ip) {
+  sendMode = SendMode::Direct;
+  directEndpoint = IpEndpointName(ip, TX_PORT);
+}
+
+void OscSender::sendHeartbeat() {
+  // TODO: immediate via deque
+  if (isBroadcasting()) {
+    enqueueMessage(new BroadcastHeartbeatPacker());
+  } else {
+    enqueueMessage(new DirectHeartbeatPacker());
+  }
 }
 
 void OscSender::sendMessage(osc::OutboundPacketStream& message) {
   try {
-    UdpSocket sock;
-
-    if (sendMode == SendMode::Broadcast) {
-      sock.SetEnableBroadcast(true);
-      sock.Connect(broadcastEndpoint);
-    } else {
-      sock.Connect(directEndpoint);
-    }
-
-    sock.Send(message.Data(), message.Size());
+    UdpSocket socket;
+    socket.SetEnableBroadcast(isBroadcasting());
+    socket.Connect(isBroadcasting() ? broadcastEndpoint : directEndpoint);
+    socket.Send(message.Data(), message.Size());
   } catch(std::exception& e) {
-    char* ip;
-    if (sendMode == SendMode::Broadcast) {
+    char* ip = (char*)malloc(IpEndpointName::ADDRESS_STRING_LENGTH + 1);
+
+    if (isBroadcasting()) {
       broadcastEndpoint.AddressAsString(ip);
     } else {
       directEndpoint.AddressAsString(ip);
@@ -80,9 +80,11 @@ void OscSender::sendMessage(osc::OutboundPacketStream& message) {
     WARN(
       "error sending OSC message to %s in %s mode: %s",
       ip,
-      sendMode == SendMode::Broadcast ? "broadcast" : "direct",
+      isBroadcasting() ? "broadcast" : "direct",
       e.what()
     );
+
+    free(ip);
   }
 }
 

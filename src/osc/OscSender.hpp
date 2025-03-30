@@ -25,9 +25,16 @@ struct OscSender {
   ~OscSender();
 
   void enqueueMessage(MessagePacker* packer);
+  void sendHeartbeat();
+
+  bool isBroadcasting();
+  void setBroadcasting();
+  void setDirect(char* ip);
 
 private:
   char* msgBuffer;
+
+  SendMode sendMode;
 
   IpEndpointName directEndpoint;
   void registerDirectEndpoint(const std::string& ip);
@@ -36,9 +43,6 @@ private:
   osc::OutboundPacketStream makeMessage(const std::string& address);
   void endMessage(osc::OutboundPacketStream& message);
   void sendMessage(osc::OutboundPacketStream& message);
-
-  void setSendMode(SendMode inSendMode, std::string ip = "");
-  SendMode sendMode;
 
   // message queue
   std::thread queueWorker;
