@@ -39,12 +39,9 @@ OscSender::~OscSender() {
 }
 
 osc::OutboundPacketStream OscSender::makeMessage(const std::string& address) {
-  INFO("make message 1");
   osc::OutboundPacketStream message(msgBuffer, MSG_BUFFER_SIZE);
-  INFO("make message 2");
   message << osc::BeginBundleImmediate
     << osc::BeginMessage(address.c_str());
-  INFO("make message 3");
   return message;
 }
 
@@ -118,29 +115,20 @@ void OscSender::processQueue() {
     messageQueue.pop();
 
     if (!packer->isNoop()) {
-      INFO("processQueue 1");
       // INFO("message queue packing message for %s", packer->path.c_str());
       if (packer->path.empty()) WARN("message packer has empty path");
-      INFO("processQueue 2");
 
       osc::OutboundPacketStream message = makeMessage(packer->path);
-      INFO("processQueue 3");
       packer->pack(message);
-      INFO("processQueue 4");
       endMessage(message);
-      INFO("processQueue 5");
       sendMessage(message);
-      INFO("processQueue 6");
 
       packer->finish();
-      INFO("processQueue 7");
 
       if (packer->postSendDelay > 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(packer->postSendDelay));
-      INFO("processQueue 8");
     }
 
     delete packer;
-    INFO("processQueue 9");
   }
 }
