@@ -1,4 +1,4 @@
-#include "Render.hpp"
+#include "OSCctrl.hpp"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -16,7 +16,7 @@
 #include "osc/MessagePacker/ModuleInfoPacker.hpp"
 #include "osc/ChunkedSend/ChunkedImage.hpp"
 
-struct Render : Module {
+struct OSCctrl : Module {
   enum ParamId {
     PARAMS_LEN
   };
@@ -30,7 +30,7 @@ struct Render : Module {
     LIGHTS_LEN
   };
 
-  Render() {
+  OSCctrl() {
     config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
   }
 
@@ -38,9 +38,9 @@ struct Render : Module {
   }
 };
 
-RenderWidget::RenderWidget(Render* module) {
+OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
   setModule(module);
-  setPanel(createPanel(asset::plugin(pluginInstance, "res/Render.svg")));
+  setPanel(createPanel(asset::plugin(pluginInstance, "res/OSCctrl.svg")));
   if (!module) return;
 
   osctx = new OscSender();
@@ -48,13 +48,13 @@ RenderWidget::RenderWidget(Render* module) {
   oscrx = new OscReceiver(this, osctx, chunkman);
 }
 
-RenderWidget::~RenderWidget() {
+OSCctrlWidget::~OSCctrlWidget() {
   delete osctx;
   delete oscrx;
   delete chunkman;
 }
 
-void RenderWidget::step() {
+void OSCctrlWidget::step() {
   ModuleWidget::step();
   if (!module) return;
 
@@ -65,12 +65,12 @@ void RenderWidget::step() {
   processActionQueue();
 }
 
-void RenderWidget::enqueueAction(Action action) {
+void OSCctrlWidget::enqueueAction(Action action) {
   std::lock_guard<std::mutex> locker(actionMutex);
   actionQueue.push(action);
 }
 
-void RenderWidget::processActionQueue() {
+void OSCctrlWidget::processActionQueue() {
   std::lock_guard<std::mutex> locker(actionMutex);
   while (!actionQueue.empty()) {
     auto action = actionQueue.front();
@@ -79,20 +79,20 @@ void RenderWidget::processActionQueue() {
   }
 }
 
-rack::app::ModuleWidget* RenderWidget::makeDummyModuleWidget(
+rack::app::ModuleWidget* OSCctrlWidget::makeDummyModuleWidget(
   rack::app::ModuleWidget* mw
 ) {
   return mw->getModel()->createModuleWidget(NULL);
 }
 
 // make a new ModuleWidget and give it the old ModuleWidget's Module
-rack::app::ModuleWidget* RenderWidget::makeSurrogateModuleWidget(
+rack::app::ModuleWidget* OSCctrlWidget::makeSurrogateModuleWidget(
   rack::app::ModuleWidget* mw
 ) {
   return mw->getModel()->createModuleWidget(mw->getModule());
 }
 
-std::string RenderWidget::makeFilename(rack::app::ModuleWidget* mw) {
+std::string OSCctrlWidget::makeFilename(rack::app::ModuleWidget* mw) {
   std::string f = "";
   f.append(mw->getModule()->getModel()->plugin->slug.c_str());
   f.append("-");
@@ -101,7 +101,7 @@ std::string RenderWidget::makeFilename(rack::app::ModuleWidget* mw) {
 }
 
 // wrap ModuleWidget in container and framebuffer
-rack::widget::FramebufferWidget* RenderWidget::wrapModuleWidget(
+rack::widget::FramebufferWidget* OSCctrlWidget::wrapModuleWidget(
   rack::app::ModuleWidget* mw
 ) {
   widget::FramebufferWidget* fbcontainer = new widget::FramebufferWidget;
@@ -116,7 +116,7 @@ rack::widget::FramebufferWidget* RenderWidget::wrapModuleWidget(
 }
 
 // render FramebufferWidget to rgba pixel array
-uint8_t* RenderWidget::renderPixels(
+uint8_t* OSCctrlWidget::renderPixels(
   rack::widget::FramebufferWidget* fb,
   int& width,
   int& height,
@@ -136,7 +136,7 @@ uint8_t* RenderWidget::renderPixels(
 }
 
 // render FramebufferWidget to png
-void RenderWidget::renderPng(
+void OSCctrlWidget::renderPng(
   std::string directory,
   std::string filename,
   rack::widget::FramebufferWidget* fb
@@ -161,7 +161,7 @@ void RenderWidget::renderPng(
 }
 
 // remove params/ports/lights from ModuleWidget
-void RenderWidget::abandonChildren(rack::app::ModuleWidget* mw) {
+void OSCctrlWidget::abandonChildren(rack::app::ModuleWidget* mw) {
   auto it = mw->children.begin();
   while (it != mw->children.end()) {
     if (dynamic_cast<rack::app::SvgScrew*>(*it) || dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
@@ -173,13 +173,13 @@ void RenderWidget::abandonChildren(rack::app::ModuleWidget* mw) {
 }
 
 // remove children->front() from ModuleWidget, which should be Internal->panel
-void RenderWidget::abandonPanel(rack::app::ModuleWidget* mw) {
+void OSCctrlWidget::abandonPanel(rack::app::ModuleWidget* mw) {
   auto it = mw->children.begin();
   mw->children.erase(it);
 }
 
 // render module without actual data, as in library preview, save
-void RenderWidget::saveModulePreviewRender(
+void OSCctrlWidget::saveModulePreviewRender(
   rack::app::ModuleWidget* moduleWidget
 ) {
   widget::FramebufferWidget* fb =
@@ -193,7 +193,7 @@ void RenderWidget::saveModulePreviewRender(
 }
 
 // render only panel framebuffer, save
-void RenderWidget::savePanelRender(
+void OSCctrlWidget::savePanelRender(
   rack::app::ModuleWidget* moduleWidget,
   float zoom
 ) {
@@ -202,7 +202,7 @@ void RenderWidget::savePanelRender(
 }
 
 // render only panel framebuffer, compress & send
-void RenderWidget::sendPanelRender(
+void OSCctrlWidget::sendPanelRender(
   rack::app::ModuleWidget* moduleWidget,
   float zoom
 ) {
@@ -217,7 +217,7 @@ void RenderWidget::sendPanelRender(
 }
 
 // render only panel framebuffer, send
-void RenderWidget::sendPanelRenderUncompressed(
+void OSCctrlWidget::sendPanelRenderUncompressed(
   rack::app::ModuleWidget* moduleWidget,
   float zoom
 ) {
@@ -230,7 +230,7 @@ void RenderWidget::sendPanelRenderUncompressed(
 
 // render module without panel or params/ports/lights, compress & send
 // TODO: probably more efficient to hold on to the surrogate and update its module each time
-int32_t RenderWidget::sendOverlayRender(
+int32_t OSCctrlWidget::sendOverlayRender(
   rack::app::ModuleWidget* moduleWidget,
   float zoom
 ) {
@@ -253,11 +253,11 @@ int32_t RenderWidget::sendOverlayRender(
   return chunked->id;
 }
 
-void RenderWidget::sendModuleInfo(rack::app::ModuleWidget* moduleWidget) {
+void OSCctrlWidget::sendModuleInfo(rack::app::ModuleWidget* moduleWidget) {
   osctx->enqueueMessage(new ModuleInfoPacker(moduleWidget));
 }
 
-rack::widget::FramebufferWidget* RenderWidget::getPanelFramebuffer(
+rack::widget::FramebufferWidget* OSCctrlWidget::getPanelFramebuffer(
   rack::app::ModuleWidget* moduleWidget
 ) {
   rack::widget::Widget* panel = moduleWidget->children.front();
@@ -270,7 +270,7 @@ rack::widget::FramebufferWidget* RenderWidget::getPanelFramebuffer(
   return fb;
 }
 
-void RenderWidget::refreshModuleWidgets() {
+void OSCctrlWidget::refreshModuleWidgets() {
   moduleWidgets.clear();
 
   for (int64_t& moduleId: APP->engine->getModuleIds()) {
@@ -285,7 +285,7 @@ void RenderWidget::refreshModuleWidgets() {
   }
 }
 
-void RenderWidget::logChildren(std::string& name, rack::app::ModuleWidget* mw) {
+void OSCctrlWidget::logChildren(std::string& name, rack::app::ModuleWidget* mw) {
   DEBUG("\n\n%s", name.c_str());
   for (rack::widget::Widget* widget : mw->children) {
     DEBUG(
@@ -336,7 +336,7 @@ void RenderWidget::logChildren(std::string& name, rack::app::ModuleWidget* mw) {
   }
 }
 
-void RenderWidget::flipBitmap(uint8_t* pixels, int width, int height, int depth) {
+void OSCctrlWidget::flipBitmap(uint8_t* pixels, int width, int height, int depth) {
   for (int y = 0; y < height / 2; y++) {
     int flipY = height - y - 1;
     uint8_t tmp[width * depth];
@@ -346,7 +346,7 @@ void RenderWidget::flipBitmap(uint8_t* pixels, int width, int height, int depth)
   }
 }
 
-void RenderWidget::appendContextMenu(Menu* menu) {
+void OSCctrlWidget::appendContextMenu(Menu* menu) {
   menu->addChild(new MenuSeparator);
 
   menu->addChild(createMenuItem("refresh modules", "", [=, this]() {
@@ -434,4 +434,4 @@ void RenderWidget::appendContextMenu(Menu* menu) {
   }
 }
 
-Model* modelRender = createModel<Render, RenderWidget>("Render");
+Model* modelOSCctrl = createModel<OSCctrl, OSCctrlWidget>("OSCctrl");

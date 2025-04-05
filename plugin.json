@@ -1,23 +1,23 @@
 {
-  "slug": "gtno",
-  "name": "gtno",
+  "slug": "gtnosft",
+  "name": "gtnosft",
   "version": "2.0.0",
   "license": "MIT",
-  "brand": "gtno",
+  "brand": "gtnosft",
   "author": "gotno",
   "authorEmail": "floyd.will@gmail.com",
   "authorUrl": "https://gotno.net",
-  "pluginUrl": "https://gotno.net",
-  "manualUrl": "",
-  "sourceUrl": "",
-  "donateUrl": "",
+  "pluginUrl": "https://github.com/gotno/gtnosft-rack",
+  "manualUrl": "https://github.com/gotno/gtnosft-rack",
+  "sourceUrl": "https://github.com/gotno/gtnosft-rack",
+  "donateUrl": "https://gotno.net/money_plz",
   "changelogUrl": "",
   "modules": [
     {
-      "slug": "Render",
-      "name": "Render",
-      "description": "",
-      "tags": []
+      "slug": "OSCctrl",
+      "name": "OSCctrl",
+      "description": "An OSC-based API for Rack simulations",
+      "tags": ["Utility"]
     }
   ]
 }

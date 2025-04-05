@@ -3,14 +3,14 @@
 
 #include "OscReceiver.hpp"
 
-#include "../Render.hpp"
+#include "../OSCctrl.hpp"
 #include "ChunkedManager.hpp"
 #include "OscSender.hpp"
 
 #include "MessagePacker/ModuleStubsPacker.hpp"
 
 OscReceiver::OscReceiver(
-  RenderWidget* _ctrl,
+  OSCctrlWidget* _ctrl,
   OscSender* oscSender,
   ChunkedManager* chunkedManager
 ): ctrl(_ctrl),

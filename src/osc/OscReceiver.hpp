@@ -13,20 +13,20 @@
 
 #include "OscConstants.hpp"
 
-class RenderWidget;
+class OSCctrlWidget;
 class OscSender;
 class ChunkedManager;
 
 struct OscReceiver : public osc::OscPacketListener {
   OscReceiver(
-    RenderWidget* _ctrl,
+    OSCctrlWidget* _ctrl,
     OscSender* oscSender,
     ChunkedManager* chunkedManager
   );
   ~OscReceiver();
 
 private:
-  RenderWidget* ctrl;
+  OSCctrlWidget* ctrl;
   OscSender* osctx;
   ChunkedManager* chunkman;
 

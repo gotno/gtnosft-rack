@@ -9,7 +9,7 @@
 class OscSender;
 class OscReceiver;
 class ChunkedManager;
-class Render;
+class OSCctrl;
 
 struct ModuleWidgetContainer : rack::widget::Widget {
   void draw(const DrawArgs& args) override {
@@ -36,7 +36,7 @@ struct SceneAction : rack::widget::Widget {
   }
 };
 
-struct RenderWidget : ModuleWidget {
+struct OSCctrlWidget : ModuleWidget {
   std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
   std::pair<int32_t, rack::app::ModuleWidget*> moduleWidgetToStream{0, NULL};
 
@@ -44,8 +44,8 @@ struct RenderWidget : ModuleWidget {
   OscReceiver* oscrx = NULL;
   ChunkedManager* chunkman = NULL;
 
-  RenderWidget(Render* module);
-  ~RenderWidget();
+  OSCctrlWidget(OSCctrl* module);
+  ~OSCctrlWidget();
 
   virtual void step() override;
 
