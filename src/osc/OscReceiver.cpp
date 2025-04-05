@@ -7,7 +7,7 @@
 #include "ChunkedManager.hpp"
 #include "OscSender.hpp"
 
-#include "MessagePacker/LoadedModulesPacker.hpp"
+#include "MessagePacker/ModuleStubsPacker.hpp"
 
 OscReceiver::OscReceiver(
   RenderWidget* _ctrl,
@@ -116,12 +116,12 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
-    "/get/loaded_modules",
+    "/get/module_stubs",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       (void)args;
 
       ctrl->enqueueAction([&]() {
-        LoadedModulesPacker* packer = new LoadedModulesPacker();
+        ModuleStubsPacker* packer = new ModuleStubsPacker();
         std::vector<int64_t> moduleIds = APP->engine->getModuleIds();
 
         for (const auto& id : moduleIds) {

@@ -1,12 +1,12 @@
 #include "rack.hpp"
 
-#include "LoadedModulesPacker.hpp"
+#include "ModuleStubsPacker.hpp"
 
-LoadedModulesPacker::LoadedModulesPacker() {
-  path = "/loaded_modules";
+ModuleStubsPacker::ModuleStubsPacker() {
+  path = "/set/module_stub";
 }
 
-void LoadedModulesPacker::addModule(
+void ModuleStubsPacker::addModule(
   int64_t id,
   std::string pluginSlug,
   std::string moduleSlug
@@ -14,7 +14,7 @@ void LoadedModulesPacker::addModule(
   moduleData.push_back(moduleIdentifier(id, pluginSlug, moduleSlug));
 }
 
-void LoadedModulesPacker::pack(osc::OutboundPacketStream& message) {
+void ModuleStubsPacker::pack(osc::OutboundPacketStream& message) {
   for(auto it = moduleData.begin(); it != moduleData.end(); it++)    {
     message << std::get<0>(*it)
       << std::get<1>(*it).c_str()
