@@ -8,6 +8,7 @@
 #include "OscSender.hpp"
 
 #include "MessagePacker/ModuleStubsPacker.hpp"
+#include "MessagePacker/ModuleStructurePacker.hpp"
 
 OscReceiver::OscReceiver(
   OSCctrlWidget* _ctrl,
@@ -129,6 +130,20 @@ void OscReceiver::generateRoutes() {
           packer->addModule(id, model->plugin->slug, model->slug);
         }
 
+        osctx->enqueueMessage(packer);
+      });
+    }
+  );
+
+  routes.emplace(
+    "/get/module_structure",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      std::string pluginSlug = (args++)->AsString();
+      std::string moduleSlug = (args++)->AsString();
+
+      ctrl->enqueueAction([&]() {
+        ModuleStructurePacker* packer =
+          new ModuleStructurePacker(pluginSlug, moduleSlug);
         osctx->enqueueMessage(packer);
       });
     }
