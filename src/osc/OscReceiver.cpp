@@ -141,7 +141,7 @@ void OscReceiver::generateRoutes() {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
 
-      ctrl->enqueueAction([&]() {
+      ctrl->enqueueAction([this, pluginSlug, moduleSlug]() {
         ModuleStructurePacker* packer =
           new ModuleStructurePacker(pluginSlug, moduleSlug);
         osctx->enqueueMessage(packer);
