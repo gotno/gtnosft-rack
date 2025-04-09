@@ -50,5 +50,10 @@ void ModuleStructurePacker::pack(osc::OutboundPacketStream& message) {
     << moduleSlug.c_str()
     << panelBox.x
     << panelBox.y
+    << osc::EndMessage
+    ;
+  message << osc::BeginMessage("/stop/module_structure")
+    << pluginSlug.c_str()
+    << moduleSlug.c_str()
     ;
 }
