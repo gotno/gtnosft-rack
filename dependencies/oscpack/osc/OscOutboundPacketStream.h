@@ -126,6 +126,8 @@ public:
 
 private:
 
+    void ResetMessage();
+
     char *BeginElement( char *beginPtr );
     void EndElement( char *endPtr );
 
@@ -139,6 +141,7 @@ private:
 
     char *typeTagsCurrent_; // stored in reverse order
     char *messageCursor_;
+    char *messageResetCursor_;
     char *argumentCurrent_;
 
     // elementSizePtr_ has two special values: 0 indicates that a bundle

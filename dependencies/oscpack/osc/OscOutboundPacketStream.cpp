@@ -260,8 +260,10 @@ void OutboundPacketStream::CheckForAvailableArgumentSpace( std::size_t argumentL
     std::size_t required = (argumentCurrent_ - data_) + argumentLength
             + RoundUp4( (end_ - typeTagsCurrent_) + 3 );
 
-    if( required > Capacity() )
+    if( required > Capacity() ){
+        ResetMessage();
         throw OutOfBufferMemoryException();
+    }
 }
 
 
@@ -271,6 +273,18 @@ void OutboundPacketStream::Clear()
     messageCursor_ = data_;
     argumentCurrent_ = data_;
     elementSizePtr_ = 0;
+    messageIsInProgress_ = false;
+}
+
+void OutboundPacketStream::ResetMessage()
+{
+    if( !IsMessageInProgress() )
+        return;
+
+    messageCursor_ = messageResetCursor_;
+    argumentCurrent_ = messageCursor_;
+    typeTagsCurrent_ = end_;
+
     messageIsInProgress_ = false;
 }
 
@@ -359,6 +373,7 @@ OutboundPacketStream& OutboundPacketStream::operator<<( const BeginMessage& rhs 
 
     CheckForAvailableMessageSpace( rhs.addressPattern );
 
+    messageResetCursor_ = messageCursor_;
     messageCursor_ = BeginElement( messageCursor_ );
 
     std::strcpy( messageCursor_, rhs.addressPattern );
