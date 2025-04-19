@@ -7,8 +7,8 @@
 #include "ChunkedManager.hpp"
 #include "OscSender.hpp"
 
-#include "MessagePacker/ModuleStubsPacker.hpp"
-#include "MessagePacker/ModuleStructurePacker.hpp"
+#include "Bundler/ModuleStubsBundler.hpp"
+#include "Bundler/ModuleStructureBundler.hpp"
 
 OscReceiver::OscReceiver(
   OSCctrlWidget* _ctrl,
@@ -122,15 +122,15 @@ void OscReceiver::generateRoutes() {
       (void)args;
 
       ctrl->enqueueAction([&]() {
-        ModuleStubsPacker* packer = new ModuleStubsPacker();
+        ModuleStubsBundler* bundler = new ModuleStubsBundler();
         std::vector<int64_t> moduleIds = APP->engine->getModuleIds();
 
         for (const auto& id : moduleIds) {
           rack::plugin::Model* model = APP->engine->getModule(id)->getModel();
-          packer->addModule(id, model->plugin->slug, model->slug);
+          bundler->addModule(id, model->plugin->slug, model->slug);
         }
 
-        osctx->enqueueMessage(packer);
+        osctx->enqueueBundler(bundler);
       });
     }
   );
@@ -142,9 +142,9 @@ void OscReceiver::generateRoutes() {
       std::string moduleSlug = (args++)->AsString();
 
       ctrl->enqueueAction([this, pluginSlug, moduleSlug]() {
-        ModuleStructurePacker* packer =
-          new ModuleStructurePacker(pluginSlug, moduleSlug);
-        osctx->enqueueMessage(packer);
+        ModuleStructureBundler* bundler =
+          new ModuleStructureBundler(pluginSlug, moduleSlug);
+        osctx->enqueueBundler(bundler);
       });
     }
   );

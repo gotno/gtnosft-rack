@@ -3,11 +3,11 @@
 #include "OscSender.hpp"
 
 #include "MessagePacker/MessagePacker.hpp"
-#include "Bundler/Bundler.hpp"
 #include "MessagePacker/NoopPacker.hpp"
 
-#include "MessagePacker/BroadcastHeartbeatPacker.hpp"
-#include "MessagePacker/DirectHeartbeatPacker.hpp"
+#include "Bundler/Bundler.hpp"
+#include "Bundler/BroadcastHeartbeatBundler.hpp"
+#include "Bundler/DirectHeartbeatBundler.hpp"
 
 #include "../util/Network.hpp"
 
@@ -73,9 +73,9 @@ void OscSender::setDirect(char* ip) {
 void OscSender::sendHeartbeat() {
   // TODO: immediate via deque
   if (isBroadcasting()) {
-    enqueueMessage(new BroadcastHeartbeatPacker());
+    enqueueBundler(new BroadcastHeartbeatBundler());
   } else {
-    enqueueMessage(new DirectHeartbeatPacker());
+    enqueueBundler(new DirectHeartbeatBundler());
   }
 }
 
@@ -165,7 +165,6 @@ void OscSender::processQueue() {
           continue;
         }
 
-        INFO("sending bundle");
         sendBundle(bundle);
       }
 

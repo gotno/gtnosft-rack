@@ -10,7 +10,7 @@
 #include "oscpack/osc/OscTypes.h"
 
 struct Bundler {
-  Bundler(): name("base bundler (noop)") {
+  Bundler(std::string _name = "base bundler (noop)"): name(_name) {
     // test too many messages for one packet (multiple sends)
     // for (int32_t i = 0; i < 200; ++i) {
     //   messages.emplace_back("/test", [i](osc::OutboundPacketStream& pstream) {
@@ -59,7 +59,6 @@ struct Bundler {
 private:
   typedef std::function<void(osc::OutboundPacketStream&)> messageBuilder;
   typedef std::pair<std::string /* path */, messageBuilder> message;
-  std::vector<message> messages;
   size_t messageCursor{0};
 
   void buildNextMessage(osc::OutboundPacketStream& pstream) {
@@ -69,4 +68,7 @@ private:
     pstream << osc::EndMessage;
     advance();
   }
+
+protected:
+  std::vector<message> messages;
 };
