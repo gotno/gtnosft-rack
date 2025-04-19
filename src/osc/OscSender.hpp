@@ -42,12 +42,11 @@ private:
   void registerDirectEndpoint(const std::string& ip);
   IpEndpointName broadcastEndpoint;
 
-  osc::OutboundPacketStream makeBundle();
-  osc::OutboundPacketStream makeMessage(const std::string& address);
-  void startBundle(osc::OutboundPacketStream& pstream);
-  void endBundle(osc::OutboundPacketStream& pstream);
-  void endMessage(osc::OutboundPacketStream& message);
+  osc::OutboundPacketStream pstream;
   void sendBundle(osc::OutboundPacketStream& pstream);
+
+  osc::OutboundPacketStream makeMessage(const std::string& address);
+  void endMessage(osc::OutboundPacketStream& message);
   void sendMessage(osc::OutboundPacketStream& message);
 
   // message queue

@@ -3,7 +3,6 @@
 #include "OscSender.hpp"
 
 #include "MessagePacker/MessagePacker.hpp"
-#include "MessagePacker/NoopPacker.hpp"
 
 #include "Bundler/Bundler.hpp"
 #include "Bundler/BroadcastHeartbeatBundler.hpp"
@@ -11,8 +10,9 @@
 
 #include "../util/Network.hpp"
 
-OscSender::OscSender() {
-  msgBuffer = new char[MSG_BUFFER_SIZE];
+OscSender::OscSender():
+  msgBuffer(new char[MSG_BUFFER_SIZE]),
+  pstream(osc::OutboundPacketStream(msgBuffer, MSG_BUFFER_SIZE)) {
 
   std::string broadcast_ip;
   if (Network::calculate_broadcast_address(broadcast_ip)) {
@@ -29,27 +29,11 @@ OscSender::~OscSender() {
   delete[] msgBuffer;
 }
 
-// TODO: makeBundle ONCE- startBundle() instead
-osc::OutboundPacketStream OscSender::makeBundle() {
-  osc::OutboundPacketStream bundle(msgBuffer, MSG_BUFFER_SIZE);
-  bundle << osc::BeginBundleImmediate;
-  return bundle;
-}
-
 osc::OutboundPacketStream OscSender::makeMessage(const std::string& address) {
   osc::OutboundPacketStream message(msgBuffer, MSG_BUFFER_SIZE);
   message << osc::BeginBundleImmediate
     << osc::BeginMessage(address.c_str());
   return message;
-}
-
-void OscSender::startBundle(osc::OutboundPacketStream& pstream) {
-  pstream.Clear();
-  pstream << osc::BeginBundleImmediate;
-}
-
-void OscSender::endBundle(osc::OutboundPacketStream& pstream) {
-  pstream << osc::EndBundle;
 }
 
 void OscSender::endMessage(osc::OutboundPacketStream& message) {
@@ -80,16 +64,12 @@ void OscSender::sendHeartbeat() {
 }
 
 // TODO: move sendMessage logic here
-void OscSender::sendBundle(osc::OutboundPacketStream& bundle) {
-  sendMessage(bundle);
-}
-
-void OscSender::sendMessage(osc::OutboundPacketStream& message) {
+void OscSender::sendBundle(osc::OutboundPacketStream& pstream) {
   try {
     UdpSocket socket;
     socket.SetEnableBroadcast(isBroadcasting());
     socket.Connect(isBroadcasting() ? broadcastEndpoint : directEndpoint);
-    socket.Send(message.Data(), message.Size());
+    socket.Send(pstream.Data(), pstream.Size());
   } catch(std::exception& e) {
     char* ip = (char*)malloc(IpEndpointName::ADDRESS_STRING_LENGTH + 1);
 
@@ -110,6 +90,9 @@ void OscSender::sendMessage(osc::OutboundPacketStream& message) {
   }
 }
 
+void OscSender::sendMessage(osc::OutboundPacketStream& message) {
+}
+
 void OscSender::startQueueWorker() {
   queueWorker = std::thread(&OscSender::processQueue, this);
 }
@@ -117,7 +100,6 @@ void OscSender::startQueueWorker() {
 void OscSender::stopQueueWorker() {
   queueWorkerRunning = false;
   // one last notify_one to kick it out the loop
-  // enqueueMessage(new NoopPacker());
   enqueueBundler(new Bundler());
   if (queueWorker.joinable()) queueWorker.join();
 }
@@ -142,20 +124,20 @@ void OscSender::processQueue() {
   while (queueWorkerRunning) {
     std::unique_lock<std::mutex> locker(qmutex);
     queueLockCondition.wait(locker, [this](){ return !bundlerQueue.empty(); });
-    // queueLockCondition.wait(locker, [this](){ return !messageQueue.empty(); });
 
     Bundler* bundler = bundlerQueue.front();
     bundlerQueue.pop();
 
     if (!bundler->isNoop()) {
-      osc::OutboundPacketStream bundle = makeBundle();
-
       while (bundler->hasRemainingMessages()) {
-        startBundle(bundle);
-        bundler->bundle(bundle);
-        endBundle(bundle);
+        pstream.Clear();
+        pstream << osc::BeginBundleImmediate;
 
-        if (bundle.Size() <= EMPTY_BUNDLE_SIZE) {
+        bundler->bundle(pstream);
+
+        pstream << osc::EndBundle;
+
+        if (pstream.Size() <= EMPTY_BUNDLE_SIZE) {
           WARN(
             "bundler [%s] cannot bundle message [%s]. advancing.",
             bundler->name.c_str(),
@@ -165,7 +147,7 @@ void OscSender::processQueue() {
           continue;
         }
 
-        sendBundle(bundle);
+        sendBundle(pstream);
       }
 
       bundler->finish();
@@ -176,30 +158,5 @@ void OscSender::processQueue() {
     }
 
     delete bundler;
-
-    // MessagePacker* packer = messageQueue.front();
-    // messageQueue.pop();
-
-    // if (!packer->isNoop()) {
-    //   // INFO("message queue packing message for %s", packer->path.c_str());
-    //   if (packer->path.empty()) WARN("message packer has empty path");
-
-
-    //   osc::OutboundPacketStream message = makeMessage(packer->path);
-    //   try {
-    //     packer->pack(message);
-    //   } catch(osc::OutOfBufferMemoryException& e) {
-    //     WARN("ModuleStructurePacker::pack() out of memory (%s)", e.what());
-    //   }
-    //   endMessage(message);
-    //   sendMessage(message);
-
-    //   packer->finish();
-
-    //   if (packer->postSendDelay > 0)
-    //     std::this_thread::sleep_for(std::chrono::milliseconds(packer->postSendDelay));
-    // }
-
-    // delete packer;
   }
 }
