@@ -13,6 +13,7 @@
 #include "OscConstants.hpp"
 
 class MessagePacker;
+struct Bundler;
 class ChunkedImage;
 
 enum class SendMode {
@@ -24,6 +25,7 @@ struct OscSender {
   OscSender();
   ~OscSender();
 
+  void enqueueBundler(Bundler* bundler);
   void enqueueMessage(MessagePacker* packer);
   void sendHeartbeat();
 
@@ -40,13 +42,18 @@ private:
   void registerDirectEndpoint(const std::string& ip);
   IpEndpointName broadcastEndpoint;
 
+  osc::OutboundPacketStream makeBundle();
   osc::OutboundPacketStream makeMessage(const std::string& address);
+  void startBundle(osc::OutboundPacketStream& pstream);
+  void endBundle(osc::OutboundPacketStream& pstream);
   void endMessage(osc::OutboundPacketStream& message);
+  void sendBundle(osc::OutboundPacketStream& pstream);
   void sendMessage(osc::OutboundPacketStream& message);
 
   // message queue
   std::thread queueWorker;
   std::atomic<bool> queueWorkerRunning;
+  std::queue<Bundler*> bundlerQueue;
   std::queue<MessagePacker*> messageQueue;
   std::mutex qmutex;
   std::condition_variable queueLockCondition;
