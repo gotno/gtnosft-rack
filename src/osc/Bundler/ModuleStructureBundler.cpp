@@ -14,20 +14,24 @@ ModuleStructureBundler::ModuleStructureBundler(
     return;
   }
 
-  rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(NULL);
-  panelBox = vec2cm(moduleWidget->box.size);
-  delete moduleWidget;
+  moduleWidget = model->createModuleWidget(NULL);
 
   messages.emplace_back(
     "/set/module_structure",
     [this](osc::OutboundPacketStream& pstream) {
+      rack::math::Vec size = vec2cm(moduleWidget->box.size);
       pstream << pluginSlug.c_str()
         << moduleSlug.c_str()
-        << panelBox.x
-        << panelBox.y
+        << size.x
+        << size.y
         ;
     }
   );
+
+  addLightMessages();
+  addParamMessages();
+  addPortMessages();
+
   messages.emplace_back(
     "/stop/module_structure",
     [this](osc::OutboundPacketStream& pstream) {
@@ -36,6 +40,64 @@ ModuleStructureBundler::ModuleStructureBundler(
         ;
     }
   );
+}
+
+ModuleStructureBundler::~ModuleStructureBundler() {
+  // why does this crash in APP->event->finalizeWidget(child)?
+  // delete moduleWidget;
+}
+
+void ModuleStructureBundler::addLightMessages() {
+  using namespace rack::app;
+  using namespace rack::widget;
+
+  int32_t lightId = 0;
+
+  for (Widget* widget : moduleWidget->children) {
+    if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget)) {
+      messages.emplace_back(
+        "/set/module_structure/light",
+        [this, lightId, lightWidget](osc::OutboundPacketStream& pstream) {
+          rack::math::Vec size = vec2cm(lightWidget->box.size);
+          rack::math::Vec pos = vec2cm(lightWidget->box.pos);
+
+          // TODO: we're assuming lights with a perfectly square size are
+          //       circular. we should render the widget and check for
+          //       transparent corners instead, because some square lights
+          //       are probably rectangles
+          int32_t lightShape = size.x == size.y ? 0 : 1;
+
+          pstream << pluginSlug.c_str()
+            << moduleSlug.c_str()
+            << lightId
+            << lightShape
+            << size.x
+            << size.y
+            << pos.x
+            << pos.y
+            ;
+        }
+      );
+
+      ++lightId;
+    } // else if (rack::app::LedDisplay* display = dynamic_cast<rack::app::LedDisplay*>(widget)) {
+  }
+}
+
+void ModuleStructureBundler::addParamMessages() {
+  // using namespace rack::app;
+
+  // for (ParamWidget* & paramWidget : moduleWidget->getParams()) {
+  //   // int paramId = paramWidget->getParamQuantity()->paramId;
+
+  //   for (rack::widget::Widget* & widget : paramWidget->children) {
+  //     if (rack::app::LightWidget* lightWidget = dynamic_cast<rack::app::LightWidget*>(widget)) {
+  //     }
+  //   }
+  // }
+}
+
+void ModuleStructureBundler::addPortMessages() {
 }
 
 rack::plugin::Model* ModuleStructureBundler::findModel() {
