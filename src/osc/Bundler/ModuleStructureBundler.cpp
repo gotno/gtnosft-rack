@@ -13,24 +13,23 @@ ModuleStructureBundler::ModuleStructureBundler(
     );
     return;
   }
+  rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(NULL);
 
-  moduleWidget = model->createModuleWidget(NULL);
-
+  rack::math::Vec panelSize = vec2cm(moduleWidget->box.size);
   messages.emplace_back(
     "/set/module_structure",
-    [this](osc::OutboundPacketStream& pstream) {
-      rack::math::Vec size = vec2cm(moduleWidget->box.size);
+    [this, panelSize](osc::OutboundPacketStream& pstream) {
       pstream << pluginSlug.c_str()
         << moduleSlug.c_str()
-        << size.x
-        << size.y
+        << panelSize.x
+        << panelSize.y
         ;
     }
   );
 
-  addLightMessages();
-  addParamMessages();
-  addPortMessages();
+  addLightMessages(moduleWidget);
+  addParamMessages(moduleWidget);
+  addPortMessages(moduleWidget);
 
   messages.emplace_back(
     "/stop/module_structure",
@@ -40,14 +39,11 @@ ModuleStructureBundler::ModuleStructureBundler(
         ;
     }
   );
+
+  delete moduleWidget;
 }
 
-ModuleStructureBundler::~ModuleStructureBundler() {
-  // why does this crash in APP->event->finalizeWidget(child)?
-  // delete moduleWidget;
-}
-
-void ModuleStructureBundler::addLightMessages() {
+void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWidget) {
   using namespace rack::app;
   using namespace rack::widget;
 
@@ -55,12 +51,12 @@ void ModuleStructureBundler::addLightMessages() {
 
   for (Widget* widget : moduleWidget->children) {
     if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget)) {
+      rack::math::Vec size = vec2cm(lightWidget->box.size);
+      rack::math::Vec pos = vec2cm(lightWidget->box.pos);
+
       messages.emplace_back(
         "/set/module_structure/light",
-        [this, lightId, lightWidget](osc::OutboundPacketStream& pstream) {
-          rack::math::Vec size = vec2cm(lightWidget->box.size);
-          rack::math::Vec pos = vec2cm(lightWidget->box.pos);
-
+        [this, lightId, size, pos](osc::OutboundPacketStream& pstream) {
           // TODO: we're assuming lights with a perfectly square size are
           //       circular. we should render the widget and check for
           //       transparent corners instead, because some square lights
@@ -84,7 +80,7 @@ void ModuleStructureBundler::addLightMessages() {
   }
 }
 
-void ModuleStructureBundler::addParamMessages() {
+void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWidget) {
   // using namespace rack::app;
 
   // for (ParamWidget* & paramWidget : moduleWidget->getParams()) {
@@ -97,7 +93,7 @@ void ModuleStructureBundler::addParamMessages() {
   // }
 }
 
-void ModuleStructureBundler::addPortMessages() {
+void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidget) {
 }
 
 rack::plugin::Model* ModuleStructureBundler::findModel() {

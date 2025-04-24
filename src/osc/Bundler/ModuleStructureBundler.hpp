@@ -10,17 +10,15 @@ struct ModuleStructureBundler : Bundler {
     const std::string& pluginSlug,
     const std::string& moduleSlug
   );
-  ~ModuleStructureBundler() override;
 
   std::string pluginSlug, moduleSlug;
 
   rack::plugin::Model* findModel();
-  rack::app::ModuleWidget* moduleWidget;
 
   float px2cm(const float& px) const;
   rack::math::Vec vec2cm(const rack::math::Vec& px) const;
 
-  void addLightMessages();
-  void addParamMessages();
-  void addPortMessages();
+  void addLightMessages(rack::app::ModuleWidget* moduleWidget);
+  void addParamMessages(rack::app::ModuleWidget* moduleWidget);
+  void addPortMessages(rack::app::ModuleWidget* moduleWidget);
 };
