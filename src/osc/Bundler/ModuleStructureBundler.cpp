@@ -89,20 +89,27 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidget) {
   int32_t id, type;
   rack::math::Vec size, pos;
+  std::string name, description;
 
   for (rack::app::PortWidget* portWidget : moduleWidget->getPorts()) {
     id = portWidget->portId;
     type = portWidget->type == rack::engine::Port::INPUT ? 0 : 1;
     size = vec2cm(portWidget->box.size);
     pos = vec2cm(portWidget->box.pos);
+    name = portWidget->getPortInfo()->name;
+    description = portWidget->getPortInfo()->description;
 
     messages.emplace_back(
       "/set/module_structure/port",
-      [this, id, type, size, pos](osc::OutboundPacketStream& pstream) {
+      [this, id, type, name, description, size, pos](
+        osc::OutboundPacketStream& pstream
+      ) {
         pstream << pluginSlug.c_str()
           << moduleSlug.c_str()
           << id
           << type
+          << name.c_str()
+          << description.c_str()
           << size.x
           << size.y
           << pos.x
@@ -110,12 +117,6 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
           ;
       }
     );
-
-    // TODO: getPortInfo is only available with an actual module. which means
-    //       it'll go out with the state updates i guess? or be snuck into
-    //       structure on the first state update?
-    // portWidget->getPortInfo()->name;
-    // portWidget->getPortInfo()->description;
   }
 }
 
