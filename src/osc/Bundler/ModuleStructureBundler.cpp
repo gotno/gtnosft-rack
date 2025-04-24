@@ -4,16 +4,8 @@ ModuleStructureBundler::ModuleStructureBundler(
   const std::string& _pluginSlug,
   const std::string& _moduleSlug
 ): Bundler("ModuleStructureBundler"), pluginSlug(_pluginSlug), moduleSlug(_moduleSlug) {
-  rack::plugin::Model* model = findModel();
-  if (!model) {
-    WARN(
-      "ModuleStructureBundler unable to find Model for %s:%s",
-      pluginSlug.c_str(),
-      moduleSlug.c_str()
-    );
-    return;
-  }
-  rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(NULL);
+  rack::app::ModuleWidget* moduleWidget = makeModuleWidget();
+  if (!moduleWidget) return;
 
   rack::math::Vec panelSize = vec2cm(moduleWidget->box.size);
   messages.emplace_back(
@@ -40,7 +32,7 @@ ModuleStructureBundler::ModuleStructureBundler(
     }
   );
 
-  delete moduleWidget;
+  cleanup(moduleWidget);
 }
 
 void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWidget) {
@@ -135,7 +127,28 @@ rack::plugin::Model* ModuleStructureBundler::findModel() {
       }
     }
   }
-  return nullptr;
+  return NULL;
+}
+
+rack::app::ModuleWidget* ModuleStructureBundler::makeModuleWidget() {
+  rack::plugin::Model* model = findModel();
+  if (!model) {
+    WARN(
+      "ModuleStructureBundler unable to find Model for %s:%s",
+      pluginSlug.c_str(),
+      moduleSlug.c_str()
+    );
+    return NULL;
+  }
+
+  rack::engine::Module* module = model->createModule();
+  rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(module);
+  APP->engine->addModule(module);
+  return moduleWidget;
+}
+
+void ModuleStructureBundler::cleanup(rack::app::ModuleWidget* moduleWidget) {
+  delete moduleWidget;
 }
 
 float ModuleStructureBundler::px2cm(const float& px) const {

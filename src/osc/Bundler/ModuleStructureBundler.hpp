@@ -14,6 +14,8 @@ struct ModuleStructureBundler : Bundler {
   std::string pluginSlug, moduleSlug;
 
   rack::plugin::Model* findModel();
+  rack::app::ModuleWidget* makeModuleWidget();
+  void cleanup(rack::app::ModuleWidget* moduleWidget);
 
   float px2cm(const float& px) const;
   rack::math::Vec vec2cm(const rack::math::Vec& px) const;
