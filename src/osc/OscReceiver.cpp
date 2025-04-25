@@ -28,8 +28,16 @@ OscReceiver::~OscReceiver() {
 }
 
 void OscReceiver::startListener() {
-  rxSocket = new UdpListeningReceiveSocket(endpoint, this);
-  listenerThread = std::thread(&UdpListeningReceiveSocket::Run, rxSocket);
+  try {
+    rxSocket = new UdpListeningReceiveSocket(endpoint, this);
+    listenerThread = std::thread(&UdpListeningReceiveSocket::Run, rxSocket);
+  } catch (const std::runtime_error& e) {
+    // TODO: recover by incrementing port
+    // endpoint = IpEndpointName(IpEndpointName::ANY_ADDRESS, endpoint.port + 1);
+    // startListener();
+    WARN("error starting OSC receiver: %s", e.what());
+    return;
+  }
 }
 
 void OscReceiver::endListener() {
