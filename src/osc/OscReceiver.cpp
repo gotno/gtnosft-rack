@@ -32,12 +32,21 @@ void OscReceiver::startListener() {
     rxSocket = new UdpListeningReceiveSocket(endpoint, this);
     listenerThread = std::thread(&UdpListeningReceiveSocket::Run, rxSocket);
   } catch (const std::runtime_error& e) {
-    // TODO: recover by incrementing port
-    // endpoint = IpEndpointName(IpEndpointName::ANY_ADDRESS, endpoint.port + 1);
-    // startListener();
+    if (activePort >= RX_PORT + maxBindRetries) {
+      WARN("failed to start OSC receiver after %d attempts", maxBindRetries);
+      return;
+    }
+
     WARN("error starting OSC receiver: %s", e.what());
+
+    ++activePort;
+    endpoint = IpEndpointName(IpEndpointName::ANY_ADDRESS, activePort);
+
+    startListener();
     return;
   }
+
+  INFO("OSCctrl started OSC receiver on port %d", activePort);
 }
 
 void OscReceiver::endListener() {

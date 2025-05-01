@@ -25,6 +25,8 @@ struct OscReceiver : public osc::OscPacketListener {
   );
   ~OscReceiver();
 
+  inline static int32_t activePort{RX_PORT};
+
 private:
   OSCctrlWidget* ctrl;
   OscSender* osctx;
@@ -33,6 +35,7 @@ private:
   IpEndpointName endpoint;
   UdpListeningReceiveSocket* rxSocket = NULL;
 	std::thread listenerThread;
+  int8_t maxBindRetries{20};
 
   void startListener();
   void endListener();
