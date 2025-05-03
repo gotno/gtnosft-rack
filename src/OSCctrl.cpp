@@ -58,9 +58,9 @@ void OSCctrlWidget::step() {
   ModuleWidget::step();
   if (!module) return;
 
-  if (moduleWidgetToStream.second && !chunkman->isProcessing(moduleWidgetToStream.first)) {
-    moduleWidgetToStream.first = sendOverlayRender(moduleWidgetToStream.second, 2.f);
-  }
+  // if (moduleWidgetToStream.second && !chunkman->isProcessing(moduleWidgetToStream.first)) {
+  //   moduleWidgetToStream.first = sendOverlayRender(moduleWidgetToStream.second, 2.f);
+  // }
 
   processActionQueue();
 }
