@@ -36,6 +36,10 @@ ModuleStructureBundler::ModuleStructureBundler(
 }
 
 void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWidget) {
+  enum LightShape {
+    Unknown, Round, Rectangle
+  };
+
   using namespace rack::app;
   using namespace rack::widget;
 
@@ -54,7 +58,7 @@ void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWid
           //       circular. we should render the widget and check for
           //       transparent corners instead, because some square lights
           //       are probably rectangles
-          int32_t lightShape = size.x == size.y ? 0 : 1;
+          int32_t lightShape = size.x == size.y ? LightShape::Rectangle : LightShape::Round;
 
           pstream << pluginSlug.c_str()
             << moduleSlug.c_str()
@@ -74,26 +78,215 @@ void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWid
 }
 
 void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWidget) {
-  // using namespace rack::app;
+  enum ParamType {
+    Unknown, Knob, Slider, Button, Switch
+  };
 
-  // for (ParamWidget* & paramWidget : moduleWidget->getParams()) {
-  //   // int paramId = paramWidget->getParamQuantity()->paramId;
+  int32_t id;
+  ParamType type;
+  rack::math::Vec size, pos;
+  std::string name, description;
+  float minValue, maxValue;
+  bool snap;
+
+  rack::app::SvgSlider* sliderWidget;
+  rack::app::Knob* knobWidget;
+  rack::app::SvgSwitch* switchWidget;
+
+  for (rack::app::ParamWidget* & paramWidget : moduleWidget->getParams()) {
+    rack::engine::ParamQuantity* pq = paramWidget->getParamQuantity();
+
+    id = pq->paramId;
+    size = vec2cm(paramWidget->box.size);
+    pos = vec2cm(paramWidget->box.pos);
+
+    // struct
+    name = pq->getLabel(); // (name or #<paramId>)
+    description = pq->getDescription();
+    minValue = pq->getMinValue();
+    maxValue = pq->getMaxValue();
+    snap = pq->snapEnabled;
+
+    // state
+    // std::string display = pq->getString(); // (getLabel + getDisplayValueString + getUnit)
+    // float value = pq->getValue();
+    // bool visible = paramWidget->isVisible();
+    // tooltip: pq->getString /n pq->getDescription
+
+    sliderWidget = NULL;
+    knobWidget = NULL;
+    switchWidget = NULL;
+
+    if ((sliderWidget = dynamic_cast<rack::app::SvgSlider*>(paramWidget))) {
+      // deal with: dynamic_cast<bogaudio::VUSlider*>(sliderWidget)
+      type = ParamType::Slider;
+
+    } else if ((knobWidget = dynamic_cast<rack::app::Knob*>(paramWidget))) {
+      type = ParamType::Knob;
+
+      // sometimes a knob is not a knob (looking at you, Surge),
+      // but that's the best way to represent this param in unreal.
+      // if x and y aren't equal, use the smaller of the two
+      size = size.x > size.y ? rack::math::Vec(size.y) : rack::math::Vec(size.x);
+
+    } else if ((switchWidget = dynamic_cast<rack::app::SvgSwitch*>(paramWidget))) {
+      // deal with: dynamic_cast<bogaudio::StatefulButton*>(paramWidget);
+      if (switchWidget->momentary || switchWidget->latch) {
+        type = ParamType::Button;
+      } else {
+        type = ParamType::Switch;
+      }
+    } else {
+      type = ParamType::Unknown;
+    }
+
+    if (type == ParamType::Unknown) {
+      WARN(
+        "ModuleStructureBundler unable to determine ParamType for %s:%s paramId %d",
+        pluginSlug.c_str(),
+        moduleSlug.c_str(),
+        id
+      );
+      continue;
+    }
+
+    messages.emplace_back(
+      "/set/module_structure/param",
+      [
+        this,
+        id,
+        type,
+        name,
+        description,
+        size,
+        pos,
+        minValue,
+        maxValue,
+        snap
+      ](osc::OutboundPacketStream& pstream) {
+        pstream << pluginSlug.c_str()
+          << moduleSlug.c_str()
+          << id
+          << type
+          << name.c_str()
+          << description.c_str()
+          << size.x
+          << size.y
+          << pos.x
+          << pos.y
+          << minValue
+          << maxValue
+          << snap
+          ;
+      }
+    );
+
+    if (type == ParamType::Knob) {
+      // Vult knobs do min/max angle some other way?
+      bool isVult = pluginSlug.find("Vult") != std::string::npos;
+      float minAngle = isVult ? -0.75f * M_PI : knobWidget->minAngle;
+      float maxAngle = isVult ? 0.75f * M_PI : knobWidget->minAngle;
+
+      messages.emplace_back(
+        "/set/module_structure/param/knob",
+        [this, id, minAngle, maxAngle](osc::OutboundPacketStream& pstream) {
+          pstream << pluginSlug.c_str()
+            << moduleSlug.c_str()
+            << id
+            << minAngle
+            << maxAngle
+            ;
+        }
+      );
+    }
+
+    if (type == ParamType::Slider) {
+      rack::math::Vec handleSize = vec2cm(sliderWidget->handle->getBox().size);
+      rack::math::Vec minHandlePos = vec2cm(sliderWidget->minHandlePos);
+      rack::math::Vec maxHandlePos = vec2cm(sliderWidget->maxHandlePos);
+      bool horizontal = sliderWidget->horizontal;
+
+      messages.emplace_back(
+        "/set/module_structure/param/slider",
+        [
+          this,
+          id,
+          handleSize,
+          minHandlePos,
+          maxHandlePos,
+          horizontal
+        ](osc::OutboundPacketStream& pstream) {
+          pstream << pluginSlug.c_str()
+            << moduleSlug.c_str()
+            << id
+            << handleSize.x
+            << handleSize.y
+            << minHandlePos.x
+            << minHandlePos.y
+            << maxHandlePos.x
+            << maxHandlePos.y
+            << horizontal
+            ;
+        }
+      );
+    }
+
+    if (type == ParamType::Button) {
+      bool momentary = switchWidget->momentary;
+
+      messages.emplace_back(
+        "/set/module_structure/param/button",
+        [this, id, momentary](osc::OutboundPacketStream& pstream) {
+          pstream << pluginSlug.c_str()
+            << moduleSlug.c_str()
+            << id
+            << momentary
+            ;
+        }
+      );
+    }
+
+    if (type == ParamType::Switch) {
+      bool horizontal = size.x > size.y;
+      int numFrames = switchWidget->frames.size() == 0
+        ? maxValue + 1
+        : switchWidget->frames.size();
+
+      messages.emplace_back(
+        "/set/module_structure/param/switch",
+        [this, id, horizontal, numFrames](osc::OutboundPacketStream& pstream) {
+          pstream << pluginSlug.c_str()
+            << moduleSlug.c_str()
+            << id
+            << horizontal
+            << numFrames
+            ;
+        }
+      );
+    }
 
   //   for (rack::widget::Widget* & widget : paramWidget->children) {
   //     if (rack::app::LightWidget* lightWidget = dynamic_cast<rack::app::LightWidget*>(widget)) {
   //     }
   //   }
-  // }
+  }
 }
 
 void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidget) {
+  enum PortType {
+    Unknown, Input, Output
+  };
+
   int32_t id, type;
   rack::math::Vec size, pos;
   std::string name, description;
 
   for (rack::app::PortWidget* portWidget : moduleWidget->getPorts()) {
     id = portWidget->portId;
-    type = portWidget->type == rack::engine::Port::INPUT ? 0 : 1;
+    type =
+      portWidget->type == rack::engine::Port::INPUT
+        ? PortType::Input
+        : PortType::Output;
     size = vec2cm(portWidget->box.size);
     pos = vec2cm(portWidget->box.pos);
     name = portWidget->getPortInfo()->name;
