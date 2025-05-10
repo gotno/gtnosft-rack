@@ -58,7 +58,11 @@ void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWid
           //       circular. we should render the widget and check for
           //       transparent corners instead, because some square lights
           //       are probably rectangles
-          int32_t lightShape = size.x == size.y ? LightShape::Rectangle : LightShape::Round;
+          int32_t lightShape =
+            // "basically zero"
+            size.x - size.y >= 0.f && size.x - size.y < 0.01f
+              ? LightShape::Round
+              : LightShape::Rectangle;
 
           pstream << pluginSlug.c_str()
             << moduleSlug.c_str()
