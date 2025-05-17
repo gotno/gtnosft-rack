@@ -7,27 +7,23 @@ ModuleStructureBundler::ModuleStructureBundler(
   rack::app::ModuleWidget* moduleWidget = makeModuleWidget();
   if (!moduleWidget) return;
 
+  addLightMessages(moduleWidget);
+  addParamMessages(moduleWidget);
+  addPortMessages(moduleWidget);
+
   rack::math::Vec panelSize = vec2cm(moduleWidget->box.size);
-  messages.emplace_back(
+  messages.emplace(
+    messages.begin(),
     "/set/module_structure",
     [this, panelSize](osc::OutboundPacketStream& pstream) {
       pstream << pluginSlug.c_str()
         << moduleSlug.c_str()
         << panelSize.x
         << panelSize.y
-        ;
-    }
-  );
-
-  addLightMessages(moduleWidget);
-  addParamMessages(moduleWidget);
-  addPortMessages(moduleWidget);
-
-  messages.emplace_back(
-    "/stop/module_structure",
-    [this](osc::OutboundPacketStream& pstream) {
-      pstream << pluginSlug.c_str()
-        << moduleSlug.c_str()
+        << numParams
+        << numInputs
+        << numOutputs
+        << numLights
         ;
     }
   );
@@ -76,6 +72,7 @@ void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWid
         }
       );
 
+      ++numLights;
       ++id;
     } // else if (rack::app::LedDisplay* display = dynamic_cast<rack::app::LedDisplay*>(widget)) {
   }
@@ -184,6 +181,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
           ;
       }
     );
+    ++numParams;
 
     if (type == ParamType::Knob) {
       // Vult knobs do min/max angle some other way?
@@ -314,6 +312,8 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
           ;
       }
     );
+    if (type == PortType::Input) ++numInputs;
+    if (type == PortType::Output) ++numOutputs;
   }
 }
 

@@ -17,6 +17,8 @@ struct ModuleStructureBundler : Bundler {
   rack::app::ModuleWidget* makeModuleWidget();
   void cleanup(rack::app::ModuleWidget* moduleWidget);
 
+  int32_t numParams, numInputs, numOutputs, numLights;
+
   float px2cm(const float& px) const;
   rack::math::Vec vec2cm(const rack::math::Vec& px) const;
 
