@@ -77,6 +77,7 @@ void OscReceiver::startHeartbeat() {
 
     // client is gone, switch back to broadcasting
     if (missedHeartbeats >= maxMissedHeartbeats) {
+      WARN("client is gone, switching back to broadcasting");
       lastHeartbeatRxTime = std::chrono::steady_clock::time_point::min();
       osctx->setBroadcasting();
     }
