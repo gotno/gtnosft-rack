@@ -17,12 +17,13 @@ struct ModuleStructureBundler : Bundler {
   rack::app::ModuleWidget* makeModuleWidget();
   void cleanup(rack::app::ModuleWidget* moduleWidget);
 
-  int32_t numParams, numInputs, numOutputs, numLights;
+  int32_t numParams{0}, numInputs{0}, numOutputs{0}, numLights{0};
 
   float px2cm(const float& px) const;
   rack::math::Vec vec2cm(const rack::math::Vec& px) const;
 
   void addLightMessages(rack::app::ModuleWidget* moduleWidget);
+  void addLightMessage(rack::app::LightWidget* lightWidget, int32_t paramId = -1);
   void addParamMessages(rack::app::ModuleWidget* moduleWidget);
   void addPortMessages(rack::app::ModuleWidget* moduleWidget);
 };

@@ -31,50 +31,65 @@ ModuleStructureBundler::ModuleStructureBundler(
   cleanup(moduleWidget);
 }
 
-void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWidget) {
+void ModuleStructureBundler::addLightMessage(
+  rack::app::LightWidget* lightWidget,
+  int32_t paramId
+) {
   enum LightShape {
     Unknown, Round, Rectangle
   };
 
+  rack::math::Vec size = vec2cm(lightWidget->box.size);
+  rack::math::Vec pos = vec2cm(lightWidget->box.pos);
+  int32_t id = numLights;
+
+  messages.emplace_back(
+    "/set/module_structure/light",
+    [this, id, paramId, size, pos](osc::OutboundPacketStream& pstream) {
+      // TODO: we're assuming lights with a perfectly square size are
+      //       circular. we should render the widget and check for
+      //       transparent corners instead, because some square lights
+      //       are probably rectangles
+      int32_t lightShape =
+        // "basically zero"
+        size.x - size.y >= 0.f && size.x - size.y < 0.01f
+          ? LightShape::Round
+          : LightShape::Rectangle;
+
+      pstream << pluginSlug.c_str()
+        << moduleSlug.c_str()
+        << id
+        << paramId
+        << lightShape
+        << size.x
+        << size.y
+        << pos.x
+        << pos.y
+        ;
+    }
+  );
+
+  ++numLights;
+}
+
+void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWidget) {
   using namespace rack::app;
   using namespace rack::widget;
 
-  int32_t id = 0;
-  rack::math::Vec size, pos;
-
+  // panel lights
   for (Widget* widget : moduleWidget->children) {
-    if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget)) {
-      size = vec2cm(lightWidget->box.size);
-      pos = vec2cm(lightWidget->box.pos);
+    if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget))
+      addLightMessage(lightWidget);
+    // TODO?:
+    // else if (rack::app::LedDisplay* display = dynamic_cast<rack::app::LedDisplay*>(widget)) {
+  }
 
-      messages.emplace_back(
-        "/set/module_structure/light",
-        [this, id, size, pos](osc::OutboundPacketStream& pstream) {
-          // TODO: we're assuming lights with a perfectly square size are
-          //       circular. we should render the widget and check for
-          //       transparent corners instead, because some square lights
-          //       are probably rectangles
-          int32_t lightShape =
-            // "basically zero"
-            size.x - size.y >= 0.f && size.x - size.y < 0.01f
-              ? LightShape::Round
-              : LightShape::Rectangle;
-
-          pstream << pluginSlug.c_str()
-            << moduleSlug.c_str()
-            << id
-            << lightShape
-            << size.x
-            << size.y
-            << pos.x
-            << pos.y
-            ;
-        }
-      );
-
-      ++numLights;
-      ++id;
-    } // else if (rack::app::LedDisplay* display = dynamic_cast<rack::app::LedDisplay*>(widget)) {
+  // param lights
+  for (ParamWidget* & paramWidget : moduleWidget->getParams()) {
+    for (Widget* & widget : paramWidget->children) {
+      if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget))
+        addLightMessage(lightWidget, paramWidget->getParamQuantity()->paramId);
+    }
   }
 }
 
@@ -266,11 +281,6 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
         }
       );
     }
-
-  //   for (rack::widget::Widget* & widget : paramWidget->children) {
-  //     if (rack::app::LightWidget* lightWidget = dynamic_cast<rack::app::LightWidget*>(widget)) {
-  //     }
-  //   }
   }
 }
 
