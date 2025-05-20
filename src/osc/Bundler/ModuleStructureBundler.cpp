@@ -275,8 +275,8 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
           pstream << pluginSlug.c_str()
             << moduleSlug.c_str()
             << id
-            << horizontal
             << numFrames
+            << horizontal
             ;
         }
       );
