@@ -63,7 +63,6 @@ void OscSender::sendHeartbeat() {
   }
 }
 
-// TODO: move sendMessage logic here
 void OscSender::sendBundle(osc::OutboundPacketStream& pstream) {
   try {
     UdpSocket socket;
@@ -88,9 +87,6 @@ void OscSender::sendBundle(osc::OutboundPacketStream& pstream) {
 
     free(ip);
   }
-}
-
-void OscSender::sendMessage(osc::OutboundPacketStream& message) {
 }
 
 void OscSender::startQueueWorker() {

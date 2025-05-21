@@ -47,7 +47,6 @@ private:
 
   osc::OutboundPacketStream makeMessage(const std::string& address);
   void endMessage(osc::OutboundPacketStream& message);
-  void sendMessage(osc::OutboundPacketStream& message);
 
   // message queue
   std::thread queueWorker;
