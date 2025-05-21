@@ -3,7 +3,11 @@
 ModuleStructureBundler::ModuleStructureBundler(
   const std::string& _pluginSlug,
   const std::string& _moduleSlug
-): Bundler("ModuleStructureBundler"), pluginSlug(_pluginSlug), moduleSlug(_moduleSlug) {
+): Bundler("ModuleStructureBundler"),
+  id(structureIdCounter),
+  pluginSlug(_pluginSlug),
+  moduleSlug(_moduleSlug)
+{
   rack::app::ModuleWidget* moduleWidget = makeModuleWidget();
   if (!moduleWidget) return;
 
@@ -16,7 +20,8 @@ ModuleStructureBundler::ModuleStructureBundler(
     messages.begin(),
     "/set/module_structure",
     [this, panelSize](osc::OutboundPacketStream& pstream) {
-      pstream << pluginSlug.c_str()
+      pstream << id
+        << pluginSlug.c_str()
         << moduleSlug.c_str()
         << panelSize.x
         << panelSize.y
@@ -29,6 +34,7 @@ ModuleStructureBundler::ModuleStructureBundler(
   );
 
   cleanup(moduleWidget);
+  ++structureIdCounter;
 }
 
 void ModuleStructureBundler::addLightMessage(
@@ -41,11 +47,11 @@ void ModuleStructureBundler::addLightMessage(
 
   rack::math::Vec size = vec2cm(lightWidget->box.size);
   rack::math::Vec pos = vec2cm(lightWidget->box.pos);
-  int32_t id = numLights;
+  int32_t lightId = numLights;
 
   messages.emplace_back(
     "/set/module_structure/light",
-    [this, id, paramId, size, pos](osc::OutboundPacketStream& pstream) {
+    [this, lightId, paramId, size, pos](osc::OutboundPacketStream& pstream) {
       // TODO: we're assuming lights with a perfectly square size are
       //       circular. we should render the widget and check for
       //       transparent corners instead, because some square lights
@@ -56,9 +62,8 @@ void ModuleStructureBundler::addLightMessage(
           ? LightShape::Round
           : LightShape::Rectangle;
 
-      pstream << pluginSlug.c_str()
-        << moduleSlug.c_str()
-        << id
+      pstream << id
+        << lightId
         << paramId
         << lightShape
         << size.x
@@ -98,7 +103,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     Unknown, Knob, Slider, Button, Switch
   };
 
-  int32_t id;
+  int32_t paramId;
   ParamType type;
   rack::math::Vec size, pos;
   std::string name, description;
@@ -112,7 +117,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
   for (rack::app::ParamWidget* & paramWidget : moduleWidget->getParams()) {
     rack::engine::ParamQuantity* pq = paramWidget->getParamQuantity();
 
-    id = pq->paramId;
+    paramId = pq->paramId;
     size = vec2cm(paramWidget->box.size);
     pos = vec2cm(paramWidget->box.pos);
 
@@ -161,16 +166,18 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
         "ModuleStructureBundler unable to determine ParamType for %s:%s paramId %d",
         pluginSlug.c_str(),
         moduleSlug.c_str(),
-        id
+        paramId
       );
       continue;
     }
+
+    INFO("name: %s, description: %s", name.c_str(), description.c_str());
 
     messages.emplace_back(
       "/set/module_structure/param",
       [
         this,
-        id,
+        paramId,
         type,
         name,
         description,
@@ -180,9 +187,8 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
         maxValue,
         snap
       ](osc::OutboundPacketStream& pstream) {
-        pstream << pluginSlug.c_str()
-          << moduleSlug.c_str()
-          << id
+        pstream << id
+          << paramId
           << type
           << name.c_str()
           << description.c_str()
@@ -206,10 +212,9 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 
       messages.emplace_back(
         "/set/module_structure/param/knob",
-        [this, id, minAngle, maxAngle](osc::OutboundPacketStream& pstream) {
-          pstream << pluginSlug.c_str()
-            << moduleSlug.c_str()
-            << id
+        [this, paramId, minAngle, maxAngle](osc::OutboundPacketStream& pstream) {
+          pstream << id
+            << paramId
             << minAngle
             << maxAngle
             ;
@@ -227,15 +232,14 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
         "/set/module_structure/param/slider",
         [
           this,
-          id,
+          paramId,
           handleSize,
           minHandlePos,
           maxHandlePos,
           horizontal
         ](osc::OutboundPacketStream& pstream) {
-          pstream << pluginSlug.c_str()
-            << moduleSlug.c_str()
-            << id
+          pstream << id
+            << paramId
             << handleSize.x
             << handleSize.y
             << minHandlePos.x
@@ -253,10 +257,9 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 
       messages.emplace_back(
         "/set/module_structure/param/button",
-        [this, id, momentary](osc::OutboundPacketStream& pstream) {
-          pstream << pluginSlug.c_str()
-            << moduleSlug.c_str()
-            << id
+        [this, paramId, momentary](osc::OutboundPacketStream& pstream) {
+          pstream << id
+            << paramId
             << momentary
             ;
         }
@@ -271,10 +274,9 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 
       messages.emplace_back(
         "/set/module_structure/param/switch",
-        [this, id, horizontal, numFrames](osc::OutboundPacketStream& pstream) {
-          pstream << pluginSlug.c_str()
-            << moduleSlug.c_str()
-            << id
+        [this, paramId, horizontal, numFrames](osc::OutboundPacketStream& pstream) {
+          pstream << id
+            << paramId
             << numFrames
             << horizontal
             ;
@@ -289,12 +291,12 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
     Unknown, Input, Output
   };
 
-  int32_t id, type;
+  int32_t portId, type;
   rack::math::Vec size, pos;
   std::string name, description;
 
   for (rack::app::PortWidget* portWidget : moduleWidget->getPorts()) {
-    id = portWidget->portId;
+    portId = portWidget->portId;
     type =
       portWidget->type == rack::engine::Port::INPUT
         ? PortType::Input
@@ -306,12 +308,11 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
 
     messages.emplace_back(
       "/set/module_structure/port",
-      [this, id, type, name, description, size, pos](
+      [this, portId, type, name, description, size, pos](
         osc::OutboundPacketStream& pstream
       ) {
-        pstream << pluginSlug.c_str()
-          << moduleSlug.c_str()
-          << id
+        pstream << id
+          << portId
           << type
           << name.c_str()
           << description.c_str()

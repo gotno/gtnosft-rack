@@ -2,15 +2,18 @@
 
 #include "Bundler.hpp"
 
-// TODO: static map of <pluginSlug, moduleSlug> to "short id"
-//       send in /set/module_structure
-//       reference it anywhere else
+
 struct ModuleStructureBundler : Bundler {
   ModuleStructureBundler(
     const std::string& pluginSlug,
     const std::string& moduleSlug
   );
 
+  typedef std::pair<std::string, std::string> SlugPair;
+  static std::map<SlugPair, int32_t> structureIds;
+  static inline int32_t structureIdCounter = 0;
+
+  int32_t id;
   std::string pluginSlug, moduleSlug;
 
   rack::plugin::Model* findModel();
