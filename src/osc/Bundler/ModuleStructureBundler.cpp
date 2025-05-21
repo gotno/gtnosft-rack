@@ -171,8 +171,6 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       continue;
     }
 
-    INFO("name: %s, description: %s", name.c_str(), description.c_str());
-
     messages.emplace_back(
       "/set/module_structure/param",
       [
