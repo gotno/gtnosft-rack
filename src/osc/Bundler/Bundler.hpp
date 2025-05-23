@@ -10,7 +10,7 @@
 #include "oscpack/osc/OscTypes.h"
 
 struct Bundler {
-  Bundler(std::string _name = "base bundler (noop)"): name(_name) {
+  Bundler(std::string _name = "NoopBundler"): name(_name) {
     // test too many messages for one packet (multiple sends)
     // for (int32_t i = 0; i < 200; ++i) {
     //   messages.emplace_back("/test", [i](osc::OutboundPacketStream& pstream) {
