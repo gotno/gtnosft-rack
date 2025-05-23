@@ -1,6 +1,6 @@
 #include "ChunkedImage.hpp"
 
-#include "../MessagePacker/ImageChunkPacker.hpp"
+#include "../Bundler/ChunkedImageBundler.hpp"
 
 #define QOI_IMPLEMENTATION
 #include "qoi/qoi.h"
@@ -10,21 +10,9 @@
 ChunkedImage::ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height):
   ChunkedSend(_pixels, _width * _height * ChunkedImage::DEPTH),
   width(_width), height(_height) {
-    // last checked, metadata takes 84 bytes, but let's allow for a little more.
-    int32_t largestPossibleChunk = MAX_CHUNK_SIZE - 128;
-    int32_t preferredChunkSize = 1024 * 48;
-    chunkSize = std::min(preferredChunkSize, largestPossibleChunk);
-    calculateNumChunks();
+    // TODO?: throw on compression failure, catch in caller and dispose
+    if (!compressData()) WARN("failed to compress image data");
   }
-
-void ChunkedImage::compress() {
-  if ((isCompressed = compressData())) {
-    calculateNumChunks();
-    return;
-  }
-
-  WARN("unable to compress image!");
-}
 
 bool ChunkedImage::compressData() {
   qoi_desc desc;
@@ -53,6 +41,6 @@ bool ChunkedImage::compressData() {
   return true;
 }
 
-MessagePacker* ChunkedImage::getPackerForChunk(int32_t chunkNum) {
-  return new ImageChunkPacker(chunkNum, this);
+Bundler* ChunkedImage::getBundlerForChunk(int32_t chunkNum) {
+  return new ChunkedImageBundler(chunkNum, this);
 }

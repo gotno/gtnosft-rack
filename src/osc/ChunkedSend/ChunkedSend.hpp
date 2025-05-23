@@ -9,14 +9,10 @@
 #include <vector>
 #include <chrono>
 
-class MessagePacker;
+class Bundler;
 
 struct ChunkedSend {
   inline static int32_t idCounter{0};
-  // static const int32_t MAX_CHUNK_SIZE =
-  //   OscSender::MSG_BUFFER_SIZE - sizeof(idCounter);
-  static const int32_t MAX_CHUNK_SIZE = 1232 - sizeof(idCounter);
-  static const int32_t BATCH_SIZE{10};
 
   ChunkedSend(uint8_t* _data, int64_t _size);
   virtual ~ChunkedSend();
@@ -34,16 +30,22 @@ struct ChunkedSend {
   uint8_t* data;
   int64_t size;
   int32_t numChunks;
-  int32_t chunkSize = MAX_CHUNK_SIZE;
+  int32_t chunkSize;
+  bool ready{false};
 
   std::mutex statusMutex;
 
+  int32_t getSizeOfChunk(int32_t chunkNum);
+  osc::Blob getBlobForChunk(int32_t chunkNum);
+
+  void setChunkSize(int32_t chunkSize);
   void calculateNumChunks();
+
   void ack(int32_t chunkNum);
   void getUnackedChunkNums(std::vector<int32_t>& chunkNums);
   void registerChunkSent(int32_t chunkNum);
 
-  virtual MessagePacker* getPackerForChunk(int32_t chunkNum);
+  virtual Bundler* getBundlerForChunk(int32_t chunkNum);
 
   void logCompletionDuration(int32_t chunkNum);
   void logCompletionDuration();

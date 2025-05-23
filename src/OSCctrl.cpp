@@ -212,7 +212,7 @@ void OSCctrlWidget::sendPanelRender(
   uint8_t* pixels = renderPixels(fb, width, height, zoom);
 
   ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
-  chunked->compress();
+  // chunked->compress();
   chunkman->add(chunked);
 }
 
@@ -243,8 +243,8 @@ int32_t OSCctrlWidget::sendOverlayRender(
   uint8_t* pixels = renderPixels(fb, width, height, zoom);
 
   ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
-  chunked->compress();
-  chunked->isOverlay = true;
+  // chunked->compress();
+  // chunked->isOverlay = true;
   chunkman->add(chunked);
 
   surrogate->module = NULL;
@@ -254,7 +254,7 @@ int32_t OSCctrlWidget::sendOverlayRender(
 }
 
 void OSCctrlWidget::sendModuleInfo(rack::app::ModuleWidget* moduleWidget) {
-  osctx->enqueueMessage(new ModuleInfoPacker(moduleWidget));
+  // osctx->enqueueMessage(new ModuleInfoPacker(moduleWidget));
 }
 
 rack::widget::FramebufferWidget* OSCctrlWidget::getPanelFramebuffer(

@@ -2,7 +2,6 @@
 
 #include "OscSender.hpp"
 #include "ChunkedSend/ChunkedSend.hpp"
-#include "MessagePacker/ImageChunkPacker.hpp"
 
 #include <thread>
 #include <chrono>
@@ -54,9 +53,9 @@ void ChunkedManager::processChunked(int32_t id) {
   }
 
   for (int32_t chunkNum : unackedChunkNums)
-    osctx->enqueueMessage(chunkedSend->getPackerForChunk(chunkNum));
+    osctx->enqueueBundler(chunkedSend->getBundlerForChunk(chunkNum));
 
-  std::thread([&, id]() { reprocessChunked(id); }).detach();
+  std::thread([this, id]() { reprocessChunked(id); }).detach();
 }
 
 void ChunkedManager::reprocessChunked(int32_t id) {

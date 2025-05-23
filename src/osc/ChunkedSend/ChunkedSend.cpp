@@ -1,21 +1,36 @@
 #include "ChunkedSend.hpp"
 
-#include "../MessagePacker/MessagePacker.hpp"
+#include "../Bundler/ChunkedSendBundler.hpp"
 
 ChunkedSend::ChunkedSend(uint8_t* _data, int64_t _size):
-  data(_data), size(_size) {
-    id = ++idCounter;
-    calculateNumChunks();
-  }
+  id(idCounter++), data(_data), size(_size) {}
 
 ChunkedSend::~ChunkedSend() {
   // logCompletionDuration();
   delete[] data;
 }
 
+void ChunkedSend::setChunkSize(int32_t _chunkSize) {
+  chunkSize = _chunkSize;
+  calculateNumChunks();
+}
+
 void ChunkedSend::calculateNumChunks() {
   // integer ceiling
   numChunks = (size + chunkSize - 1) / chunkSize;
+
+  ready = true;
+}
+
+int32_t ChunkedSend::getSizeOfChunk(int32_t chunkNum) {
+  return chunkNum == numChunks - 1
+    ? size - (numChunks - 1) * chunkSize
+    : chunkSize;
+}
+
+osc::Blob ChunkedSend::getBlobForChunk(int32_t chunkNum) {
+  const int32_t offset = chunkSize * chunkNum;
+  return osc::Blob(data + offset, getSizeOfChunk(chunkNum));
 }
 
 void ChunkedSend::ack(int32_t chunkNum) {
@@ -42,8 +57,8 @@ void ChunkedSend::registerChunkSent(int32_t chunkNum) {
   if (!pair.second) ++chunkSendCounts.at(chunkNum);
 }
 
-MessagePacker* ChunkedSend::getPackerForChunk(int32_t chunkNum) {
-  return new MessagePacker();
+Bundler* ChunkedSend::getBundlerForChunk(int32_t chunkNum) {
+  return new ChunkedSendBundler(chunkNum, this);
 }
 
 void ChunkedSend::logCompletionDuration(int32_t chunkNum) {
