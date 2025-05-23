@@ -15,7 +15,6 @@
 #include "osc/OscReceiver.hpp"
 #include "osc/ChunkedManager.hpp"
 
-#include "osc/MessagePacker/ModuleInfoPacker.hpp"
 #include "osc/ChunkedSend/ChunkedImage.hpp"
 
 struct OSCctrl : Module {

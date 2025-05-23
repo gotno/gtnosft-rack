@@ -12,7 +12,6 @@
 
 #include "OscConstants.hpp"
 
-class MessagePacker;
 struct Bundler;
 class ChunkedImage;
 
@@ -26,7 +25,6 @@ struct OscSender {
   ~OscSender();
 
   void enqueueBundler(Bundler* bundler);
-  void enqueueMessage(MessagePacker* packer);
   void sendHeartbeat();
 
   bool isBroadcasting();
@@ -52,7 +50,6 @@ private:
   std::thread queueWorker;
   std::atomic<bool> queueWorkerRunning;
   std::queue<Bundler*> bundlerQueue;
-  std::queue<MessagePacker*> messageQueue;
   std::mutex qmutex;
   std::condition_variable queueLockCondition;
   void startQueueWorker();

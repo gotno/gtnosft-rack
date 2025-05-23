@@ -2,8 +2,6 @@
 
 #include "OscSender.hpp"
 
-#include "MessagePacker/MessagePacker.hpp"
-
 #include "Bundler/Bundler.hpp"
 #include "Bundler/BroadcastHeartbeatBundler.hpp"
 #include "Bundler/DirectHeartbeatBundler.hpp"
@@ -103,13 +101,6 @@ void OscSender::stopQueueWorker() {
 void OscSender::enqueueBundler(Bundler* bundler) {
   std::unique_lock<std::mutex> locker(qmutex);
   bundlerQueue.push(bundler);
-  locker.unlock();
-  queueLockCondition.notify_one();
-}
-
-void OscSender::enqueueMessage(MessagePacker* packer) {
-  std::unique_lock<std::mutex> locker(qmutex);
-  messageQueue.push(packer);
   locker.unlock();
   queueLockCondition.notify_one();
 }
