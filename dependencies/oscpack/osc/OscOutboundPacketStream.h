@@ -124,6 +124,8 @@ public:
     OutboundPacketStream& operator<<( const ArrayInitiator& rhs );
     OutboundPacketStream& operator<<( const ArrayTerminator& rhs );
 
+    std::size_t AvailableBundleSpace();
+
 private:
 
     void ResetMessage();
