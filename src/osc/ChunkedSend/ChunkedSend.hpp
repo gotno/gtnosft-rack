@@ -8,6 +8,7 @@
 #include <mutex>
 #include <vector>
 #include <chrono>
+#include <memory>
 
 class Bundler;
 
@@ -23,6 +24,7 @@ struct ChunkedSend {
   std::map<int32_t, uint8_t> chunkSendCounts;
 
   static const uint8_t MAX_SENDS = 5;
+  std::atomic<bool> failed{false};
   bool sendFailed();
   bool sendSucceeded();
 
@@ -45,7 +47,7 @@ struct ChunkedSend {
   void getUnackedChunkNums(std::vector<int32_t>& chunkNums);
   void registerChunkSent(int32_t chunkNum);
 
-  virtual Bundler* getBundlerForChunk(int32_t chunkNum);
+  virtual Bundler* getBundlerForChunk(int32_t chunkNum) = 0;
 
   void logCompletionDuration(int32_t chunkNum);
   void logCompletionDuration();

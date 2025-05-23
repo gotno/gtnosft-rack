@@ -55,10 +55,7 @@ void ChunkedSend::registerChunkSent(int32_t chunkNum) {
   chunkSendTimes.insert({chunkNum, std::chrono::steady_clock::now()});
   auto pair = chunkSendCounts.insert({chunkNum, 0});
   if (!pair.second) ++chunkSendCounts.at(chunkNum);
-}
-
-Bundler* ChunkedSend::getBundlerForChunk(int32_t chunkNum) {
-  return new ChunkedSendBundler(chunkNum, this);
+  if (chunkSendCounts.at(chunkNum) > MAX_SENDS) failed = true;
 }
 
 void ChunkedSend::logCompletionDuration(int32_t chunkNum) {
@@ -100,11 +97,5 @@ bool ChunkedSend::sendSucceeded() {
 }
 
 bool ChunkedSend::sendFailed() {
-  std::lock_guard<std::mutex> locker(statusMutex);
-
-  for (const auto& pair : chunkSendCounts)
-    if (pair.second >= MAX_SENDS)
-      return true;
-
-  return false;
+  return failed;
 }

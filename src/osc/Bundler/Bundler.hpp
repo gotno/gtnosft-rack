@@ -33,7 +33,7 @@ struct Bundler {
     return messages[messageCursor].first;
   }
 
-  bool isNoop() { return messages.empty(); }
+  virtual bool isNoop() { return messages.empty(); }
   bool hasRemainingMessages() { return messageCursor < messages.size(); }
   void advance() { ++messageCursor; }
 

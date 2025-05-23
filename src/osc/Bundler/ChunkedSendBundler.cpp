@@ -3,7 +3,7 @@
 
 ChunkedSendBundler::ChunkedSendBundler(
   int32_t _chunkNum,
-  ChunkedSend* _chunkedSend
+  std::shared_ptr<ChunkedSend> _chunkedSend
 ): Bundler("ChunkedSendBundler"),
   chunkNum(_chunkNum), chunkedSend(_chunkedSend) {
   messages.emplace_back(
@@ -23,6 +23,12 @@ ChunkedSendBundler::ChunkedSendBundler(
       pstream << chunkedSend->getBlobForChunk(chunkNum);
     }
   );
+}
+
+bool ChunkedSendBundler::isNoop() {
+  // send failed or this chunk already ack'd
+  return chunkedSend->sendFailed()
+    || chunkedSend->chunkAckTimes.count(chunkNum);
 }
 
 void ChunkedSendBundler::finish() {

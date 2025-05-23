@@ -42,5 +42,5 @@ bool ChunkedImage::compressData() {
 }
 
 Bundler* ChunkedImage::getBundlerForChunk(int32_t chunkNum) {
-  return new ChunkedImageBundler(chunkNum, this);
+  return new ChunkedImageBundler(chunkNum, shared_from_this());
 }
