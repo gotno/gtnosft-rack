@@ -16,5 +16,6 @@ struct ChunkedSendBundler : virtual Bundler {
   void finish() override;
 
   virtual void bundleMetadata(osc::OutboundPacketStream& pstream);
-  void resetBundle(osc::OutboundPacketStream& pstream);
+
+  size_t getChunkSize(osc::OutboundPacketStream& pstream);
 };

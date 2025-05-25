@@ -9,7 +9,7 @@ struct ChunkedImage : ChunkedSend, public std::enable_shared_from_this<ChunkedIm
   int32_t width;
   int32_t height;
 
-  Bundler* getBundlerForChunk(int32_t chunkNum) override;
+  ChunkedSendBundler* getBundlerForChunk(int32_t chunkNum) override;
 private:
   bool compressData();
 };

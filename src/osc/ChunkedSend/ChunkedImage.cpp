@@ -12,6 +12,7 @@ ChunkedImage::ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height):
   width(_width), height(_height) {
     // TODO?: throw on compression failure, catch in caller and dispose
     if (!compressData()) WARN("failed to compress image data");
+    findChunkSize();
   }
 
 bool ChunkedImage::compressData() {
@@ -41,6 +42,6 @@ bool ChunkedImage::compressData() {
   return true;
 }
 
-Bundler* ChunkedImage::getBundlerForChunk(int32_t chunkNum) {
+ChunkedSendBundler* ChunkedImage::getBundlerForChunk(int32_t chunkNum) {
   return new ChunkedImageBundler(chunkNum, shared_from_this());
 }

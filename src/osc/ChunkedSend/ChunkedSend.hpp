@@ -10,7 +10,7 @@
 #include <chrono>
 #include <memory>
 
-class Bundler;
+class ChunkedSendBundler;
 
 struct ChunkedSend {
   inline static int32_t idCounter{0};
@@ -31,9 +31,8 @@ struct ChunkedSend {
   int32_t id;
   uint8_t* data;
   int64_t size;
-  int32_t numChunks;
-  int32_t chunkSize;
-  bool ready{false};
+  int32_t numChunks{0};
+  int32_t chunkSize{0};
 
   std::mutex statusMutex;
 
@@ -44,10 +43,11 @@ struct ChunkedSend {
   void calculateNumChunks();
 
   void ack(int32_t chunkNum);
+  void findChunkSize();
   void getUnackedChunkNums(std::vector<int32_t>& chunkNums);
   void registerChunkSent(int32_t chunkNum);
 
-  virtual Bundler* getBundlerForChunk(int32_t chunkNum) = 0;
+  virtual ChunkedSendBundler* getBundlerForChunk(int32_t chunkNum) = 0;
 
   void logCompletionDuration(int32_t chunkNum);
   void logCompletionDuration();

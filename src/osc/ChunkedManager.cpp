@@ -2,17 +2,21 @@
 
 #include "OscSender.hpp"
 #include "ChunkedSend/ChunkedSend.hpp"
+// #include "Bundler/Bundler.hpp"
+#include "Bundler/ChunkedSendBundler.hpp"
 
 #include <thread>
 #include <chrono>
 
 ChunkedManager::ChunkedManager(OscSender* sender): osctx(sender) {}
-
-ChunkedManager::~ChunkedManager() {
-}
+ChunkedManager::~ChunkedManager() {}
 
 void ChunkedManager::add(std::shared_ptr<ChunkedSend> chunked) {
-  chunkedSends.emplace(chunked->id, chunked);
+  if (chunked->numChunks == 0) {
+    WARN("chunkman skipping chunked send with no chunks.");
+    return;
+  }
+  chunkedSends.emplace(chunked->id, std::move(chunked));
   processChunked(chunked->id);
 }
 
