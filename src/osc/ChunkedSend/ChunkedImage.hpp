@@ -9,7 +9,10 @@ struct ChunkedImage : ChunkedSend {
   int32_t width;
   int32_t height;
 
-  ChunkedSendBundler* getBundlerForChunk(int32_t chunkNum) override;
+  ChunkedSendBundler* getBundlerForChunk(
+    int32_t chunkNum,
+    ChunkedManager* chunkman
+  ) override;
 private:
   bool compressData();
 };

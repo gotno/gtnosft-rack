@@ -10,6 +10,7 @@
 #include <chrono>
 #include <memory>
 
+class ChunkedManager;
 class ChunkedSendBundler;
 
 struct ChunkedSend {
@@ -43,11 +44,14 @@ struct ChunkedSend {
   void calculateNumChunks();
 
   void ack(int32_t chunkNum);
-  void findChunkSize();
+  void determineChunkSize(ChunkedManager* chunkman);
   void getUnackedChunkNums(std::vector<int32_t>& chunkNums);
   void registerChunkSent(int32_t chunkNum);
 
-  virtual ChunkedSendBundler* getBundlerForChunk(int32_t chunkNum) = 0;
+  virtual ChunkedSendBundler* getBundlerForChunk(
+    int32_t chunkNum,
+    ChunkedManager* chunkman
+  ) = 0;
 
   void logCompletionDuration(int32_t chunkNum);
   void logCompletionDuration();

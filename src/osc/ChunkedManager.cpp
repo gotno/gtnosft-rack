@@ -16,11 +16,18 @@ ChunkedManager::~ChunkedManager() {
 }
 
 void ChunkedManager::add(ChunkedSend* chunked) {
+  // this is awful but we need to add it first so when findChunkSize is called,
+  // the bundler can reach back here to get it. we'll erase below if need be.
+  chunkedSends.emplace(chunked->id, chunked);
+  chunked->determineChunkSize(this);
+
   if (chunked->numChunks == 0) {
     WARN("chunkman skipping chunked send with no chunks.");
+    delete chunked;
+    chunkedSends.erase(chunked->id);
     return;
   }
-  chunkedSends.emplace(chunked->id, std::move(chunked));
+
   processChunked(chunked->id);
 }
 
@@ -30,6 +37,11 @@ void ChunkedManager::ack(int32_t id, int32_t chunkNum) {
 
 bool ChunkedManager::isProcessing(int32_t id) {
   return chunkedExists(id) && !getChunked(id)->sendSucceeded();
+}
+
+ChunkedSend* ChunkedManager::findChunked(int32_t id) {
+  if (!chunkedExists(id)) return NULL;
+  return chunkedSends.at(id);
 }
 
 bool ChunkedManager::chunkedExists(int32_t id) {
@@ -60,7 +72,7 @@ void ChunkedManager::processChunked(int32_t id) {
   chunkedSend->getUnackedChunkNums(unackedChunkNums);
 
   for (int32_t chunkNum : unackedChunkNums)
-    osctx->enqueueBundler(chunkedSend->getBundlerForChunk(chunkNum));
+    osctx->enqueueBundler(chunkedSend->getBundlerForChunk(chunkNum, this));
 
   std::thread([this, id]() { reprocessChunked(id); }).detach();
 }

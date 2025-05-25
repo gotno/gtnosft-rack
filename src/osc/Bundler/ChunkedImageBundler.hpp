@@ -3,10 +3,17 @@
 #include "ChunkedSendBundler.hpp"
 
 class ChunkedImage;
+class ChunkedManager;
 
 struct ChunkedImageBundler : ChunkedSendBundler {
-  ChunkedImageBundler(int32_t chunkNum, ChunkedImage* chunkedImage);
+  ChunkedImageBundler(
+    int32_t chunkNum,
+    int32_t chunkedImageId,
+    ChunkedManager* chunkman
+  );
 
-  ChunkedImage* chunkedImage;
-  void bundleMetadata(osc::OutboundPacketStream& pstream) override;
+  void bundleMetadata(
+    osc::OutboundPacketStream& pstream,
+    ChunkedSend* chunkedSend
+  ) override;
 };

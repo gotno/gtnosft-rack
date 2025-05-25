@@ -5,13 +5,12 @@
 ChunkedSend::ChunkedSend(uint8_t* _data, int64_t _size):
   id(idCounter++), data(_data), size(_size) {}
 
-void ChunkedSend::findChunkSize() {
+void ChunkedSend::determineChunkSize(ChunkedManager* chunkman) {
   char* msgBuffer = new char[MSG_BUFFER_SIZE];
   osc::OutboundPacketStream pstream(msgBuffer, MSG_BUFFER_SIZE);
-  pstream << osc::BeginBundleImmediate;
 
   // the bundler will report space remaining after metadata is added
-  ChunkedSendBundler* bundler = getBundlerForChunk(0);
+  ChunkedSendBundler* bundler = getBundlerForChunk(0, chunkman);
   setChunkSize(bundler->getChunkSize(pstream));
 
   delete bundler;

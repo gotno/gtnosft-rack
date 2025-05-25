@@ -14,6 +14,9 @@ struct ChunkedManager {
   void ack(int32_t id, int32_t chunkNum);
   bool isProcessing(int32_t id);
 
+  // used by bundlers. returns null if not found.
+  ChunkedSend* findChunked(int32_t id);
+
 private:
   OscSender* osctx{NULL};
 

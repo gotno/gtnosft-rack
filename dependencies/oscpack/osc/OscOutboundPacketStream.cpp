@@ -242,12 +242,6 @@ void OutboundPacketStream::CheckForAvailableBundleSpace()
         throw OutOfBufferMemoryException();
 }
 
-std::size_t OutboundPacketStream::AvailableBundleSpace()
-{
-  return Capacity() - Size() - ((ElementSizeSlotRequired())?4:0) - 16;
-}
-
-
 void OutboundPacketStream::CheckForAvailableMessageSpace( const char *addressPattern )
 {
     // plus 4 for at least four bytes of type tag

@@ -1,5 +1,6 @@
 #include "ChunkedImage.hpp"
 
+#include "../ChunkedManager.hpp"
 #include "../Bundler/ChunkedImageBundler.hpp"
 
 #define QOI_IMPLEMENTATION
@@ -12,7 +13,6 @@ ChunkedImage::ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height):
   width(_width), height(_height) {
     // TODO?: throw on compression failure, catch in caller and dispose
     if (!compressData()) WARN("failed to compress image data");
-    findChunkSize();
   }
 
 bool ChunkedImage::compressData() {
@@ -42,6 +42,9 @@ bool ChunkedImage::compressData() {
   return true;
 }
 
-ChunkedSendBundler* ChunkedImage::getBundlerForChunk(int32_t chunkNum) {
-  return new ChunkedImageBundler(chunkNum, this);
+ChunkedSendBundler* ChunkedImage::getBundlerForChunk(
+  int32_t chunkNum,
+  ChunkedManager* chunkman
+) {
+  return new ChunkedImageBundler(chunkNum, id, chunkman);
 }
