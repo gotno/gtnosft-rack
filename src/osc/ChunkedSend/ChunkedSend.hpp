@@ -15,7 +15,7 @@ class ChunkedSendBundler;
 struct ChunkedSend {
   inline static int32_t idCounter{0};
 
-  ChunkedSend(uint8_t* _data, int64_t _size);
+  ChunkedSend(uint8_t* _rawPixelData, int64_t _size);
   virtual ~ChunkedSend();
 
   using time_point = std::chrono::steady_clock::time_point;
@@ -29,7 +29,7 @@ struct ChunkedSend {
   bool sendSucceeded();
 
   int32_t id;
-  uint8_t* data;
+  std::shared_ptr<uint8_t[]> pixelData; // Manages the lifetime of the pixel data
   int64_t size;
   int32_t numChunks{0};
   int32_t chunkSize{0};

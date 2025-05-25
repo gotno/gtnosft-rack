@@ -2,7 +2,10 @@
 
 #include "ChunkedSend.hpp"
 
-struct ChunkedImage : ChunkedSend, public std::enable_shared_from_this<ChunkedImage> {
+// Forward declaration, if ChunkedImageBundler needs ChunkedImage.
+// class ChunkedImageBundler; // Not strictly needed here as it's only a return type
+
+struct ChunkedImage : ChunkedSend { // Removed std::enable_shared_from_this
   ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height);
 
   static const int32_t DEPTH{4};

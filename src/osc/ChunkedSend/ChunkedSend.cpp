@@ -2,8 +2,10 @@
 
 #include "../Bundler/ChunkedSendBundler.hpp"
 
-ChunkedSend::ChunkedSend(uint8_t* _data, int64_t _size):
-  id(idCounter++), data(_data), size(_size) {}
+ChunkedSend::ChunkedSend(uint8_t* _rawPixelData, int64_t _size):
+  id(idCounter++),
+  pixelData(_rawPixelData, std::default_delete<uint8_t[]>()),
+  size(_size) {}
 
 void ChunkedSend::findChunkSize() {
   char* msgBuffer = new char[MSG_BUFFER_SIZE];
@@ -12,14 +14,21 @@ void ChunkedSend::findChunkSize() {
 
   // the bundler will report space remaining after metadata is added
   ChunkedSendBundler* bundler = getBundlerForChunk(0);
-  setChunkSize(bundler->getChunkSize(pstream));
+  // Assuming getBundlerForChunk throws on failure to create, or never returns null.
+  int32_t determinedChunkSize = bundler->getChunkSize(pstream);
+  delete bundler; // Delete the bundler to prevent memory leak
+  setChunkSize(determinedChunkSize);
 
+  // If std::bad_weak_ptr exceptions persist even after fixing the bundler memory leak,
+  // consider investigating ChunkedImage::compressData() and its underlying QOI image compression.
+  // Memory corruption in that stage could potentially damage std::shared_ptr control blocks
+  // or std::enable_shared_from_this internal state, leading to such exceptions.
   delete[] msgBuffer;
 }
 
 ChunkedSend::~ChunkedSend() {
   // logCompletionDuration();
-  delete[] data;
+  // pixelData's managed memory is automatically deallocated by the shared_ptr
 }
 
 void ChunkedSend::setChunkSize(int32_t _chunkSize) {
@@ -40,7 +49,7 @@ int32_t ChunkedSend::getSizeOfChunk(int32_t chunkNum) {
 
 osc::Blob ChunkedSend::getBlobForChunk(int32_t chunkNum) {
   const int32_t offset = chunkSize * chunkNum;
-  return osc::Blob(data + offset, getSizeOfChunk(chunkNum));
+  return osc::Blob(pixelData.get() + offset, getSizeOfChunk(chunkNum));
 }
 
 void ChunkedSend::ack(int32_t chunkNum) {
