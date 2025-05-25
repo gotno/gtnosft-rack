@@ -212,10 +212,7 @@ void OSCctrlWidget::sendPanelRender(
   int width, height;
   uint8_t* pixels = renderPixels(fb, width, height, zoom);
 
-  std::shared_ptr<ChunkedImage> chunked =
-    std::make_shared<ChunkedImage>(pixels, width, height);
-  // ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
-  // chunked->compress();
+  ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
   chunkman->add(chunked);
 }
 
@@ -228,8 +225,8 @@ void OSCctrlWidget::sendPanelRenderUncompressed(
 
   int width, height;
   uint8_t* pixels = renderPixels(fb, width, height, zoom);
-  std::shared_ptr<ChunkedImage> chunked =
-    std::make_shared<ChunkedImage>(pixels, width, height);
+
+  ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
   chunkman->add(chunked);
 }
 
@@ -247,11 +244,7 @@ int32_t OSCctrlWidget::sendOverlayRender(
   int width, height;
   uint8_t* pixels = renderPixels(fb, width, height, zoom);
 
-  // ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
-  // chunked->compress();
-  // chunked->isOverlay = true;
-  std::shared_ptr<ChunkedImage> chunked =
-    std::make_shared<ChunkedImage>(pixels, width, height);
+  ChunkedImage* chunked = new ChunkedImage(pixels, width, height);
   chunkman->add(chunked);
 
   surrogate->module = NULL;

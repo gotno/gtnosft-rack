@@ -5,11 +5,8 @@
 class ChunkedImage;
 
 struct ChunkedImageBundler : ChunkedSendBundler {
-  ChunkedImageBundler(
-    int32_t chunkNum,
-    std::shared_ptr<ChunkedImage> chunkedImage
-  );
+  ChunkedImageBundler(int32_t chunkNum, ChunkedImage* chunkedImage);
 
-  std::shared_ptr<ChunkedImage> chunkedImage;
+  ChunkedImage* chunkedImage;
   void bundleMetadata(osc::OutboundPacketStream& pstream) override;
 };

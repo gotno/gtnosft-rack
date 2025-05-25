@@ -7,10 +7,10 @@
 class ChunkedSend;
 
 struct ChunkedSendBundler : virtual Bundler {
-  ChunkedSendBundler(int32_t chunkNum, std::shared_ptr<ChunkedSend> chunkedSend);
+  ChunkedSendBundler(int32_t chunkNum, ChunkedSend* chunkedSend);
 
   int32_t chunkNum;
-  std::shared_ptr<ChunkedSend> chunkedSend{NULL};
+  ChunkedSend* chunkedSend{NULL};
 
   bool isNoop() override;
   void finish() override;

@@ -9,9 +9,13 @@
 #include <chrono>
 
 ChunkedManager::ChunkedManager(OscSender* sender): osctx(sender) {}
-ChunkedManager::~ChunkedManager() {}
 
-void ChunkedManager::add(std::shared_ptr<ChunkedSend> chunked) {
+ChunkedManager::~ChunkedManager() {
+  for (auto& pair : chunkedSends)
+    delete pair.second;
+}
+
+void ChunkedManager::add(ChunkedSend* chunked) {
   if (chunked->numChunks == 0) {
     WARN("chunkman skipping chunked send with no chunks.");
     return;
@@ -32,22 +36,22 @@ bool ChunkedManager::chunkedExists(int32_t id) {
   return chunkedSends.count(id) != 0;
 }
 
-std::shared_ptr<ChunkedSend> ChunkedManager::getChunked(int32_t id) {
+ChunkedSend* ChunkedManager::getChunked(int32_t id) {
   assert(chunkedExists(id));
   return chunkedSends.at(id);
 }
 
 void ChunkedManager::processChunked(int32_t id) {
-  std::shared_ptr<ChunkedSend> chunkedSend = getChunked(id);
+  ChunkedSend* chunkedSend = getChunked(id);
 
   bool sendFailed = chunkedSend->sendFailed();
   if (sendFailed) WARN("processing chunked send %d: send failed", id);
 
   bool sendSucceeded = chunkedSend->sendSucceeded();
-  // if (sendSucceeded)
-  //   INFO("processing chunked send %d: finished", id);
+  if (sendSucceeded) INFO("processing chunked send %d: finished", id);
 
   if (sendFailed || sendSucceeded) {
+    delete chunkedSend;
     chunkedSends.erase(id);
     return;
   }

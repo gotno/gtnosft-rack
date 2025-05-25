@@ -3,7 +3,7 @@
 
 ChunkedSendBundler::ChunkedSendBundler(
   int32_t _chunkNum,
-  std::shared_ptr<ChunkedSend> _chunkedSend
+  ChunkedSend* _chunkedSend
 ): Bundler("ChunkedSendBundler"), chunkNum(_chunkNum), chunkedSend(_chunkedSend) {
   messages.emplace_back(
     "/chunked",

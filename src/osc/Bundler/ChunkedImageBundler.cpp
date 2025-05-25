@@ -3,7 +3,7 @@
 
 ChunkedImageBundler::ChunkedImageBundler(
   int32_t chunkNum,
-  std::shared_ptr<ChunkedImage> _chunkedImage
+  ChunkedImage* _chunkedImage
 ):
   Bundler("ChunkedImageBundler"),
   ChunkedSendBundler(chunkNum, _chunkedImage),
