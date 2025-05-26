@@ -94,7 +94,7 @@ void OscReceiver::ProcessMessage(
   const osc::ReceivedMessage& message,
   const IpEndpointName& remoteEndpoint
 ) {
-  DEBUG("oscrx received message on path %s", message.AddressPattern());
+  // DEBUG("oscrx received message on path %s", message.AddressPattern());
 
   try {
     std::string address = message.AddressPattern();
