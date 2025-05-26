@@ -1,7 +1,6 @@
 #include "rack.hpp"
 
 #include <map>
-#include <memory>
 
 class ChunkedSend;
 class OscSender;

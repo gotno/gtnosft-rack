@@ -2,8 +2,6 @@
 
 #include "Bundler.hpp"
 
-#include <memory>
-
 class ChunkedSend;
 class ChunkedManager;
 

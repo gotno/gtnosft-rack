@@ -8,7 +8,6 @@
 #include <mutex>
 #include <vector>
 #include <chrono>
-#include <memory>
 
 class ChunkedManager;
 class ChunkedSendBundler;
