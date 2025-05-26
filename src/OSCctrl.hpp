@@ -11,13 +11,6 @@ class OscReceiver;
 class ChunkedManager;
 class OSCctrl;
 
-struct ModuleWidgetContainer : rack::widget::Widget {
-  void draw(const DrawArgs& args) override {
-    Widget::draw(args);
-    Widget::drawLayer(args, 1);
-  }
-};
-
 typedef std::function<void(void)> Action;
 
 struct SceneAction : rack::widget::Widget {

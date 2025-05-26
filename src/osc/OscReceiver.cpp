@@ -4,11 +4,15 @@
 #include "OscReceiver.hpp"
 
 #include "../OSCctrl.hpp"
-#include "ChunkedManager.hpp"
 #include "OscSender.hpp"
+#include "ChunkedManager.hpp"
+
+#include "ChunkedSend/ChunkedImage.hpp"
 
 #include "Bundler/ModuleStubsBundler.hpp"
 #include "Bundler/ModuleStructureBundler.hpp"
+
+#include "../renderer/Renderer.hpp"
 
 OscReceiver::OscReceiver(
   OSCctrlWidget* _ctrl,
@@ -163,6 +167,28 @@ void OscReceiver::generateRoutes() {
         ModuleStructureBundler* bundler =
           new ModuleStructureBundler(pluginSlug, moduleSlug);
         osctx->enqueueBundler(bundler);
+      });
+    }
+  );
+
+  // textures
+  routes.emplace(
+    "/get/texture/panel",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      std::string pluginSlug = (args++)->AsString();
+      std::string moduleSlug = (args++)->AsString();
+
+      ctrl->enqueueAction([this, pluginSlug, moduleSlug]() {
+        RenderResult render = Renderer::renderPanel(pluginSlug, moduleSlug);
+
+        if (render.failure()) {
+          INFO("failed to render panel %s:%s", pluginSlug.c_str(), moduleSlug.c_str());
+          INFO("  %s", render.statusMessage.c_str());
+          return;
+        }
+
+        ChunkedImage* chunkedImage = new ChunkedImage(render);
+        chunkman->add(chunkedImage);
       });
     }
   );

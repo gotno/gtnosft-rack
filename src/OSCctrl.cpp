@@ -17,6 +17,8 @@
 
 #include "osc/ChunkedSend/ChunkedImage.hpp"
 
+#include "renderer/Renderer.hpp"
+
 struct OSCctrl : Module {
   enum ParamId {
     PARAMS_LEN

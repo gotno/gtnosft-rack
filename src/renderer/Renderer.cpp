@@ -1,0 +1,370 @@
+#include "Renderer.hpp"
+
+// static
+RenderResult Renderer::MODEL_NOT_FOUND(
+  std::string caller,
+  const std::string& pluginSlug,
+  const std::string& moduleSlug
+) {
+  return RenderResult(
+    rack::string::f(
+      "Renderer::%s no Model for %s:%s",
+      caller.c_str(),
+      pluginSlug.c_str(),
+      moduleSlug.c_str()
+    )
+  );
+}
+
+// static
+RenderResult Renderer::MODULE_WIDGET_ERROR(
+  std::string caller,
+  const std::string& pluginSlug,
+  const std::string& moduleSlug
+) {
+  return RenderResult(
+    rack::string::f(
+      "Renderer::%s can't create ModuleWidget for %s:%s",
+      caller.c_str(),
+      pluginSlug.c_str(),
+      moduleSlug.c_str()
+    )
+  );
+}
+
+// static
+RenderResult Renderer::renderPanel(
+  const std::string& pluginSlug,
+  const std::string& moduleSlug
+) {
+  rack::plugin::Model* model = findModel(pluginSlug, moduleSlug);
+  if (!model) return MODEL_NOT_FOUND("renderPanel", pluginSlug, moduleSlug);
+
+  rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
+  if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPanel", pluginSlug, moduleSlug);
+
+  Renderer renderer(moduleWidget);
+  return renderer.render();
+}
+
+// static
+rack::plugin::Model* Renderer::findModel(
+  const std::string& pluginSlug,
+  const std::string& moduleSlug
+) {
+  for (rack::plugin::Plugin* plugin : rack::plugin::plugins) {
+    if (plugin->slug == pluginSlug) {
+      for (rack::plugin::Model* model : plugin->models) {
+        if (model->slug == moduleSlug) return model;
+      }
+    }
+  }
+  return NULL;
+}
+
+// static
+// static rack::app::ModuleWidget* Renderer::getModuleWidget(int64_t moduleId) {
+// }
+
+// static
+rack::app::ModuleWidget* Renderer::makeModuleWidget(rack::plugin::Model* model) {
+  return model->createModuleWidget(NULL);
+}
+
+Renderer::Renderer(rack::widget::Widget* _widget): widget(_widget) {}
+Renderer::~Renderer() {}
+
+RenderResult Renderer::render() {
+  rack::widget::FramebufferWidget* fb = wrapWidget(widget);
+  abandonChildren(widget);
+
+  try {
+    int width, height;
+    uint8_t* pixels = renderPixels(fb, width, height, 1.f);
+
+    delete fb;
+    return RenderResult(pixels, width, height);
+  } catch (std::exception& e) {
+    delete fb;
+    return RenderResult(e.what());
+  }
+}
+
+rack::widget::FramebufferWidget* Renderer::wrapWidget(
+  rack::widget::Widget* widget
+) {
+  rack::widget::FramebufferWidget* fbcontainer =
+    new rack::widget::FramebufferWidget;
+  ModuleWidgetContainer* container = new ModuleWidgetContainer;
+
+  fbcontainer->addChild(container);
+  container->box.size = widget->box.size;
+  fbcontainer->box.size = widget->box.size;
+  container->addChild(widget);
+
+  return fbcontainer;
+}
+
+uint8_t* Renderer::renderPixels(
+  rack::widget::FramebufferWidget* fb,
+  int& width,
+  int& height,
+  float zoom
+) {
+  fb->render(rack::math::Vec(zoom, zoom));
+
+  nvgluBindFramebuffer(fb->getFramebuffer());
+
+  nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
+
+  uint8_t* pixels = new uint8_t[height * width * 4];
+  glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  flipBitmap(pixels, width, height, 4);
+
+  return pixels;
+}
+
+void Renderer::flipBitmap(uint8_t* pixels, int width, int height, int depth) {
+  for (int y = 0; y < height / 2; y++) {
+    int flipY = height - y - 1;
+    uint8_t tmp[width * depth];
+    std::memcpy(tmp, &pixels[y * width * depth], width * depth);
+    std::memcpy(&pixels[y * width * depth], &pixels[flipY * width * depth], width * depth);
+    std::memcpy(&pixels[flipY * width * depth], tmp, width * depth);
+  }
+}
+
+// rack::plugin::Model* Renderer::findModel() {
+//   for (rack::plugin::Plugin* plugin : rack::plugin::plugins) {
+//     if (plugin->slug == pluginSlug) {
+//       for (rack::plugin::Model* model : plugin->models) {
+//         if (model->slug == moduleSlug) return model;
+//       }
+//     }
+//   }
+//   return NULL;
+// }
+
+// rack::app::ModuleWidget* Renderer::makeModuleWidget() {
+//   rack::plugin::Model* model = findModel();
+//   if (!model) {
+//     WARN(
+//       "ModuleStructureBundler unable to find Model for %s:%s",
+//       pluginSlug.c_str(),
+//       moduleSlug.c_str()
+//     );
+//     return NULL;
+//   }
+
+//   rack::engine::Module* module = model->createModule();
+//   rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(module);
+//   APP->engine->addModule(module);
+//   return moduleWidget;
+// }
+
+// rack::app::ModuleWidget* Renderer::makeDummyModuleWidget(
+//   rack::app::ModuleWidget* mw
+// ) {
+//   return mw->getModel()->createModuleWidget(NULL);
+// }
+
+// // make a new ModuleWidget and give it the old ModuleWidget's Module
+// rack::app::ModuleWidget* Renderer::makeSurrogateModuleWidget(
+//   rack::app::ModuleWidget* mw
+// ) {
+//   return mw->getModel()->createModuleWidget(mw->getModule());
+// }
+
+// std::string Renderer::makeFilename(rack::app::ModuleWidget* mw) {
+//   std::string f = "";
+//   f.append(mw->getModule()->getModel()->plugin->slug.c_str());
+//   f.append("-");
+//   f.append(mw->getModule()->getModel()->slug.c_str());
+//   return f;
+// }
+
+
+// // render FramebufferWidget to png
+// void Renderer::renderPng(
+//   std::string directory,
+//   std::string filename,
+//   rack::widget::FramebufferWidget* fb
+// ) {
+//   int width, height;
+//   uint8_t* pixels = renderPixels(fb, width, height);
+
+//   std::string renderPath = rack::asset::user(directory);
+//   rack::system::createDirectory(renderPath);
+//   std::string filepath = rack::system::join(renderPath, filename + ".png");
+//   stbi_write_png(
+//     filepath.c_str(),
+//     width,
+//     height,
+//     4,
+//     pixels,
+//     width * 4
+//   );
+
+//   delete[] pixels;
+//   nvgluBindFramebuffer(NULL);
+// }
+
+// // remove params/ports/lights from ModuleWidget
+void Renderer::abandonChildren(rack::widget::Widget* widget) {
+  auto it = widget->children.begin();
+  while (it != widget->children.end()) {
+    if (dynamic_cast<rack::app::SvgScrew*>(*it) || dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
+      it = widget->children.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+// // remove children->front() from ModuleWidget, which should be Internal->panel
+// void Renderer::abandonPanel(rack::app::ModuleWidget* mw) {
+//   auto it = mw->children.begin();
+//   mw->children.erase(it);
+// }
+
+// // render module without actual data, as in library preview, save
+// void Renderer::saveModulePreviewRender(
+//   rack::app::ModuleWidget* moduleWidget
+// ) {
+//   widget::FramebufferWidget* fb =
+//     wrapModuleWidget(
+//       makeDummyModuleWidget(moduleWidget)
+//     );
+
+//   renderPng("render_module_preview", makeFilename(moduleWidget), fb);
+
+//   delete fb;
+// }
+
+// // render only panel framebuffer, save
+// void Renderer::savePanelRender(
+//   rack::app::ModuleWidget* moduleWidget,
+//   float zoom
+// ) {
+//   rack::widget::FramebufferWidget* fb = getPanelFramebuffer(moduleWidget);
+//   renderPng("render_panel_framebuffer", makeFilename(moduleWidget), fb);
+// }
+
+// // render only panel framebuffer, compress & send
+// void Renderer::sendPanelRender(
+//   rack::app::ModuleWidget* moduleWidget,
+//   float zoom
+// ) {
+//   rack::widget::FramebufferWidget* fb = getPanelFramebuffer(moduleWidget);
+
+//   int width, height;
+//   uint8_t* pixels = renderPixels(fb, width, height, zoom);
+// }
+
+// // render only panel framebuffer, send
+// void Renderer::sendPanelRenderUncompressed(
+//   rack::app::ModuleWidget* moduleWidget,
+//   float zoom
+// ) {
+//   rack::widget::FramebufferWidget* fb = getPanelFramebuffer(moduleWidget);
+
+//   int width, height;
+//   uint8_t* pixels = renderPixels(fb, width, height, zoom);
+// }
+
+// // render module without panel or params/ports/lights, compress & send
+// // TODO: probably more efficient to hold on to the surrogate and update its module each time
+// int32_t Renderer::sendOverlayRender(
+//   rack::app::ModuleWidget* moduleWidget,
+//   float zoom
+// ) {
+//   rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
+//   widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
+//   abandonChildren(surrogate);
+//   abandonPanel(surrogate);
+
+//   int width, height;
+//   uint8_t* pixels = renderPixels(fb, width, height, zoom);
+
+//   surrogate->module = NULL;
+//   delete fb;
+// }
+
+// rack::widget::FramebufferWidget* Renderer::getPanelFramebuffer(
+//   rack::app::ModuleWidget* moduleWidget
+// ) {
+//   rack::widget::Widget* panel = moduleWidget->children.front();
+//   if (!panel) return NULL;
+
+//   rack::widget::FramebufferWidget* fb =
+//     dynamic_cast<rack::widget::FramebufferWidget*>(panel->children.front());
+//   if (!fb) return NULL;
+
+//   return fb;
+// }
+
+// // void Renderer::refreshModuleWidgets() {
+// //   moduleWidgets.clear();
+
+// //   for (int64_t& moduleId: APP->engine->getModuleIds()) {
+// //     rack::app::ModuleWidget* mw = APP->scene->rack->getModule(moduleId);
+
+// //     std::string key = "";
+// //     key.append(mw->getModule()->getModel()->plugin->slug.c_str());
+// //     key.append("-");
+// //     key.append(mw->getModule()->getModel()->name.c_str());
+
+// //     moduleWidgets.emplace(key, mw);
+// //   }
+// // }
+
+// void Renderer::logChildren(std::string& name, rack::app::ModuleWidget* mw) {
+//   DEBUG("\n\n%s", name.c_str());
+//   for (rack::widget::Widget* widget : mw->children) {
+//     DEBUG(
+//       "size %fx/%fy, pos %fx/%fy",
+//       widget->getSize().x,
+//       widget->getSize().y,
+//       widget->getPosition().x,
+//       widget->getPosition().y
+//     );
+
+//     if (dynamic_cast<rack::app::SvgButton*>(widget))
+//       DEBUG("  is SvgButton");
+//     if (dynamic_cast<rack::app::SvgKnob*>(widget))
+//       DEBUG("  is SvgKnob");
+//     if (dynamic_cast<rack::app::SvgPanel*>(widget))
+//       DEBUG("  is SvgPanel");
+//     if (dynamic_cast<rack::app::SvgPort*>(widget))
+//       DEBUG("  is SvgPort");
+//     if (dynamic_cast<rack::app::SvgScrew*>(widget))
+//       DEBUG("  is SvgScrew");
+//     if (dynamic_cast<rack::app::SvgSlider*>(widget))
+//       DEBUG("  is SvgSlider");
+//     if (dynamic_cast<rack::app::SvgSwitch*>(widget))
+//       DEBUG("  is SvgSwitch");
+
+//     if (dynamic_cast<rack::app::SliderKnob*>(widget))
+//       DEBUG("  is SliderKnob");
+//     if (dynamic_cast<rack::app::Knob*>(widget))
+//       DEBUG("  is Knob");
+
+//     if (dynamic_cast<rack::app::Switch*>(widget))
+//       DEBUG("  is Switch");
+
+//     if (dynamic_cast<rack::app::LedDisplay*>(widget))
+//       DEBUG("  is LedDisplay");
+
+//     if (dynamic_cast<rack::app::ModuleLightWidget*>(widget))
+//       DEBUG("  is ModuleLightWidget");
+//     if (dynamic_cast<rack::app::MultiLightWidget*>(widget))
+//       DEBUG("  is MultiLightWidget");
+//     if (dynamic_cast<rack::app::LightWidget*>(widget))
+//       DEBUG("  is LightWidget");
+
+//     if (dynamic_cast<rack::app::ParamWidget*>(widget))
+//       DEBUG("  is ParamWidget");
+//     if (dynamic_cast<rack::app::PortWidget*>(widget))
+//       DEBUG("  is PortWidget");
+//   }
+// }

@@ -15,6 +15,9 @@ ChunkedImage::ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height):
     if (!compressData()) WARN("failed to compress image data");
   }
 
+ChunkedImage::ChunkedImage(const RenderResult& result):
+  ChunkedImage(result.pixels, result.width, result.height) {}
+
 bool ChunkedImage::compressData() {
   qoi_desc desc;
   desc.width = width;
