@@ -175,10 +175,11 @@ void OscReceiver::generateRoutes() {
   routes.emplace(
     "/get/texture/panel",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int32_t requestedId = (args++)->AsInt32();
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
 
-      ctrl->enqueueAction([this, pluginSlug, moduleSlug]() {
+      ctrl->enqueueAction([this, requestedId, pluginSlug, moduleSlug]() {
         RenderResult render = Renderer::renderPanel(pluginSlug, moduleSlug);
 
         if (render.failure()) {
@@ -188,6 +189,7 @@ void OscReceiver::generateRoutes() {
         }
 
         ChunkedImage* chunkedImage = new ChunkedImage(render);
+        chunkedImage->id = requestedId;
         chunkman->add(chunkedImage);
       });
     }

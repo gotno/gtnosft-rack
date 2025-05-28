@@ -12,7 +12,7 @@ ChunkedSendBundler::ChunkedSendBundler(
   chunkedSendId(_chunkedSendId),
   chunkman(_chunkedManager) {
     messages.emplace_back(
-      "/chunked",
+      "/set/texture",
       [this](osc::OutboundPacketStream& pstream) {
         ChunkedSend* chunkedSend = chunkman->findChunked(chunkedSendId);
         bundleMetadata(pstream, chunkedSend);
