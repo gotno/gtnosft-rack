@@ -2,6 +2,17 @@
 
 #include "Bundler.hpp"
 
+enum class ParamType {
+  Unknown, Knob, Slider, Button, Switch
+};
+
+enum class PortType {
+  Unknown, Input, Output
+};
+
+enum class LightShape {
+  Unknown, Round, Rectangle
+};
 
 struct ModuleStructureBundler : Bundler {
   ModuleStructureBundler(

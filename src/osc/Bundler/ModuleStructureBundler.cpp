@@ -41,10 +41,6 @@ void ModuleStructureBundler::addLightMessage(
   rack::app::LightWidget* lightWidget,
   int32_t paramId
 ) {
-  enum LightShape {
-    Unknown, Round, Rectangle
-  };
-
   rack::math::Vec size = vec2cm(lightWidget->box.size);
   rack::math::Vec pos = vec2cm(lightWidget->box.pos);
   int32_t lightId = numLights;
@@ -56,7 +52,7 @@ void ModuleStructureBundler::addLightMessage(
       //       circular. we should render the widget and check for
       //       transparent corners instead, because some square lights
       //       are probably rectangles
-      int32_t lightShape =
+      LightShape lightShape =
         // "basically zero"
         size.x - size.y >= 0.f && size.x - size.y < 0.01f
           ? LightShape::Round
@@ -65,7 +61,7 @@ void ModuleStructureBundler::addLightMessage(
       pstream << id
         << lightId
         << paramId
-        << lightShape
+        << (int32_t)lightShape
         << size.x
         << size.y
         << pos.x
@@ -99,10 +95,6 @@ void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWid
 }
 
 void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWidget) {
-  enum ParamType {
-    Unknown, Knob, Slider, Button, Switch
-  };
-
   int32_t paramId;
   ParamType type;
   rack::math::Vec size, pos;
@@ -187,7 +179,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       ](osc::OutboundPacketStream& pstream) {
         pstream << id
           << paramId
-          << type
+          << (int32_t)type
           << name.c_str()
           << description.c_str()
           << size.x
@@ -285,11 +277,8 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 }
 
 void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidget) {
-  enum PortType {
-    Unknown, Input, Output
-  };
-
-  int32_t portId, type;
+  int32_t portId;
+  PortType type;
   rack::math::Vec size, pos;
   std::string name, description;
 
@@ -311,7 +300,7 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
       ) {
         pstream << id
           << portId
-          << type
+          << (int32_t)type
           << name.c_str()
           << description.c_str()
           << size.x
