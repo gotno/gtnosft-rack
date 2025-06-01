@@ -58,9 +58,23 @@ struct Renderer {
     const std::string& moduleSlug
   );
 
+  static RenderResult WIDGET_NOT_FOUND(
+    std::string caller,
+    const std::string& pluginSlug,
+    const std::string& moduleSlug,
+    int id
+  );
+
   static RenderResult renderPanel(
     const std::string& pluginSlug,
     const std::string& moduleSlug
+  );
+
+  static RenderResult renderPort(
+    const std::string& pluginSlug,
+    const std::string& moduleSlug,
+    int id,
+    rack::engine::Port::Type type
   );
 
   static rack::plugin::Model* findModel(

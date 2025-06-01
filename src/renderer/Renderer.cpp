@@ -33,6 +33,24 @@ RenderResult Renderer::MODULE_WIDGET_ERROR(
 }
 
 // static
+RenderResult Renderer::WIDGET_NOT_FOUND(
+  std::string caller,
+  const std::string& pluginSlug,
+  const std::string& moduleSlug,
+  int id
+) {
+  return RenderResult(
+    rack::string::f(
+      "Renderer::%s Widget not found %s:%s:%d",
+      caller.c_str(),
+      pluginSlug.c_str(),
+      moduleSlug.c_str(),
+      id
+    )
+  );
+}
+
+// static
 RenderResult Renderer::renderPanel(
   const std::string& pluginSlug,
   const std::string& moduleSlug
@@ -43,8 +61,34 @@ RenderResult Renderer::renderPanel(
   rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
   if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPanel", pluginSlug, moduleSlug);
 
-  Renderer renderer(moduleWidget);
-  return renderer.render();
+  return Renderer(moduleWidget).render();
+}
+
+// static
+RenderResult Renderer::renderPort(
+  const std::string& pluginSlug,
+  const std::string& moduleSlug,
+  int32_t id,
+  rack::engine::Port::Type type
+) {
+  rack::plugin::Model* model = findModel(pluginSlug, moduleSlug);
+  if (!model) return MODEL_NOT_FOUND("renderPort", pluginSlug, moduleSlug);
+
+  rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
+  if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPort", pluginSlug, moduleSlug);
+
+  rack::widget::Widget* portWidget = NULL;
+  portWidget =
+    type == rack::engine::Port::INPUT
+      ? moduleWidget->getInput(id)
+      : moduleWidget->getOutput(id);
+
+  if (!portWidget)
+    return WIDGET_NOT_FOUND("renderPort", pluginSlug, moduleSlug, id);
+
+  portWidget->parent = NULL;
+
+  return Renderer(portWidget).render();
 }
 
 // static

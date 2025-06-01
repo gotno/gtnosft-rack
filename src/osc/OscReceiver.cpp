@@ -196,6 +196,39 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
+    "/get/texture/port",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int32_t requestedId = (args++)->AsInt32();
+      std::string pluginSlug = (args++)->AsString();
+      std::string moduleSlug = (args++)->AsString();
+      int portId = (int)(args++)->AsInt32();
+      PortType portType = (PortType)(args++)->AsInt32();
+
+      ctrl->enqueueAction([=, this]() {
+        RenderResult render =
+          Renderer::renderPort(
+            pluginSlug,
+            moduleSlug,
+            portId,
+            portType == PortType::Input
+              ? rack::engine::Port::INPUT
+              : rack::engine::Port::OUTPUT
+          );
+
+        if (render.failure()) {
+          INFO("failed to render port %s:%s:%d", pluginSlug.c_str(), moduleSlug.c_str(), portId);
+          INFO("  %s", render.statusMessage.c_str());
+          return;
+        }
+
+        ChunkedImage* chunkedImage = new ChunkedImage(render);
+        chunkedImage->id = requestedId;
+        chunkman->add(chunkedImage);
+      });
+    }
+  );
+
+  routes.emplace(
     "/set/param/value",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
