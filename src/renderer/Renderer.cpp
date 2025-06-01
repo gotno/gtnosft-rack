@@ -146,6 +146,7 @@ RenderResult Renderer::render() {
     abandonChildren(widget);
     fb = wrapWidget(widget);
   } else {
+    abandonChildren(framebuffer);
     fb = framebuffer;
   }
 
@@ -255,15 +256,25 @@ void Renderer::flipBitmap(uint8_t* pixels, int width, int height, int depth) {
 //   nvgluBindFramebuffer(NULL);
 // }
 
-// // remove params/ports/lights from ModuleWidget
+// remove params/ports/lights/screws/shadows from children
 void Renderer::abandonChildren(rack::widget::Widget* widget) {
-  auto it = widget->children.begin();
-  while (it != widget->children.end()) {
-    if (dynamic_cast<rack::app::SvgScrew*>(*it) || dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
-      it = widget->children.erase(it);
-    } else {
-      ++it;
+  std::vector<rack::widget::Widget*> childrenToAbandon;
+
+  for (auto& child : widget->children) {
+    if (
+      dynamic_cast<rack::app::CircularShadow*>(child)
+        || dynamic_cast<rack::app::SvgScrew*>(child)
+        || dynamic_cast<rack::app::ParamWidget*>(child)
+        || dynamic_cast<rack::app::PortWidget*>(child)
+        || dynamic_cast<rack::app::LightWidget*>(child)
+    ) {
+      childrenToAbandon.push_back(child);
     }
+  }
+
+  for (auto& child : childrenToAbandon) {
+    widget->removeChild(child);
+    delete child;
   }
 }
 
