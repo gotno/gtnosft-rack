@@ -40,11 +40,13 @@ struct RenderResult {
 
 struct Renderer {
   Renderer(rack::widget::Widget* widget);
+  Renderer(rack::widget::FramebufferWidget* framebuffer);
   ~Renderer();
 
   RenderResult render();
 
-  rack::widget::Widget* widget;
+  rack::widget::Widget* widget = NULL;
+  rack::widget::FramebufferWidget* framebuffer = NULL;
 
   static RenderResult MODEL_NOT_FOUND(
     std::string caller,
@@ -80,6 +82,10 @@ struct Renderer {
   static rack::plugin::Model* findModel(
     const std::string& pluginSlug,
     const std::string& moduleSlug
+  );
+
+  static rack::widget::FramebufferWidget* findFramebuffer(
+    rack::widget::Widget* widget
   );
 
   // static rack::app::ModuleWidget* getModuleWidget(int64_t moduleId);

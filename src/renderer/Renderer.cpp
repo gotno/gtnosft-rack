@@ -86,9 +86,15 @@ RenderResult Renderer::renderPort(
   if (!portWidget)
     return WIDGET_NOT_FOUND("renderPort", pluginSlug, moduleSlug, id);
 
-  portWidget->parent = NULL;
+  rack::widget::FramebufferWidget* framebuffer = findFramebuffer(portWidget);
 
-  return Renderer(portWidget).render();
+  if (!framebuffer)
+    return WIDGET_NOT_FOUND("renderPort", pluginSlug, moduleSlug, id);
+
+  portWidget->removeChild(framebuffer);
+  delete moduleWidget;
+
+  return Renderer(framebuffer).render();
 }
 
 // static
@@ -107,6 +113,18 @@ rack::plugin::Model* Renderer::findModel(
 }
 
 // static
+rack::widget::FramebufferWidget* Renderer::findFramebuffer(
+  rack::widget::Widget* widget
+) {
+  rack::widget::FramebufferWidget* fb = NULL;
+  for (auto& child : widget->children) {
+    fb = dynamic_cast<rack::widget::FramebufferWidget*>(child);
+    if (fb) return fb;
+  }
+  return NULL;
+}
+
+// static
 // static rack::app::ModuleWidget* Renderer::getModuleWidget(int64_t moduleId) {
 // }
 
@@ -116,21 +134,33 @@ rack::app::ModuleWidget* Renderer::makeModuleWidget(rack::plugin::Model* model) 
 }
 
 Renderer::Renderer(rack::widget::Widget* _widget): widget(_widget) {}
+Renderer::Renderer(rack::widget::FramebufferWidget* _framebuffer):
+  framebuffer(_framebuffer) {}
+
 Renderer::~Renderer() {}
 
 RenderResult Renderer::render() {
-  rack::widget::FramebufferWidget* fb = wrapWidget(widget);
-  abandonChildren(widget);
+  rack::widget::FramebufferWidget* fb;
+
+  if (widget) {
+    abandonChildren(widget);
+    fb = wrapWidget(widget);
+  } else {
+    fb = framebuffer;
+  }
 
   try {
     int width, height;
-    uint8_t* pixels = renderPixels(fb, width, height, 1.f);
+    uint8_t* pixels = renderPixels(fb, width, height, 3.f);
 
     delete fb;
     return RenderResult(pixels, width, height);
   } catch (std::exception& e) {
     delete fb;
     return RenderResult(e.what());
+  } catch (...) {
+    delete fb;
+    return RenderResult("unknown Renderer error");
   }
 }
 
