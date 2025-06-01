@@ -8,7 +8,7 @@ RenderResult Renderer::MODEL_NOT_FOUND(
 ) {
   return RenderResult(
     rack::string::f(
-      "Renderer::%s no Model for %s:%s",
+      "Renderer::%s Model not found %s:%s",
       caller.c_str(),
       pluginSlug.c_str(),
       moduleSlug.c_str()
@@ -177,34 +177,6 @@ void Renderer::flipBitmap(uint8_t* pixels, int width, int height, int depth) {
     std::memcpy(&pixels[flipY * width * depth], tmp, width * depth);
   }
 }
-
-// rack::plugin::Model* Renderer::findModel() {
-//   for (rack::plugin::Plugin* plugin : rack::plugin::plugins) {
-//     if (plugin->slug == pluginSlug) {
-//       for (rack::plugin::Model* model : plugin->models) {
-//         if (model->slug == moduleSlug) return model;
-//       }
-//     }
-//   }
-//   return NULL;
-// }
-
-// rack::app::ModuleWidget* Renderer::makeModuleWidget() {
-//   rack::plugin::Model* model = findModel();
-//   if (!model) {
-//     WARN(
-//       "ModuleStructureBundler unable to find Model for %s:%s",
-//       pluginSlug.c_str(),
-//       moduleSlug.c_str()
-//     );
-//     return NULL;
-//   }
-
-//   rack::engine::Module* module = model->createModule();
-//   rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(module);
-//   APP->engine->addModule(module);
-//   return moduleWidget;
-// }
 
 // rack::app::ModuleWidget* Renderer::makeDummyModuleWidget(
 //   rack::app::ModuleWidget* mw
