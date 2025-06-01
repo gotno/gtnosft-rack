@@ -61,7 +61,13 @@ RenderResult Renderer::renderPanel(
   rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
   if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPanel", pluginSlug, moduleSlug);
 
-  return Renderer(moduleWidget).render();
+  abandonChildren(moduleWidget);
+  rack::widget::FramebufferWidget* framebuffer = wrapWidget(moduleWidget);
+
+  RenderResult result = Renderer(framebuffer).render();
+  delete framebuffer;
+
+  return result;
 }
 
 // static
@@ -94,7 +100,11 @@ RenderResult Renderer::renderPort(
   portWidget->removeChild(framebuffer);
   delete moduleWidget;
 
-  return Renderer(framebuffer).render();
+  abandonChildren(framebuffer);
+  RenderResult result = Renderer(framebuffer).render();
+
+  delete framebuffer;
+  return result;
 }
 
 // static
@@ -133,38 +143,24 @@ rack::app::ModuleWidget* Renderer::makeModuleWidget(rack::plugin::Model* model) 
   return model->createModuleWidget(NULL);
 }
 
-Renderer::Renderer(rack::widget::Widget* _widget): widget(_widget) {}
 Renderer::Renderer(rack::widget::FramebufferWidget* _framebuffer):
   framebuffer(_framebuffer) {}
-
 Renderer::~Renderer() {}
 
 RenderResult Renderer::render() {
-  rack::widget::FramebufferWidget* fb;
-
-  if (widget) {
-    abandonChildren(widget);
-    fb = wrapWidget(widget);
-  } else {
-    abandonChildren(framebuffer);
-    fb = framebuffer;
-  }
-
   try {
     int width, height;
-    uint8_t* pixels = renderPixels(fb, width, height, 3.f);
+    uint8_t* pixels = renderPixels(framebuffer, width, height, 3.f);
 
-    delete fb;
     return RenderResult(pixels, width, height);
   } catch (std::exception& e) {
-    delete fb;
     return RenderResult(e.what());
   } catch (...) {
-    delete fb;
     return RenderResult("unknown Renderer error");
   }
 }
 
+// static
 rack::widget::FramebufferWidget* Renderer::wrapWidget(
   rack::widget::Widget* widget
 ) {
@@ -256,6 +252,7 @@ void Renderer::flipBitmap(uint8_t* pixels, int width, int height, int depth) {
 //   nvgluBindFramebuffer(NULL);
 // }
 
+// static
 // remove params/ports/lights/screws/shadows from children
 void Renderer::abandonChildren(rack::widget::Widget* widget) {
   std::vector<rack::widget::Widget*> childrenToAbandon;

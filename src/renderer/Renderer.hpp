@@ -39,13 +39,11 @@ struct RenderResult {
 };
 
 struct Renderer {
-  Renderer(rack::widget::Widget* widget);
   Renderer(rack::widget::FramebufferWidget* framebuffer);
   ~Renderer();
 
   RenderResult render();
 
-  rack::widget::Widget* widget = NULL;
   rack::widget::FramebufferWidget* framebuffer = NULL;
 
   static RenderResult MODEL_NOT_FOUND(
@@ -93,13 +91,13 @@ struct Renderer {
   static rack::app::ModuleWidget* makeModuleWidget(rack::plugin::Model* model);
 
   // wrap ModuleWidget in container and framebuffer
-  rack::widget::FramebufferWidget* wrapWidget(rack::widget::Widget* widget);
+  static rack::widget::FramebufferWidget* wrapWidget(rack::widget::Widget* widget);
 
   // render FramebufferWidget to rgba pixel array
   uint8_t* renderPixels(rack::widget::FramebufferWidget* fb, int& width, int& height, float zoom = 3.f);
 
-  // remove params/ports/lights from ModuleWidget
-  void abandonChildren(rack::widget::Widget* mw);
+  // remove shadoes/screws/params/ports/lights from widget
+  static void abandonChildren(rack::widget::Widget* mw);
 
   void flipBitmap(uint8_t* pixels, int width, int height, int depth);
 //   rack::app::ModuleWidget* makeModuleWidget();
