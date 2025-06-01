@@ -138,8 +138,8 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       type = ParamType::Knob;
 
       // sometimes a knob is not a knob (looking at you, Surge),
-      // but that's the best way to represent this param in unreal.
-      // if x and y aren't equal, use the smaller of the two
+      // but functionally, that's the best way to represent it.
+      // if x and y aren't equal, use the smaller of the two.
       size = size.x > size.y ? rack::math::Vec(size.y) : rack::math::Vec(size.x);
 
     } else if ((switchWidget = dynamic_cast<rack::app::SvgSwitch*>(paramWidget))) {
