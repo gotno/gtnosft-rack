@@ -47,6 +47,8 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
   osctx = new OscSender();
   chunkman = new ChunkedManager(osctx);
   oscrx = new OscReceiver(this, osctx, chunkman);
+
+  enqueueAction([this]() { refreshModuleWidgets(); });
 }
 
 OSCctrlWidget::~OSCctrlWidget() {
@@ -361,6 +363,50 @@ void OSCctrlWidget::appendContextMenu(Menu* menu) {
         moduleWidgetToStream.second = NULL;
       }));
     }
+
+    // works!
+    menu->addChild(createSubmenuItem("render test- fb direct", "",
+      [=, this](Menu* menu) {
+        for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
+          rack::app::ModuleWidget* moduleWidget = pair.second;
+          rack::app::PortWidget* portWidget = moduleWidget->getInput(0);
+          if (!portWidget) continue;
+
+          rack::widget::FramebufferWidget* fb = NULL;
+          for (auto& child : portWidget->children) {
+            fb = dynamic_cast<rack::widget::FramebufferWidget*>(child);
+            if (fb) break;
+          }
+          if (!fb) continue;
+
+          menu->addChild(createMenuItem(pair.first.c_str(), "", [=, this]() {
+            renderPng("render_test", makeFilename(moduleWidget), fb);
+          }));
+        }
+      }
+    ));
+
+    menu->addChild(createSubmenuItem("render test- dummy module", "",
+      [=, this](Menu* menu) {
+        for (std::pair<std::string, rack::app::ModuleWidget*> pair : moduleWidgets) {
+          rack::app::ModuleWidget* moduleWidget =
+            pair.second->getModel()->createModuleWidget(NULL);
+          rack::app::PortWidget* portWidget = moduleWidget->getInput(0);
+          if (!portWidget) continue;
+
+          rack::widget::FramebufferWidget* fb = NULL;
+          for (auto& child : portWidget->children) {
+            fb = dynamic_cast<rack::widget::FramebufferWidget*>(child);
+            if (fb) break;
+          }
+          if (!fb) continue;
+
+          menu->addChild(createMenuItem(pair.first.c_str(), "", [=, this]() {
+            renderPng("render_test", "1port", fb);
+          }));
+        }
+      }
+    ));
 
     menu->addChild(createSubmenuItem("set streamed widget", "",
       [=, this](Menu* menu) {

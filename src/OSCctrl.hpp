@@ -55,6 +55,7 @@ struct OSCctrlWidget : ModuleWidget {
   rack::app::ModuleWidget* makeSurrogateModuleWidget(rack::app::ModuleWidget* mw);
 
   std::string makeFilename(rack::app::ModuleWidget* mw);
+  void renderFramebuffer( rack::widget::FramebufferWidget* fb);
 
   // wrap ModuleWidget in container and framebuffer
   rack::widget::FramebufferWidget* wrapModuleWidget(rack::app::ModuleWidget* mw);
