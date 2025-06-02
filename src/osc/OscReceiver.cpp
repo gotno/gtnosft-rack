@@ -229,6 +229,57 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
+    "/get/texture/knob",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int bgId = (int)(args++)->AsInt32();
+      int mgId = (int)(args++)->AsInt32();
+      int fgId = (int)(args++)->AsInt32();
+      std::string pluginSlug = (args++)->AsString();
+      std::string moduleSlug = (args++)->AsString();
+      int paramId = (int)(args++)->AsInt32();
+
+      ctrl->enqueueAction([=, this]() {
+        std::map<std::string, RenderResult> renderResults;
+
+        RenderResult result =
+          Renderer::renderKnob(
+            pluginSlug,
+            moduleSlug,
+            paramId,
+            renderResults
+          );
+
+        if (result.failure()) {
+          INFO(
+            "failed to render knob %s:%s:%d",
+            pluginSlug.c_str(), moduleSlug.c_str(), paramId
+          );
+          INFO("  %s", result.statusMessage.c_str());
+          return;
+        }
+
+        if (renderResults.contains("bg") && !renderResults.at("bg").failure()) {
+          ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("bg"));
+          chunkedImage->id = bgId;
+          chunkman->add(chunkedImage);
+        }
+
+        if (renderResults.contains("mg") && !renderResults.at("mg").failure()) {
+          ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("mg"));
+          chunkedImage->id = mgId;
+          chunkman->add(chunkedImage);
+        }
+
+        if (renderResults.contains("fg") && !renderResults.at("fg").failure()) {
+          ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("fg"));
+          chunkedImage->id = fgId;
+          chunkman->add(chunkedImage);
+        }
+      });
+    }
+  );
+
+  routes.emplace(
     "/set/param/value",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();

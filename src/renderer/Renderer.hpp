@@ -31,8 +31,10 @@ struct RenderResult {
     return status == RenderStatus::Failure;
   }
 
-  RenderResult(uint8_t* pixels, int width, int height)
-    : pixels(pixels), width(width), height(height) {}
+  RenderResult(): status(RenderStatus::Unknown) {}
+
+  RenderResult(uint8_t* pixels, int width, int height):
+    pixels(pixels), width(width), height(height), status(RenderStatus::Success) {}
 
   RenderResult(const std::string& _statusMessage)
     : status(RenderStatus::Failure), statusMessage(_statusMessage) {}
@@ -68,6 +70,13 @@ struct Renderer {
   static RenderResult renderPanel(
     const std::string& pluginSlug,
     const std::string& moduleSlug
+  );
+
+  static RenderResult renderKnob(
+    const std::string& pluginSlug,
+    const std::string& moduleSlug,
+    int id,
+    std::map<std::string, RenderResult>& renderResults
   );
 
   static RenderResult renderPort(

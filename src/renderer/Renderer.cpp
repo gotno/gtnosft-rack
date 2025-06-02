@@ -71,6 +71,86 @@ RenderResult Renderer::renderPanel(
 }
 
 // static
+RenderResult Renderer::renderKnob(
+  const std::string& pluginSlug,
+  const std::string& moduleSlug,
+  int32_t id,
+  std::map<std::string, RenderResult>& renderResults
+) {
+  rack::plugin::Model* model = findModel(pluginSlug, moduleSlug);
+  if (!model) {
+    MODEL_NOT_FOUND("renderKnob", pluginSlug, moduleSlug);
+  }
+
+  rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
+  if (!moduleWidget)
+    return MODULE_WIDGET_ERROR("renderKnob", pluginSlug, moduleSlug);
+
+  rack::widget::Widget* knobWidget = moduleWidget->getParam(id);
+  if (!knobWidget)
+    return WIDGET_NOT_FOUND("renderKnob-param", pluginSlug, moduleSlug, id);
+
+  rack::widget::FramebufferWidget* framebuffer = findFramebuffer(knobWidget);
+  if (!framebuffer)
+    return WIDGET_NOT_FOUND("renderKnob-fb", pluginSlug, moduleSlug, id);
+
+  knobWidget->removeChild(framebuffer);
+  delete moduleWidget;
+
+  // so long, shadow
+  abandonChildren(framebuffer);
+
+  rack::widget::Widget* bg{NULL};
+  rack::widget::Widget* mg{NULL};
+  rack::widget::Widget* fg{NULL};
+  rack::widget::Widget* lastWidget{NULL};
+
+  for (auto& child : framebuffer->children) {
+    // if this is the TransformWidget and there was a widget before, it must be the background
+    if (lastWidget && dynamic_cast<rack::widget::TransformWidget*>(child)) {
+      bg = lastWidget;
+    }
+    // the child of the transform widget is the midground
+    if (dynamic_cast<rack::widget::TransformWidget*>(child)) {
+      mg = child->children.front();
+    }
+    // if the last widget was a TransformWidget and we're still iterating, this must be the foreground
+    if (dynamic_cast<rack::widget::TransformWidget*>(lastWidget)) {
+      fg = child;
+    }
+
+    lastWidget = child;
+  }
+
+  if (bg) {
+    bg->visible = true;
+    if (mg) mg->visible = false;
+    if (fg) fg->visible = false;
+
+    renderResults["bg"] = Renderer(framebuffer).render();
+  }
+
+  if (mg) {
+    if (bg) bg->visible = false;
+    mg->visible = true;
+    if (fg) fg->visible = false;
+
+    renderResults["mg"] = Renderer(framebuffer).render();
+  }
+
+  if (fg) {
+    if (bg) bg->visible = false;
+    if (mg) mg->visible = false;
+    fg->visible = true;
+
+    renderResults["fg"] = Renderer(framebuffer).render();
+  }
+
+  delete framebuffer;
+  return RenderResult();
+}
+
+// static
 RenderResult Renderer::renderPort(
   const std::string& pluginSlug,
   const std::string& moduleSlug,
