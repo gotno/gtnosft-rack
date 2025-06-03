@@ -316,7 +316,7 @@ void OscReceiver::generateRoutes() {
           return;
         }
 
-        for (int i = 0; i < renderResults.size(); ++i) {
+        for (size_t i = 0; i < renderResults.size(); ++i) {
           if (renderResults[i].failure()) continue;
           if (i >= requestedIds.size()) {
             WARN("/get/texture/switch more switch textures than requested ids");
