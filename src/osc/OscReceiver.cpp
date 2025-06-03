@@ -195,6 +195,7 @@ void OscReceiver::generateRoutes() {
     }
   );
 
+  // TODO: requested ids last
   routes.emplace(
     "/get/texture/port",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
@@ -228,6 +229,7 @@ void OscReceiver::generateRoutes() {
     }
   );
 
+  // TODO: requested ids last
   routes.emplace(
     "/get/texture/knob",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
@@ -273,6 +275,58 @@ void OscReceiver::generateRoutes() {
         if (renderResults.contains("fg") && !renderResults.at("fg").failure()) {
           ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("fg"));
           chunkedImage->id = fgId;
+          chunkman->add(chunkedImage);
+        }
+      });
+    }
+  );
+
+  routes.emplace(
+    "/get/texture/switch",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      std::string pluginSlug = (args++)->AsString();
+      std::string moduleSlug = (args++)->AsString();
+      int paramId = (int)(args++)->AsInt32();
+
+      std::vector<int32_t> requestedIds;
+
+      int32_t requestedId;
+      try {
+        while(true) {
+          requestedId = (args++)->AsInt32();
+          requestedIds.push_back(requestedId);
+        }
+      } catch (const osc::WrongArgumentTypeException& e) {}
+
+      ctrl->enqueueAction([=, this]() {
+        std::vector<RenderResult> renderResults;
+
+        RenderResult result =
+          Renderer::renderSwitch(
+            pluginSlug,
+            moduleSlug,
+            paramId,
+            renderResults
+          );
+
+        if (result.failure()) {
+          INFO(
+            "failed to render switch %s:%s:%d",
+            pluginSlug.c_str(), moduleSlug.c_str(), paramId
+          );
+          INFO("  %s", result.statusMessage.c_str());
+          return;
+        }
+
+        for (int i = 0; i < renderResults.size(); ++i) {
+          if (renderResults[i].failure()) continue;
+          if (i >= requestedIds.size()) {
+            WARN("/get/texture/switch more switch textures than requested ids");
+            break;
+          }
+
+          ChunkedImage* chunkedImage = new ChunkedImage(renderResults[i]);
+          chunkedImage->id = requestedIds[i];
           chunkman->add(chunkedImage);
         }
       });

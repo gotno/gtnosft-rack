@@ -79,6 +79,13 @@ struct Renderer {
     std::map<std::string, RenderResult>& renderResults
   );
 
+  static RenderResult renderSwitch(
+    const std::string& pluginSlug,
+    const std::string& moduleSlug,
+    int32_t id,
+    std::vector<RenderResult>& renderResults
+  );
+
   static RenderResult renderPort(
     const std::string& pluginSlug,
     const std::string& moduleSlug,
@@ -98,6 +105,9 @@ struct Renderer {
   // static rack::app::ModuleWidget* getModuleWidget(int64_t moduleId);
 
   static rack::app::ModuleWidget* makeModuleWidget(rack::plugin::Model* model);
+  static rack::app::ModuleWidget* makeConnectedModuleWidget(
+    rack::plugin::Model* model
+  );
 
   // wrap ModuleWidget in container and framebuffer
   static rack::widget::FramebufferWidget* wrapWidget(rack::widget::Widget* widget);

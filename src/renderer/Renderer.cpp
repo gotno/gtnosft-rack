@@ -71,6 +71,47 @@ RenderResult Renderer::renderPanel(
 }
 
 // static
+RenderResult Renderer::renderSwitch(
+  const std::string& pluginSlug,
+  const std::string& moduleSlug,
+  int32_t id,
+  std::vector<RenderResult>& renderResults
+) {
+  rack::plugin::Model* model = findModel(pluginSlug, moduleSlug);
+  if (!model) {
+    MODEL_NOT_FOUND("renderSwitch", pluginSlug, moduleSlug);
+  }
+
+  rack::app::ModuleWidget* moduleWidget = makeConnectedModuleWidget(model);
+  if (!moduleWidget)
+    return MODULE_WIDGET_ERROR("renderSwitch", pluginSlug, moduleSlug);
+
+  rack::app::ParamWidget* switchWidget = moduleWidget->getParam(id);
+  if (!switchWidget)
+    return WIDGET_NOT_FOUND("renderSwitch-param", pluginSlug, moduleSlug, id);
+
+  rack::widget::FramebufferWidget* framebuffer = findFramebuffer(switchWidget);
+  if (!framebuffer)
+    return WIDGET_NOT_FOUND("renderSwitch-fb", pluginSlug, moduleSlug, id);
+
+  abandonChildren(framebuffer);
+
+  rack::engine::ParamQuantity* pq = switchWidget->getParamQuantity();
+  pq->setMin();
+
+  for (int i = 0; i <= pq->getMaxValue(); ++i) {
+    pq->setValue(i);
+    switchWidget->step();
+    renderResults.push_back(
+      Renderer(framebuffer).render()
+    );
+  }
+
+  delete moduleWidget;
+  return RenderResult();
+};
+
+// static
 RenderResult Renderer::renderKnob(
   const std::string& pluginSlug,
   const std::string& moduleSlug,
@@ -97,7 +138,6 @@ RenderResult Renderer::renderKnob(
   knobWidget->removeChild(framebuffer);
   delete moduleWidget;
 
-  // so long, shadow
   abandonChildren(framebuffer);
 
   rack::widget::Widget* bg{NULL};
@@ -105,6 +145,7 @@ RenderResult Renderer::renderKnob(
   rack::widget::Widget* fg{NULL};
   rack::widget::Widget* lastWidget{NULL};
 
+  // find each layer's widget
   for (auto& child : framebuffer->children) {
     // if this is the TransformWidget and there was a widget before, it must be the background
     if (lastWidget && dynamic_cast<rack::widget::TransformWidget*>(child)) {
@@ -122,6 +163,7 @@ RenderResult Renderer::renderKnob(
     lastWidget = child;
   }
 
+  // toggle layer visibility and render each
   if (bg) {
     bg->visible = true;
     if (mg) mg->visible = false;
@@ -221,6 +263,16 @@ rack::widget::FramebufferWidget* Renderer::findFramebuffer(
 // static
 rack::app::ModuleWidget* Renderer::makeModuleWidget(rack::plugin::Model* model) {
   return model->createModuleWidget(NULL);
+}
+
+// static
+rack::app::ModuleWidget* Renderer::makeConnectedModuleWidget(
+  rack::plugin::Model* model
+) {
+  rack::engine::Module* module = model->createModule();
+  rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(module);
+  APP->engine->addModule(module);
+  return moduleWidget;
 }
 
 Renderer::Renderer(rack::widget::FramebufferWidget* _framebuffer):

@@ -104,7 +104,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 
   rack::app::SvgSlider* sliderWidget;
   rack::app::Knob* knobWidget;
-  rack::app::SvgSwitch* switchWidget;
+  rack::app::Switch* switchWidget;
 
   for (rack::app::ParamWidget* & paramWidget : moduleWidget->getParams()) {
     rack::engine::ParamQuantity* pq = paramWidget->getParamQuantity();
@@ -142,9 +142,9 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       // if x and y aren't equal, use the smaller of the two.
       size = size.x > size.y ? rack::math::Vec(size.y) : rack::math::Vec(size.x);
 
-    } else if ((switchWidget = dynamic_cast<rack::app::SvgSwitch*>(paramWidget))) {
+    } else if ((switchWidget = dynamic_cast<rack::app::Switch*>(paramWidget))) {
       // deal with: dynamic_cast<bogaudio::StatefulButton*>(paramWidget);
-      if (switchWidget->momentary || switchWidget->latch) {
+      if (switchWidget->momentary) { // || switchWidget->latch) {
         type = ParamType::Button;
       } else {
         type = ParamType::Switch;
@@ -258,9 +258,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 
     if (type == ParamType::Switch) {
       bool horizontal = size.x > size.y;
-      int numFrames = switchWidget->frames.size() == 0
-        ? maxValue + 1
-        : switchWidget->frames.size();
+      int numFrames = maxValue + 1;
 
       messages.emplace_back(
         "/set/module_structure/param/switch",
