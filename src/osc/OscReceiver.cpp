@@ -175,9 +175,9 @@ void OscReceiver::generateRoutes() {
   routes.emplace(
     "/get/texture/panel",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
-      int32_t requestedId = (args++)->AsInt32();
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
+      int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([this, requestedId, pluginSlug, moduleSlug]() {
         RenderResult render = Renderer::renderPanel(pluginSlug, moduleSlug);
@@ -195,15 +195,14 @@ void OscReceiver::generateRoutes() {
     }
   );
 
-  // TODO: requested ids last
   routes.emplace(
     "/get/texture/port",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
-      int32_t requestedId = (args++)->AsInt32();
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
       int portId = (int)(args++)->AsInt32();
       PortType portType = (PortType)(args++)->AsInt32();
+      int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
         RenderResult render =
@@ -229,16 +228,15 @@ void OscReceiver::generateRoutes() {
     }
   );
 
-  // TODO: requested ids last
   routes.emplace(
     "/get/texture/knob",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
-      int bgId = (int)(args++)->AsInt32();
-      int mgId = (int)(args++)->AsInt32();
-      int fgId = (int)(args++)->AsInt32();
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
       int paramId = (int)(args++)->AsInt32();
+      int bgId = (int)(args++)->AsInt32();
+      int mgId = (int)(args++)->AsInt32();
+      int fgId = (int)(args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
         std::map<std::string, RenderResult> renderResults;
