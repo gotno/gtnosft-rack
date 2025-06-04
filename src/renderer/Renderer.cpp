@@ -212,12 +212,12 @@ RenderResult Renderer::renderPort(
       : moduleWidget->getOutput(id);
 
   if (!portWidget)
-    return WIDGET_NOT_FOUND("renderPort", pluginSlug, moduleSlug, id);
+    return WIDGET_NOT_FOUND("renderPort-port", pluginSlug, moduleSlug, id);
 
   rack::widget::FramebufferWidget* framebuffer = findFramebuffer(portWidget);
 
   if (!framebuffer)
-    return WIDGET_NOT_FOUND("renderPort", pluginSlug, moduleSlug, id);
+    return WIDGET_NOT_FOUND("renderPort-fb", pluginSlug, moduleSlug, id);
 
   portWidget->removeChild(framebuffer);
   delete moduleWidget;
