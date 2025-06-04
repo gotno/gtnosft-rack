@@ -99,7 +99,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
   ParamType type;
   rack::math::Vec size, pos;
   std::string name, description;
-  float minValue, maxValue;
+  float defaultValue, minValue, maxValue;
   bool snap;
 
   rack::app::SvgSlider* sliderWidget;
@@ -116,6 +116,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     // struct
     name = pq->getLabel(); // (name or #<paramId>)
     description = pq->getDescription();
+    defaultValue = pq->getDefaultValue();
     minValue = pq->getMinValue();
     maxValue = pq->getMaxValue();
     snap = pq->snapEnabled;
@@ -132,6 +133,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 
     if ((sliderWidget = dynamic_cast<rack::app::SvgSlider*>(paramWidget))) {
       // deal with: dynamic_cast<bogaudio::VUSlider*>(sliderWidget)
+      // (SliderKnob)
       type = ParamType::Slider;
 
     } else if ((knobWidget = dynamic_cast<rack::app::Knob*>(paramWidget))) {
@@ -173,6 +175,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
         description,
         size,
         pos,
+        defaultValue,
         minValue,
         maxValue,
         snap
@@ -186,6 +189,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
           << size.y
           << pos.x
           << pos.y
+          << defaultValue
           << minValue
           << maxValue
           << snap
