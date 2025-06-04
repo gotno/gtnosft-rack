@@ -200,7 +200,7 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
-      int portId = (int)(args++)->AsInt32();
+      int32_t portId = (args++)->AsInt32();
       PortType portType = (PortType)(args++)->AsInt32();
       int32_t requestedId = (args++)->AsInt32();
 
