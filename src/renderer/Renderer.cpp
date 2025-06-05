@@ -61,7 +61,7 @@ RenderResult Renderer::renderPanel(
   rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
   if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPanel", pluginSlug, moduleSlug);
 
-  abandonChildren(moduleWidget);
+  hideChildren(moduleWidget);
   rack::widget::FramebufferWidget* framebuffer = wrapModuleWidget(moduleWidget);
 
   RenderResult result = Renderer(framebuffer).render();
@@ -94,7 +94,7 @@ RenderResult Renderer::renderSwitch(
   if (!framebuffer)
     return WIDGET_NOT_FOUND("renderSwitch-fb", pluginSlug, moduleSlug, id);
 
-  abandonChildren(framebuffer);
+  hideChildren(framebuffer);
 
   rack::engine::ParamQuantity* pq = switchWidget->getParamQuantity();
   pq->setMin();
@@ -136,7 +136,7 @@ RenderResult Renderer::renderSlider(
   if (!framebuffer)
     return WIDGET_NOT_FOUND("renderSlider-fb", pluginSlug, moduleSlug, id);
 
-  abandonChildren(framebuffer);
+  hideChildren(framebuffer);
 
   rack::widget::Widget* track = sliderWidget->background;
   rack::widget::Widget* handle = sliderWidget->handle;
@@ -185,7 +185,7 @@ RenderResult Renderer::renderKnob(
   if (!framebuffer)
     return WIDGET_NOT_FOUND("renderKnob-fb", pluginSlug, moduleSlug, id);
 
-  abandonChildren(framebuffer);
+  hideChildren(framebuffer);
 
   rack::widget::Widget* bg{NULL};
   rack::widget::Widget* mg{NULL};
@@ -269,7 +269,7 @@ RenderResult Renderer::renderPort(
   portWidget->removeChild(framebuffer);
   delete moduleWidget;
 
-  abandonChildren(framebuffer);
+  hideChildren(framebuffer);
   RenderResult result = Renderer(framebuffer).render();
 
   delete framebuffer;
@@ -433,9 +433,7 @@ void Renderer::flipBitmap(uint8_t* pixels, int width, int height, int depth) {
 
 // static
 // remove params/ports/lights/screws/shadows from children
-void Renderer::abandonChildren(rack::widget::Widget* widget) {
-  std::vector<rack::widget::Widget*> childrenToAbandon;
-
+void Renderer::hideChildren(rack::widget::Widget* widget) {
   for (auto& child : widget->children) {
     if (
       dynamic_cast<rack::app::CircularShadow*>(child)
@@ -444,13 +442,8 @@ void Renderer::abandonChildren(rack::widget::Widget* widget) {
         || dynamic_cast<rack::app::PortWidget*>(child)
         || dynamic_cast<rack::app::LightWidget*>(child)
     ) {
-      childrenToAbandon.push_back(child);
+      child->visible = false;
     }
-  }
-
-  for (auto& child : childrenToAbandon) {
-    widget->removeChild(child);
-    delete child;
   }
 }
 
