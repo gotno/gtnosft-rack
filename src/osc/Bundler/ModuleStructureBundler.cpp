@@ -151,7 +151,11 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 
     } else if ((switchWidget = dynamic_cast<rack::app::Switch*>(paramWidget))) {
       // deal with: dynamic_cast<bogaudio::StatefulButton*>(paramWidget);
-      if (switchWidget->momentary) { // || switchWidget->latch) {
+      rack::app::SvgSwitch* svgSwitchWidget =
+        dynamic_cast<rack::app::SvgSwitch*>(paramWidget);
+      bool latch = svgSwitchWidget && svgSwitchWidget->latch;
+
+      if (switchWidget->momentary || latch) {
         type = ParamType::Button;
       } else {
         type = ParamType::Switch;
