@@ -100,7 +100,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
   rack::math::Vec size, pos;
   std::string name, description;
   float defaultValue, minValue, maxValue;
-  bool snap;
+  bool defaultVisible, snap;
 
   rack::app::SvgSlider* sliderWidget;
   rack::app::Knob* knobWidget;
@@ -119,6 +119,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     defaultValue = pq->getDefaultValue();
     minValue = pq->getMinValue();
     maxValue = pq->getMaxValue();
+    defaultVisible = paramWidget->isVisible();
     snap = pq->snapEnabled;
 
     // state
@@ -178,6 +179,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
         defaultValue,
         minValue,
         maxValue,
+        defaultVisible,
         snap
       ](osc::OutboundPacketStream& pstream) {
         pstream << id
@@ -192,6 +194,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
           << defaultValue
           << minValue
           << maxValue
+          << defaultVisible
           << snap
           ;
       }
@@ -283,6 +286,7 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
   PortType type;
   rack::math::Vec size, pos;
   std::string name, description;
+  bool defaultVisible;
 
   for (rack::app::PortWidget* portWidget : moduleWidget->getPorts()) {
     portId = portWidget->portId;
@@ -294,10 +298,11 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
     pos = vec2cm(portWidget->box.pos);
     name = portWidget->getPortInfo()->name;
     description = portWidget->getPortInfo()->description;
+    defaultVisible = portWidget->isVisible();
 
     messages.emplace_back(
       "/set/module_structure/port",
-      [this, portId, type, name, description, size, pos](
+      [this, portId, type, name, description, size, pos, defaultVisible](
         osc::OutboundPacketStream& pstream
       ) {
         pstream << id
@@ -309,6 +314,7 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
           << size.y
           << pos.x
           << pos.y
+          << defaultVisible
           ;
       }
     );
