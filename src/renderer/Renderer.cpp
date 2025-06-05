@@ -112,6 +112,56 @@ RenderResult Renderer::renderSwitch(
 };
 
 // static
+RenderResult Renderer::renderSlider(
+  const std::string& pluginSlug,
+  const std::string& moduleSlug,
+  int32_t id,
+  std::map<std::string, RenderResult>& renderResults
+) {
+  rack::plugin::Model* model = findModel(pluginSlug, moduleSlug);
+  if (!model) {
+    MODEL_NOT_FOUND("renderSlider", pluginSlug, moduleSlug);
+  }
+
+  rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
+  if (!moduleWidget)
+    return MODULE_WIDGET_ERROR("renderSlider", pluginSlug, moduleSlug);
+
+  rack::app::SvgSlider* sliderWidget =
+    dynamic_cast<rack::app::SvgSlider*>(moduleWidget->getParam(id));
+  if (!sliderWidget)
+    return WIDGET_NOT_FOUND("renderSlider-param", pluginSlug, moduleSlug, id);
+
+  rack::widget::FramebufferWidget* framebuffer = findFramebuffer(sliderWidget);
+  if (!framebuffer)
+    return WIDGET_NOT_FOUND("renderSlider-fb", pluginSlug, moduleSlug, id);
+
+  abandonChildren(framebuffer);
+
+  rack::widget::Widget* track = sliderWidget->background;
+  rack::widget::Widget* handle = sliderWidget->handle;
+
+  if (track) {
+    track->visible = true;
+    framebuffer->box.size = track->box.size;
+    if (handle) handle->visible = false;
+
+    renderResults["track"] = Renderer(framebuffer).render();
+  }
+
+  if (handle) {
+    if (track) track->visible = false;
+    handle->visible = true;
+    framebuffer->box.size = handle->box.size;
+
+    renderResults["handle"] = Renderer(framebuffer).render();
+  }
+
+  delete moduleWidget;
+  return RenderResult();
+}
+
+// static
 RenderResult Renderer::renderKnob(
   const std::string& pluginSlug,
   const std::string& moduleSlug,

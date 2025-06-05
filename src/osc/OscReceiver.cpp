@@ -332,6 +332,50 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
+    "/get/texture/slider",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      std::string pluginSlug = (args++)->AsString();
+      std::string moduleSlug = (args++)->AsString();
+      int paramId = (int)(args++)->AsInt32();
+      int trackId = (int)(args++)->AsInt32();
+      int handleId = (int)(args++)->AsInt32();
+
+      ctrl->enqueueAction([=, this]() {
+        std::map<std::string, RenderResult> renderResults;
+
+        RenderResult result =
+          Renderer::renderSlider(
+            pluginSlug,
+            moduleSlug,
+            paramId,
+            renderResults
+          );
+
+        if (result.failure()) {
+          INFO(
+            "failed to render slider %s:%s:%d",
+            pluginSlug.c_str(), moduleSlug.c_str(), paramId
+          );
+          INFO("  %s", result.statusMessage.c_str());
+          return;
+        }
+
+        if (renderResults.contains("track") && !renderResults.at("track").failure()) {
+          ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("track"));
+          chunkedImage->id = trackId;
+          chunkman->add(chunkedImage);
+        }
+
+        if (renderResults.contains("handle") && !renderResults.at("handle").failure()) {
+          ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("handle"));
+          chunkedImage->id = handleId;
+          chunkman->add(chunkedImage);
+        }
+      });
+    }
+  );
+
+  routes.emplace(
     "/set/param/value",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();

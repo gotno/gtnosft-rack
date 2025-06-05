@@ -86,6 +86,13 @@ struct Renderer {
     std::vector<RenderResult>& renderResults
   );
 
+  static RenderResult renderSlider(
+    const std::string& pluginSlug,
+    const std::string& moduleSlug,
+    int32_t id,
+    std::map<std::string, RenderResult>& renderResults
+  );
+
   static RenderResult renderPort(
     const std::string& pluginSlug,
     const std::string& moduleSlug,
