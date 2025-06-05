@@ -130,7 +130,9 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     knobWidget = NULL;
     switchWidget = NULL;
 
-    if ((sliderWidget = dynamic_cast<rack::app::SvgSlider*>(paramWidget))) {
+    if (needsParamTypeOverride(paramId)) {
+      type = getParamTypeOverride(paramId);
+    } else if ((sliderWidget = dynamic_cast<rack::app::SvgSlider*>(paramWidget))) {
       // deal with: dynamic_cast<bogaudio::VUSlider*>(sliderWidget)
       // (SliderKnob)
       type = ParamType::Slider;
@@ -361,5 +363,17 @@ rack::math::Vec ModuleStructureBundler::vec2cm(const rack::math::Vec& pxVec) con
   return rack::math::Vec(
     px2cm(pxVec.x),
     px2cm(pxVec.y)
+  );
+}
+
+bool ModuleStructureBundler::needsParamTypeOverride(int paramId) {
+  return (bool)paramTypeOverrides.count(
+    std::make_tuple(pluginSlug, moduleSlug, paramId)
+  );
+}
+
+ParamType ModuleStructureBundler::getParamTypeOverride(int paramId) {
+  return paramTypeOverrides.at(
+    std::make_tuple(pluginSlug, moduleSlug, paramId)
   );
 }

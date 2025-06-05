@@ -2,6 +2,8 @@
 
 #include "Bundler.hpp"
 
+#include <tuple>
+
 enum class ParamType {
   Unknown, Knob, Slider, Button, Switch
 };
@@ -26,6 +28,13 @@ struct ModuleStructureBundler : Bundler {
   int32_t id;
 
   std::string pluginSlug, moduleSlug;
+
+  typedef std::tuple<std::string, std::string, int> ParamTuple;
+  std::map<ParamTuple, ParamType> paramTypeOverrides = {
+    {{"Befaco", "Muxlicer", 0}, ParamType::Switch}
+  };
+  bool needsParamTypeOverride(int paramId);
+  ParamType getParamTypeOverride(int paramId);
 
   rack::plugin::Model* findModel();
   rack::app::ModuleWidget* makeModuleWidget();
