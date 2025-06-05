@@ -62,7 +62,7 @@ RenderResult Renderer::renderPanel(
   if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPanel", pluginSlug, moduleSlug);
 
   abandonChildren(moduleWidget);
-  rack::widget::FramebufferWidget* framebuffer = wrapWidget(moduleWidget);
+  rack::widget::FramebufferWidget* framebuffer = wrapModuleWidget(moduleWidget);
 
   RenderResult result = Renderer(framebuffer).render();
   delete framebuffer;
@@ -340,8 +340,8 @@ RenderResult Renderer::render() {
 }
 
 // static
-rack::widget::FramebufferWidget* Renderer::wrapWidget(
-  rack::widget::Widget* widget
+rack::widget::FramebufferWidget* Renderer::wrapModuleWidget(
+  rack::app::ModuleWidget* widget
 ) {
   rack::widget::FramebufferWidget* fbcontainer =
     new rack::widget::FramebufferWidget;
