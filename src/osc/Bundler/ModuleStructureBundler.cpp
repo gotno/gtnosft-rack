@@ -81,8 +81,6 @@ void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWid
   for (Widget* widget : moduleWidget->children) {
     if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget))
       addLightMessage(lightWidget);
-    // TODO?:
-    // else if (rack::app::LedDisplay* display = dynamic_cast<rack::app::LedDisplay*>(widget)) {
   }
 
   // param lights
