@@ -185,9 +185,6 @@ RenderResult Renderer::renderKnob(
   if (!framebuffer)
     return WIDGET_NOT_FOUND("renderKnob-fb", pluginSlug, moduleSlug, id);
 
-  knobWidget->removeChild(framebuffer);
-  delete moduleWidget;
-
   abandonChildren(framebuffer);
 
   rack::widget::Widget* bg{NULL};
@@ -238,7 +235,7 @@ RenderResult Renderer::renderKnob(
     renderResults["fg"] = Renderer(framebuffer).render();
   }
 
-  delete framebuffer;
+  delete moduleWidget;
   return RenderResult();
 }
 
