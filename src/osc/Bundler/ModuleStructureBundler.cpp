@@ -44,10 +44,13 @@ void ModuleStructureBundler::addLightMessage(
   rack::math::Vec size = vec2cm(lightWidget->box.size);
   rack::math::Vec pos = vec2cm(lightWidget->box.pos);
   int32_t lightId = numLights;
+  bool defaultVisible = lightWidget->isVisible();
 
   messages.emplace_back(
     "/set/module_structure/light",
-    [this, lightId, paramId, size, pos](osc::OutboundPacketStream& pstream) {
+    [this, lightId, paramId, size, pos, defaultVisible](
+      osc::OutboundPacketStream& pstream
+    ) {
       // TODO: we're assuming lights with a perfectly square size are
       //       circular. we should render the widget and check for
       //       transparent corners instead, because some square lights
@@ -66,6 +69,7 @@ void ModuleStructureBundler::addLightMessage(
         << size.y
         << pos.x
         << pos.y
+        << defaultVisible
         ;
     }
   );
