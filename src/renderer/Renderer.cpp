@@ -61,12 +61,17 @@ RenderResult Renderer::renderPanel(
   rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
   if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPanel", pluginSlug, moduleSlug);
 
-  hideChildren(moduleWidget);
-  rack::widget::FramebufferWidget* framebuffer = wrapModuleWidget(moduleWidget);
+  rack::widget::Widget* panel = moduleWidget->children.front();
+  if (!panel)
+    return WIDGET_NOT_FOUND("renderPanel-panel", pluginSlug, moduleSlug);
+
+  rack::widget::FramebufferWidget* framebuffer = findFramebuffer(panel);
+  if (!framebuffer)
+    return WIDGET_NOT_FOUND("renderPanel-framebuffer", pluginSlug, moduleSlug);
 
   RenderResult result = Renderer(framebuffer).render();
-  delete framebuffer;
 
+  delete moduleWidget;
   return result;
 }
 

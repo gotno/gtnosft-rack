@@ -64,7 +64,7 @@ struct Renderer {
     std::string caller,
     const std::string& pluginSlug,
     const std::string& moduleSlug,
-    int id
+    int id = -1
   );
 
   static RenderResult renderPanel(
