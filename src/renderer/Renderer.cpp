@@ -60,6 +60,7 @@ RenderResult Renderer::renderPanel(
 
   rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
   if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPanel", pluginSlug, moduleSlug);
+  DEFER({ delete moduleWidget; });
 
   rack::widget::Widget* panel = moduleWidget->children.front();
   if (!panel)
@@ -67,11 +68,10 @@ RenderResult Renderer::renderPanel(
 
   rack::widget::FramebufferWidget* framebuffer = findFramebuffer(panel);
   if (!framebuffer)
-    return WIDGET_NOT_FOUND("renderPanel-framebuffer", pluginSlug, moduleSlug);
+    return WIDGET_NOT_FOUND("renderPanel-fb", pluginSlug, moduleSlug);
 
   RenderResult result = Renderer(framebuffer).render();
 
-  delete moduleWidget;
   return result;
 }
 
@@ -90,6 +90,7 @@ RenderResult Renderer::renderSwitch(
   rack::app::ModuleWidget* moduleWidget = makeConnectedModuleWidget(model);
   if (!moduleWidget)
     return MODULE_WIDGET_ERROR("renderSwitch", pluginSlug, moduleSlug);
+  DEFER({ delete moduleWidget; });
 
   rack::app::ParamWidget* switchWidget = moduleWidget->getParam(id);
   if (!switchWidget)
@@ -112,7 +113,6 @@ RenderResult Renderer::renderSwitch(
     );
   }
 
-  delete moduleWidget;
   return RenderResult();
 };
 
@@ -131,6 +131,7 @@ RenderResult Renderer::renderSlider(
   rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
   if (!moduleWidget)
     return MODULE_WIDGET_ERROR("renderSlider", pluginSlug, moduleSlug);
+  DEFER({ delete moduleWidget; });
 
   rack::app::SvgSlider* sliderWidget =
     dynamic_cast<rack::app::SvgSlider*>(moduleWidget->getParam(id));
@@ -162,7 +163,6 @@ RenderResult Renderer::renderSlider(
     renderResults["handle"] = Renderer(framebuffer).render();
   }
 
-  delete moduleWidget;
   return RenderResult();
 }
 
@@ -181,6 +181,7 @@ RenderResult Renderer::renderKnob(
   rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
   if (!moduleWidget)
     return MODULE_WIDGET_ERROR("renderKnob", pluginSlug, moduleSlug);
+  DEFER({ delete moduleWidget; });
 
   rack::widget::Widget* knobWidget = moduleWidget->getParam(id);
   if (!knobWidget)
@@ -240,7 +241,6 @@ RenderResult Renderer::renderKnob(
     renderResults["fg"] = Renderer(framebuffer).render();
   }
 
-  delete moduleWidget;
   return RenderResult();
 }
 
@@ -256,6 +256,7 @@ RenderResult Renderer::renderPort(
 
   rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
   if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPort", pluginSlug, moduleSlug);
+  DEFER({ delete moduleWidget; });
 
   rack::widget::Widget* portWidget = NULL;
   portWidget =
@@ -271,13 +272,9 @@ RenderResult Renderer::renderPort(
   if (!framebuffer)
     return WIDGET_NOT_FOUND("renderPort-fb", pluginSlug, moduleSlug, id);
 
-  portWidget->removeChild(framebuffer);
-  delete moduleWidget;
-
   hideChildren(framebuffer);
   RenderResult result = Renderer(framebuffer).render();
 
-  delete framebuffer;
   return result;
 }
 
