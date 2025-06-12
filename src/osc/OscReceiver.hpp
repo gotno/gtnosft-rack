@@ -59,7 +59,6 @@ private:
   std::chrono::time_point<std::chrono::steady_clock> lastHeartbeatRxTime =
     std::chrono::steady_clock::time_point::min();
   Interval heartbeatInterval;
-  uint32_t heartbeatIntervalDelay{HEARTBEAT_DELAY};
   uint8_t missedHeartbeats{0}, maxMissedHeartbeats{MAX_MISSED_HEARTBEATS};
   std::mutex heartbeatMutex;
 };

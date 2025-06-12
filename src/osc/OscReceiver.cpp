@@ -63,7 +63,7 @@ void OscReceiver::endListener() {
 }
 
 void OscReceiver::startHeartbeat() {
-  heartbeatInterval = Timer::setInterval(heartbeatIntervalDelay, [this] {
+  heartbeatInterval = Timer::setInterval(HEARTBEAT_DELAY, [this] {
     ctrl->enqueueAction([this]() {
       osctx->sendHeartbeat();
     });
@@ -75,7 +75,7 @@ void OscReceiver::startHeartbeat() {
       return;
 
     auto now = std::chrono::steady_clock::now();
-    auto delayMs = std::chrono::milliseconds(heartbeatIntervalDelay);
+    auto delayMs = std::chrono::milliseconds(HEARTBEAT_DELAY);
 
     if (lastHeartbeatRxTime < (now - delayMs)) ++missedHeartbeats;
 
