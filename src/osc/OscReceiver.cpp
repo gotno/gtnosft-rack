@@ -382,6 +382,19 @@ void OscReceiver::generateRoutes() {
     }
   );
 
+  // subscriptions
+  routes.emplace(
+    "/subscribe/module/lights",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int64_t moduleId = (args++)->AsInt64();
+
+      ctrl->enqueueAction([this, moduleId]() {
+          if (!APP->scene->rack->getModule(moduleId)) return;
+          subman->subscribeModuleLights(moduleId);
+      });
+    }
+  );
+
   routes.emplace(
     "/set/param/value",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
