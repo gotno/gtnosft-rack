@@ -34,7 +34,7 @@ struct Interval {
   }
 
   ~Interval() {
-    cancel();
+    clear();
   }
 
   void start() {
@@ -46,7 +46,7 @@ struct Interval {
     );
   }
 
-  void cancel() {
+  void clear() {
     callbackPromise.set_value();
     if (worker.joinable()) worker.join();
   }
