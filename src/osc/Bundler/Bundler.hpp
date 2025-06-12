@@ -52,8 +52,9 @@ struct Bundler {
     }
   }
 
-  virtual void finish() {}
-  // TODO: do we need this with the smaller packet sizes? 
+  std::function<void()> onBundleComplete = []() {};
+  virtual void finish() { onBundleComplete(); }
+  // TODO: do we need this with the smaller packet sizes? doesn't seem that way.
   int32_t postSendDelayMs{0};
 
 private:
