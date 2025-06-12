@@ -389,8 +389,7 @@ void OscReceiver::generateRoutes() {
       int64_t moduleId = (args++)->AsInt64();
 
       ctrl->enqueueAction([this, moduleId]() {
-          if (!APP->scene->rack->getModule(moduleId)) return;
-          subman->subscribeModuleLights(moduleId);
+        subman->subscribeModuleLights(moduleId);
       });
     }
   );

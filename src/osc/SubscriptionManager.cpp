@@ -46,6 +46,7 @@ void SubscriptionManager::reset() {
 }
 
 void SubscriptionManager::subscribeModuleLights(int64_t moduleId) {
+  if (!APP->scene->rack->getModule(moduleId)) return;
   moduleLightSubs.insert(moduleId);
 }
 // void unsubscribeModuleLights(int64_t moduleId);
