@@ -12,6 +12,7 @@
 #include "osc/OscSender.hpp"
 #include "osc/OscReceiver.hpp"
 #include "osc/ChunkedManager.hpp"
+#include "osc/SubscriptionManager.hpp"
 
 #include "osc/ChunkedSend/ChunkedImage.hpp"
 
@@ -46,15 +47,17 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
 
   osctx = new OscSender();
   chunkman = new ChunkedManager(osctx);
-  oscrx = new OscReceiver(this, osctx, chunkman);
+  subman = new SubscriptionManager(this, osctx, chunkman);
+  oscrx = new OscReceiver(this, osctx, chunkman, subman);
 
   enqueueAction([this]() { refreshModuleWidgets(); });
 }
 
 OSCctrlWidget::~OSCctrlWidget() {
-  delete osctx;
   delete oscrx;
+  delete subman;
   delete chunkman;
+  delete osctx;
 }
 
 void OSCctrlWidget::step() {

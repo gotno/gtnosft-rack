@@ -6,6 +6,7 @@
 #include "../OSCctrl.hpp"
 #include "OscSender.hpp"
 #include "ChunkedManager.hpp"
+#include "SubscriptionManager.hpp"
 
 #include "ChunkedSend/ChunkedImage.hpp"
 
@@ -17,10 +18,12 @@
 OscReceiver::OscReceiver(
   OSCctrlWidget* _ctrl,
   OscSender* oscSender,
-  ChunkedManager* chunkedManager
+  ChunkedManager* chunkedManager,
+  SubscriptionManager* subscriptionManager
 ): ctrl(_ctrl),
   osctx(oscSender),
   chunkman(chunkedManager),
+  subman(subscriptionManager),
   endpoint(IpEndpointName(IpEndpointName::ANY_ADDRESS, RX_PORT)) {
     generateRoutes();
     startListener();
@@ -84,6 +87,8 @@ void OscReceiver::startHeartbeat() {
       WARN("client is gone, switching back to broadcasting");
       lastHeartbeatRxTime = std::chrono::steady_clock::time_point::min();
       osctx->setBroadcasting();
+
+      subman->reset();
     }
   });
 
@@ -117,6 +122,8 @@ void OscReceiver::generateRoutes() {
       remoteEndpoint.AddressAsString(ip);
       osctx->setDirect(ip);
       free(ip);
+
+      subman->start();
     }
   );
 

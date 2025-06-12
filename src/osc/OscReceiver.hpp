@@ -16,12 +16,14 @@
 class OSCctrlWidget;
 class OscSender;
 class ChunkedManager;
+class SubscriptionManager;
 
 struct OscReceiver : public osc::OscPacketListener {
   OscReceiver(
     OSCctrlWidget* _ctrl,
     OscSender* oscSender,
-    ChunkedManager* chunkedManager
+    ChunkedManager* chunkedManager,
+    SubscriptionManager* subscriptionManager
   );
   ~OscReceiver();
 
@@ -31,6 +33,7 @@ private:
   OSCctrlWidget* ctrl;
   OscSender* osctx;
   ChunkedManager* chunkman;
+  SubscriptionManager* subman;
 
   IpEndpointName endpoint;
   UdpListeningReceiveSocket* rxSocket = NULL;

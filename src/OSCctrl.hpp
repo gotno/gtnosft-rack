@@ -9,6 +9,7 @@
 class OscSender;
 class OscReceiver;
 class ChunkedManager;
+class SubscriptionManager;
 class OSCctrl;
 
 typedef std::function<void(void)> Action;
@@ -36,6 +37,7 @@ struct OSCctrlWidget : ModuleWidget {
   OscSender* osctx = NULL;
   OscReceiver* oscrx = NULL;
   ChunkedManager* chunkman = NULL;
+  SubscriptionManager* subman = NULL;
 
   OSCctrlWidget(OSCctrl* module);
   ~OSCctrlWidget();
