@@ -47,7 +47,12 @@ struct Interval {
   }
 
   void clear() {
-    callbackPromise.set_value();
+    try {
+      callbackPromise.set_value();
+    } catch (const std::future_error& e) {
+      // this enables calling clear() on intervals that are not running
+    }
+
     if (worker.joinable()) worker.join();
   }
 
