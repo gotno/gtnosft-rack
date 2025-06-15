@@ -137,13 +137,14 @@ void OscSender::processQueue() {
         sendBundle(pstream);
       }
 
-      bundler->finish();
+      bundler->sent();
       if (bundler->postSendDelayMs > 0)
         std::this_thread::sleep_for(
           std::chrono::milliseconds(bundler->postSendDelayMs)
         );
     }
 
+    bundler->done();
     delete bundler;
   }
 }

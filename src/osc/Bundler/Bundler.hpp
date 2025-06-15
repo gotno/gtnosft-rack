@@ -52,8 +52,14 @@ struct Bundler {
     }
   }
 
-  std::function<void()> onBundleComplete = []() {};
-  virtual void finish() { onBundleComplete(); }
+  // called after messages are bundled
+  std::function<void()> onBundleSent = []() {};
+  virtual void sent() { onBundleSent(); }
+
+  // always called, even if bundler is noop
+  std::function<void()> beforeDestroy = []() {};
+  virtual void done() { beforeDestroy(); }
+
   // TODO: do we need this with the smaller packet sizes? doesn't seem that way.
   int32_t postSendDelayMs{0};
 

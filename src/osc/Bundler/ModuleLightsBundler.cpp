@@ -6,7 +6,7 @@ ModuleLightsBundler::ModuleLightsBundler(
   const std::vector<int64_t>& subscribedModuleIds,
   std::function<void()> callback
 ): Bundler("ModuleLightsBundler") {
-  onBundleComplete = callback;
+  beforeDestroy = callback;
 
   std::vector<int64_t> rackModuleIds = APP->engine->getModuleIds();
   std::sort(rackModuleIds.begin(), rackModuleIds.end());

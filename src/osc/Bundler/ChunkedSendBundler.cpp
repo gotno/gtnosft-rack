@@ -39,7 +39,7 @@ bool ChunkedSendBundler::isNoop() {
   return chunkedSend->sendFailed() || chunkedSend->chunkAckTimes.count(chunkNum);
 }
 
-void ChunkedSendBundler::finish() {
+void ChunkedSendBundler::sent() {
   chunkman->findChunked(chunkedSendId)->registerChunkSent(chunkNum);
 }
 
