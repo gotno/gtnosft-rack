@@ -38,7 +38,6 @@ struct ModuleStructureBundler : Bundler {
 
   rack::plugin::Model* findModel();
   rack::app::ModuleWidget* makeModuleWidget();
-  void cleanup(rack::app::ModuleWidget* moduleWidget);
 
   int32_t numParams{0}, numInputs{0}, numOutputs{0}, numLights{0};
 

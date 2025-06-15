@@ -33,7 +33,7 @@ ModuleStructureBundler::ModuleStructureBundler(
     }
   );
 
-  cleanup(moduleWidget);
+  delete moduleWidget;
   ++structureIdCounter;
 }
 
@@ -362,10 +362,6 @@ rack::app::ModuleWidget* ModuleStructureBundler::makeModuleWidget() {
   rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(module);
   APP->engine->addModule(module);
   return moduleWidget;
-}
-
-void ModuleStructureBundler::cleanup(rack::app::ModuleWidget* moduleWidget) {
-  delete moduleWidget;
 }
 
 float ModuleStructureBundler::px2cm(const float& px) const {
