@@ -57,10 +57,10 @@ void ChunkedManager::processChunked(int32_t id) {
   ChunkedSend* chunkedSend = getChunked(id);
 
   bool sendFailed = chunkedSend->sendFailed();
-  if (sendFailed) WARN("processing chunked send %d: send failed", id);
+  // if (sendFailed) WARN("processing chunked send %d: send failed", id);
 
   bool sendSucceeded = chunkedSend->sendSucceeded();
-  if (sendSucceeded) INFO("processing chunked send %d: finished", id);
+  // if (sendSucceeded) INFO("processing chunked send %d: finished", id);
 
   if (sendFailed || sendSucceeded) {
     delete chunkedSend;
