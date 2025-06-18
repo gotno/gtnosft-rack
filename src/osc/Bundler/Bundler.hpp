@@ -42,11 +42,11 @@ struct Bundler {
       try {
         buildNextMessage(pstream);
       } catch (osc::OutOfBufferMemoryException& e) {
-        DEBUG(
-          "out of memory while building %lld:%s",
-          messageCursor,
-          getNextPath().c_str()
-        );
+        // DEBUG(
+        //   "out of memory while building %lld:%s",
+        //   messageCursor,
+        //   getNextPath().c_str()
+        // );
         return;
       }
     }
