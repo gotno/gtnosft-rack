@@ -33,7 +33,6 @@ struct Bundler {
     return messages[messageCursor].first;
   }
 
-  virtual bool isNoop() { return messages.empty(); }
   bool hasRemainingMessages() { return messageCursor < messages.size(); }
   void advance() { ++messageCursor; }
 
@@ -51,6 +50,10 @@ struct Bundler {
       }
     }
   }
+
+  // called before bundling to potentially skip
+  std::function<bool()> noopCheck = [this]() { return messages.empty(); };
+  virtual bool isNoop() { return noopCheck(); }
 
   // called after messages are bundled
   std::function<void()> onBundleSent = []() {};
