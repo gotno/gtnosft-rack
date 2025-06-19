@@ -11,19 +11,19 @@ struct ComponentState{
 
 struct LightState: public ComponentState {
   LightState(int _id, rack::app::LightWidget* widget):
-    ComponentState(_id, widget->isVisible()), color(widget->color) {}
+    ComponentState(_id, widget->isVisible()),
+    hexColor(rack::color::toHexString(widget->color)) {}
 
-  NVGcolor color;
+  std::string hexColor;
 
-  bool changed(rack::app::LightWidget* widget) {
-    if (widget->isVisible() != visible) return true;
-    if (!rack::color::isEqual(widget->color, color)) return true;
-    return false;
-  }
+  bool update(rack::app::LightWidget* widget) {
+    std::string currentHexColor = rack::color::toHexString(widget->color);
+    if (visible == widget->isVisible() && hexColor == currentHexColor)
+      return false;
 
-  void update(rack::app::LightWidget* widget) {
     visible = widget->isVisible();
-    color = widget->color;
+    hexColor = currentHexColor;
+    return true;
   }
 };
 

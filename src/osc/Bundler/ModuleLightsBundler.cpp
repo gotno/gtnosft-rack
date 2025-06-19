@@ -34,16 +34,12 @@ ModuleLightsBundler::ModuleLightsBundler(
       rack::app::LightWidget* widget = it->first;
       auto& state = it->second;
 
-      if (state.changed(widget)) {
-        state.update(widget);
-        addMessage(moduleId, state);
-      }
+      if (state.update(widget)) addMessage(moduleId, state);
     }
   }
 }
 
 void ModuleLightsBundler::collectLights(int64_t moduleId) {
-  INFO("bundler collect");
   using namespace rack::app;
   using namespace rack::widget;
 
@@ -78,15 +74,12 @@ void ModuleLightsBundler::addMessage(
   const LightState& state
 ) {
   messages.emplace_back(
-    "/set/state/module/light",
+    "/set/s/l",
     [moduleId, state](osc::OutboundPacketStream& pstream) {
       pstream << moduleId
         << state.id
         << state.visible
-        << state.color.r
-        << state.color.g
-        << state.color.b
-        << state.color.a
+        << state.hexColor.c_str()
         ;
     }
   );
