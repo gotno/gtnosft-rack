@@ -1,5 +1,6 @@
 #include "ChunkedManager.hpp"
 
+#include "../OSCctrl.hpp"
 #include "OscSender.hpp"
 #include "ChunkedSend/ChunkedSend.hpp"
 #include "Bundler/ChunkedSendBundler.hpp"
@@ -7,16 +8,14 @@
 #include <thread>
 #include <chrono>
 
-ChunkedManager::ChunkedManager(OscSender* sender): osctx(sender) {}
+ChunkedManager::ChunkedManager(OSCctrlWidget* _ctrl, OscSender* sender)
+  : ctrl(_ctrl), osctx(sender) {}
 
-ChunkedManager::~ChunkedManager() {
-  for (auto& pair : chunkedSends)
-    delete pair.second;
-}
+ChunkedManager::~ChunkedManager() {}
 
 void ChunkedManager::add(ChunkedSend* chunked) {
   chunked->init();
-  chunkedSends.emplace(chunked->id, chunked);
+  chunkedSends.emplace(chunked->id, std::unique_ptr<ChunkedSend>(chunked));
   processChunked(chunked->id);
 }
 
@@ -30,7 +29,7 @@ bool ChunkedManager::isProcessing(int32_t id) {
 
 ChunkedSend* ChunkedManager::findChunked(int32_t id) {
   if (!chunkedExists(id)) return NULL;
-  return chunkedSends.at(id);
+  return chunkedSends.at(id).get();
 }
 
 bool ChunkedManager::chunkedExists(int32_t id) {
@@ -39,7 +38,7 @@ bool ChunkedManager::chunkedExists(int32_t id) {
 
 ChunkedSend* ChunkedManager::getChunked(int32_t id) {
   assert(chunkedExists(id));
-  return chunkedSends.at(id);
+  return chunkedSends.at(id).get();
 }
 
 void ChunkedManager::processChunked(int32_t id) {
@@ -53,7 +52,6 @@ void ChunkedManager::processChunked(int32_t id) {
   // if (sendSucceeded) INFO("processing chunked send %d: finished", id);
 
   if (sendFailed || sendSucceeded) {
-    delete chunkedSend;
     chunkedSends.erase(id);
     return;
   }
@@ -64,8 +62,6 @@ void ChunkedManager::processChunked(int32_t id) {
   for (int32_t chunkNum : unackedChunkNums) {
     ChunkedSendBundler* bundler =
       chunkedSend->getBundlerForChunk(chunkNum);
-
-    int32_t id = chunkedSend->id;
 
     bundler->noopCheck = [this, id, chunkNum](){
       if (!chunkedExists(id)) return true;
@@ -82,11 +78,11 @@ void ChunkedManager::processChunked(int32_t id) {
     osctx->enqueueBundler(bundler);
   }
 
-  std::thread([this, id]() { reprocessChunked(id); }).detach();
-}
-
-void ChunkedManager::reprocessChunked(int32_t id) {
-  // TODO: dynamic wait time? const?
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
-  processChunked(id);
+  std::thread([this, id]() {
+    // TODO: dynamic wait time? const?
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    ctrl->enqueueAction([this, id]() {
+      processChunked(id);
+    });
+  }).detach();
 }

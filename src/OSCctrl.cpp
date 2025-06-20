@@ -46,7 +46,7 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
   if (!module) return;
 
   osctx = new OscSender();
-  chunkman = new ChunkedManager(osctx);
+  chunkman = new ChunkedManager(this, osctx);
   subman = new SubscriptionManager(this, osctx, chunkman);
   oscrx = new OscReceiver(this, osctx, chunkman, subman);
 
