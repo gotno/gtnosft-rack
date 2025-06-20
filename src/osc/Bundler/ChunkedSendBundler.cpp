@@ -1,56 +1,60 @@
 #include "ChunkedSendBundler.hpp"
 
+#include "../OscConstants.hpp"
+
 #include "../ChunkedManager.hpp"
 #include "../ChunkedSend/ChunkedSend.hpp"
 
 ChunkedSendBundler::ChunkedSendBundler(
-  int32_t _chunkNum,
+  std::string _address,
   int32_t _chunkedSendId,
-  ChunkedManager* _chunkedManager
+  int32_t _chunkNum,
+  int32_t _numChunks,
+  int32_t _chunkSize,
+  int64_t _totalSize,
+  uint8_t* data,
+  int32_t thisChunkSize
 ): Bundler("ChunkedSendBundler"),
-  chunkNum(_chunkNum),
+  address(_address),
   chunkedSendId(_chunkedSendId),
-  chunkman(_chunkedManager) {
+  chunkNum(_chunkNum),
+  numChunks(_numChunks),
+  chunkSize(_chunkSize),
+  totalSize(_totalSize) {
     messages.emplace_back(
-      "/set/texture",
-      [this](osc::OutboundPacketStream& pstream) {
-        ChunkedSend* chunkedSend = chunkman->findChunked(chunkedSendId);
-        bundleMetadata(pstream, chunkedSend);
-        pstream << chunkedSend->getBlobForChunk(chunkNum);
+      address,
+      [this, data, thisChunkSize](osc::OutboundPacketStream& pstream) {
+        bundleMetadata(pstream);
+
+        const int32_t offset = chunkSize * chunkNum;
+        pstream << osc::Blob(data + offset, thisChunkSize);
       }
     );
   }
 
-size_t ChunkedSendBundler::getChunkSize(osc::OutboundPacketStream& pstream) {
+size_t ChunkedSendBundler::getAvailableBundleSpace() {
+  char* msgBuffer = new char[MSG_BUFFER_SIZE];
+  osc::OutboundPacketStream pstream(msgBuffer, MSG_BUFFER_SIZE);
+
   pstream << osc::BeginBundleImmediate
-    << osc::BeginMessage(messages[0].first.c_str());
-  bundleMetadata(pstream, chunkman->findChunked(chunkedSendId));
+    << osc::BeginMessage(address.c_str());
+  bundleMetadata(pstream);
   pstream << osc::EndMessage
     << osc::EndBundle;
 
   // 7 bytes to cover the blob type tag and rounding up to a multiple of 4 bytes
-  return pstream.Capacity() - (pstream.Size() + 7);
+  size_t availableSpace = pstream.Capacity() - (pstream.Size() + 7);
+
+  delete[] msgBuffer;
+
+  return availableSpace;
 }
 
-bool ChunkedSendBundler::isNoop() {
-  ChunkedSend* chunkedSend = chunkman->findChunked(chunkedSendId);
-  if (!chunkedSend) return true;
-  // send failed or this chunk already ack'd
-  return chunkedSend->sendFailed() || chunkedSend->chunkAckTimes.count(chunkNum);
-}
-
-void ChunkedSendBundler::sent() {
-  chunkman->findChunked(chunkedSendId)->registerChunkSent(chunkNum);
-}
-
-void ChunkedSendBundler::bundleMetadata(
-  osc::OutboundPacketStream& pstream,
-  ChunkedSend* chunkedSend
-) {
-  pstream << chunkedSend->id
+void ChunkedSendBundler::bundleMetadata(osc::OutboundPacketStream& pstream) {
+  pstream << chunkedSendId
     << chunkNum
-    << chunkedSend->numChunks
-    << chunkedSend->chunkSize
-    << chunkedSend->size
+    << numChunks
+    << chunkSize
+    << totalSize
     ;
 }

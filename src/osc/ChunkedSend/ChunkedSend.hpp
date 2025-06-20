@@ -18,6 +18,8 @@ struct ChunkedSend {
   ChunkedSend(uint8_t* _data, int64_t _size);
   virtual ~ChunkedSend();
 
+  virtual void init();
+
   using time_point = std::chrono::steady_clock::time_point;
   std::map<int32_t, time_point> chunkAckTimes;
   std::map<int32_t, time_point> chunkSendTimes;
@@ -36,21 +38,12 @@ struct ChunkedSend {
 
   std::mutex statusMutex;
 
-  int32_t getSizeOfChunk(int32_t chunkNum);
-  osc::Blob getBlobForChunk(int32_t chunkNum);
-
-  void setChunkSize(int32_t chunkSize);
-  void calculateNumChunks();
-
   void ack(int32_t chunkNum);
-  void determineChunkSize(ChunkedManager* chunkman);
+  bool acked(int32_t chunkNum);
   void getUnackedChunkNums(std::vector<int32_t>& chunkNums);
   void registerChunkSent(int32_t chunkNum);
 
-  virtual ChunkedSendBundler* getBundlerForChunk(
-    int32_t chunkNum,
-    ChunkedManager* chunkman
-  ) = 0;
+  virtual ChunkedSendBundler* getBundlerForChunk(int32_t chunkNum) = 0;
 
   void logCompletionDuration(int32_t chunkNum);
   void logCompletionDuration();

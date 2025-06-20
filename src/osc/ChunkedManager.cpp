@@ -2,7 +2,6 @@
 
 #include "OscSender.hpp"
 #include "ChunkedSend/ChunkedSend.hpp"
-// #include "Bundler/Bundler.hpp"
 #include "Bundler/ChunkedSendBundler.hpp"
 
 #include <thread>
@@ -16,18 +15,8 @@ ChunkedManager::~ChunkedManager() {
 }
 
 void ChunkedManager::add(ChunkedSend* chunked) {
-  // this is awful but we need to add it first so when findChunkSize is called,
-  // the bundler can reach back here to get it. we'll erase below if need be.
+  chunked->init();
   chunkedSends.emplace(chunked->id, chunked);
-  chunked->determineChunkSize(this);
-
-  if (chunked->numChunks == 0) {
-    WARN("chunkman skipping chunked send with no chunks.");
-    delete chunked;
-    chunkedSends.erase(chunked->id);
-    return;
-  }
-
   processChunked(chunked->id);
 }
 
@@ -54,6 +43,7 @@ ChunkedSend* ChunkedManager::getChunked(int32_t id) {
 }
 
 void ChunkedManager::processChunked(int32_t id) {
+  if (!chunkedExists(id)) return;
   ChunkedSend* chunkedSend = getChunked(id);
 
   bool sendFailed = chunkedSend->sendFailed();
@@ -71,8 +61,26 @@ void ChunkedManager::processChunked(int32_t id) {
   std::vector<int32_t> unackedChunkNums;
   chunkedSend->getUnackedChunkNums(unackedChunkNums);
 
-  for (int32_t chunkNum : unackedChunkNums)
-    osctx->enqueueBundler(chunkedSend->getBundlerForChunk(chunkNum, this));
+  for (int32_t chunkNum : unackedChunkNums) {
+    ChunkedSendBundler* bundler =
+      chunkedSend->getBundlerForChunk(chunkNum);
+
+    int32_t id = chunkedSend->id;
+
+    bundler->noopCheck = [this, id, chunkNum](){
+      if (!chunkedExists(id)) return true;
+      if (getChunked(id)->sendFailed()) return true;
+      if (getChunked(id)->acked(chunkNum)) return true;
+      return false;
+    };
+
+    bundler->onBundleSent = [this, id, chunkNum](){
+      if (!chunkedExists(id)) return;
+      getChunked(id)->registerChunkSent(chunkNum);
+    };
+
+    osctx->enqueueBundler(bundler);
+  }
 
   std::thread([this, id]() { reprocessChunked(id); }).detach();
 }
@@ -80,5 +88,5 @@ void ChunkedManager::processChunked(int32_t id) {
 void ChunkedManager::reprocessChunked(int32_t id) {
   // TODO: dynamic wait time? const?
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
-  if (chunkedExists(id)) processChunked(id);
+  processChunked(id);
 }

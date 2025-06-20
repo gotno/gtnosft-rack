@@ -5,16 +5,15 @@
 ChunkedSend::ChunkedSend(uint8_t* _data, int64_t _size):
   id(idCounter++), data(_data), size(_size) {}
 
-void ChunkedSend::determineChunkSize(ChunkedManager* chunkman) {
-  char* msgBuffer = new char[MSG_BUFFER_SIZE];
-  osc::OutboundPacketStream pstream(msgBuffer, MSG_BUFFER_SIZE);
 
-  // the bundler will report space remaining after metadata is added
-  ChunkedSendBundler* bundler = getBundlerForChunk(0, chunkman);
-  setChunkSize(bundler->getChunkSize(pstream));
+void ChunkedSend::init() {
+  ChunkedSendBundler* bundler = getBundlerForChunk(0);
+
+  chunkSize = bundler->getAvailableBundleSpace();
+  // quick integer ceiling
+  numChunks = (size + chunkSize - 1) / chunkSize;
 
   delete bundler;
-  delete[] msgBuffer;
 }
 
 ChunkedSend::~ChunkedSend() {
@@ -22,30 +21,13 @@ ChunkedSend::~ChunkedSend() {
   delete[] data;
 }
 
-void ChunkedSend::setChunkSize(int32_t _chunkSize) {
-  chunkSize = _chunkSize;
-  calculateNumChunks();
-}
-
-void ChunkedSend::calculateNumChunks() {
-  // integer ceiling
-  numChunks = (size + chunkSize - 1) / chunkSize;
-}
-
-int32_t ChunkedSend::getSizeOfChunk(int32_t chunkNum) {
-  return chunkNum == numChunks - 1
-    ? size - (numChunks - 1) * chunkSize
-    : chunkSize;
-}
-
-osc::Blob ChunkedSend::getBlobForChunk(int32_t chunkNum) {
-  const int32_t offset = chunkSize * chunkNum;
-  return osc::Blob(data + offset, getSizeOfChunk(chunkNum));
-}
-
 void ChunkedSend::ack(int32_t chunkNum) {
   std::lock_guard<std::mutex> locker(statusMutex);
   chunkAckTimes.insert({chunkNum, std::chrono::steady_clock::now()});
+}
+
+bool ChunkedSend::acked(int32_t chunkNum) {
+  return chunkAckTimes.count(chunkNum) != 0;
 }
 
 void ChunkedSend::getUnackedChunkNums(std::vector<int32_t>& chunkNums) {
@@ -53,10 +35,8 @@ void ChunkedSend::getUnackedChunkNums(std::vector<int32_t>& chunkNums) {
 
   std::lock_guard<std::mutex> locker(statusMutex);
 
-  while(++chunkNum < numChunks) {
-    if (!chunkAckTimes.count(chunkNum))
-      chunkNums.push_back(chunkNum);
-  }
+  while(++chunkNum < numChunks)
+    if (!acked(chunkNum)) chunkNums.push_back(chunkNum);
 }
 
 void ChunkedSend::registerChunkSent(int32_t chunkNum) {
@@ -69,7 +49,7 @@ void ChunkedSend::registerChunkSent(int32_t chunkNum) {
 }
 
 void ChunkedSend::logCompletionDuration(int32_t chunkNum) {
-  if (!chunkAckTimes.count(chunkNum)) return;
+  if (!acked(chunkNum)) return;
 
   size_t duration = std::chrono::duration_cast<std::chrono::milliseconds>(
     chunkAckTimes.at(chunkNum) - chunkSendTimes.at(chunkNum)
@@ -102,7 +82,6 @@ void ChunkedSend::logCompletionDuration() {
 
 bool ChunkedSend::sendSucceeded() {
   std::lock_guard<std::mutex> locker(statusMutex);
-
   return chunkAckTimes.size() == (uint32_t)numChunks;
 }
 

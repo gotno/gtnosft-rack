@@ -7,23 +7,25 @@ class ChunkedManager;
 
 struct ChunkedSendBundler : virtual Bundler {
   ChunkedSendBundler(
-    int32_t chunkNum,
+    std::string address,
     int32_t chunkedSendId,
-    ChunkedManager* chunkman
+    int32_t chunkNum,
+    int32_t numChunks,
+    int32_t chunkSize,
+    int64_t totalSize,
+    uint8_t* data,
+    int32_t thisChunkSize
   );
 
-  int32_t chunkNum;
+  std::string address;
   int32_t chunkedSendId;
-  ChunkedManager* chunkman;
+  int32_t chunkNum;
+  int32_t numChunks;
+  int32_t chunkSize;
+  int64_t totalSize;
 
-  ChunkedSend* getChunkedSend();
-  size_t getChunkSize(osc::OutboundPacketStream& pstream);
+  // build a metadata-only message and see what's left
+  size_t getAvailableBundleSpace();
 
-  bool isNoop() override;
-  void sent() override;
-
-  virtual void bundleMetadata(
-    osc::OutboundPacketStream& pstream,
-    ChunkedSend* chunkedSend
-  );
+  virtual void bundleMetadata(osc::OutboundPacketStream& pstream);
 };
