@@ -23,6 +23,7 @@ struct SubscriptionManager {
 
   void start();
   void reset();
+  void tick();
 
   void subscribeModuleLights(int64_t moduleId);
   // void unsubscribeModuleLights(int64_t moduleId);
@@ -31,6 +32,8 @@ private:
   OSCctrlWidget* ctrl{NULL};
   OscSender* osctx{NULL};
   ChunkedManager* chunkman{NULL};
+
+  bool running{false};
 
   std::map<SubscriptionType, std::atomic<bool>> inFlight;
   std::set<int64_t> moduleLightSubs;
