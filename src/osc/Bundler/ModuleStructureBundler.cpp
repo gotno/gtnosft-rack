@@ -45,11 +45,11 @@ void ModuleStructureBundler::addLightMessage(
   rack::math::Vec pos = vec2cm(lightWidget->box.pos);
   int32_t lightId = numLights;
   bool defaultVisible = lightWidget->isVisible();
-  NVGcolor bgColor = lightWidget->bgColor;
+  std::string bgColorHex = rack::color::toHexString(lightWidget->bgColor);
 
   messages.emplace_back(
     "/set/module_structure/light",
-    [this, lightId, paramId, size, pos, defaultVisible, bgColor](
+    [this, lightId, paramId, size, pos, defaultVisible, bgColorHex](
       osc::OutboundPacketStream& pstream
     ) {
       // TODO: we're assuming lights with a perfectly square size are
@@ -71,10 +71,7 @@ void ModuleStructureBundler::addLightMessage(
         << pos.x
         << pos.y
         << defaultVisible
-        << bgColor.r
-        << bgColor.g
-        << bgColor.b
-        << bgColor.a
+        << bgColorHex.c_str()
         ;
     }
   );
