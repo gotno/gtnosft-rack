@@ -100,20 +100,8 @@ struct Renderer {
     rack::engine::Port::Type type
   );
 
-  static rack::plugin::Model* findModel(
-    const std::string& pluginSlug,
-    const std::string& moduleSlug
-  );
-
   static rack::widget::FramebufferWidget* findFramebuffer(
     rack::widget::Widget* widget
-  );
-
-  // static rack::app::ModuleWidget* getModuleWidget(int64_t moduleId);
-
-  static rack::app::ModuleWidget* makeModuleWidget(rack::plugin::Model* model);
-  static rack::app::ModuleWidget* makeConnectedModuleWidget(
-    rack::plugin::Model* model
   );
 
   // wrap ModuleWidget in container and framebuffer

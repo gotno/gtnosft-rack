@@ -1,4 +1,5 @@
 #include "ModuleStructureBundler.hpp"
+#include "../../util/Util.hpp"
 
 ModuleStructureBundler::ModuleStructureBundler(
   const std::string& _pluginSlug,
@@ -8,14 +9,16 @@ ModuleStructureBundler::ModuleStructureBundler(
   pluginSlug(_pluginSlug),
   moduleSlug(_moduleSlug)
 {
-  rack::app::ModuleWidget* moduleWidget = makeModuleWidget();
+  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
+  rack::app::ModuleWidget* moduleWidget =
+    gtnosft::util::makeConnectedModuleWidget(model);
   if (!moduleWidget) return;
 
   addLightMessages(moduleWidget);
   addParamMessages(moduleWidget);
   addPortMessages(moduleWidget);
 
-  rack::math::Vec panelSize = vec2cm(moduleWidget->box.size);
+  rack::math::Vec panelSize = gtnosft::util::vec2cm(moduleWidget->box.size);
   messages.emplace(
     messages.begin(),
     "/set/module_structure",
@@ -41,8 +44,8 @@ void ModuleStructureBundler::addLightMessage(
   rack::app::LightWidget* lightWidget,
   int32_t paramId
 ) {
-  rack::math::Vec size = vec2cm(lightWidget->box.size);
-  rack::math::Vec pos = vec2cm(lightWidget->box.pos);
+  rack::math::Vec size = gtnosft::util::vec2cm(lightWidget->box.size);
+  rack::math::Vec pos = gtnosft::util::vec2cm(lightWidget->box.pos);
   int32_t lightId = numLights;
   bool defaultVisible = lightWidget->isVisible();
   std::string bgColorHex = rack::color::toHexString(lightWidget->bgColor);
@@ -114,8 +117,8 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     rack::engine::ParamQuantity* pq = paramWidget->getParamQuantity();
 
     paramId = pq->paramId;
-    size = vec2cm(paramWidget->box.size);
-    pos = vec2cm(paramWidget->box.pos);
+    size = gtnosft::util::vec2cm(paramWidget->box.size);
+    pos = gtnosft::util::vec2cm(paramWidget->box.pos);
 
     // struct
     name = pq->getLabel(); // (name or #<paramId>)
@@ -230,9 +233,12 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     }
 
     if (type == ParamType::Slider) {
-      rack::math::Vec handleSize = vec2cm(sliderWidget->handle->getBox().size);
-      rack::math::Vec minHandlePos = vec2cm(sliderWidget->minHandlePos);
-      rack::math::Vec maxHandlePos = vec2cm(sliderWidget->maxHandlePos);
+      rack::math::Vec handleSize =
+        gtnosft::util::vec2cm(sliderWidget->handle->getBox().size);
+      rack::math::Vec minHandlePos =
+        gtnosft::util::vec2cm(sliderWidget->minHandlePos);
+      rack::math::Vec maxHandlePos =
+        gtnosft::util::vec2cm(sliderWidget->maxHandlePos);
       bool horizontal = sliderWidget->horizontal;
 
       messages.emplace_back(
@@ -304,8 +310,8 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
       portWidget->type == rack::engine::Port::INPUT
         ? PortType::Input
         : PortType::Output;
-    size = vec2cm(portWidget->box.size);
-    pos = vec2cm(portWidget->box.pos);
+    size = gtnosft::util::vec2cm(portWidget->box.size);
+    pos = gtnosft::util::vec2cm(portWidget->box.pos);
     name = portWidget->getPortInfo()->name;
     description = portWidget->getPortInfo()->description;
     defaultVisible = portWidget->isVisible();
@@ -331,45 +337,6 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
     if (type == PortType::Input) ++numInputs;
     if (type == PortType::Output) ++numOutputs;
   }
-}
-
-rack::plugin::Model* ModuleStructureBundler::findModel() {
-  for (rack::plugin::Plugin* plugin : rack::plugin::plugins) {
-    if (plugin->slug == pluginSlug) {
-      for (rack::plugin::Model* model : plugin->models) {
-        if (model->slug == moduleSlug) return model;
-      }
-    }
-  }
-  return NULL;
-}
-
-rack::app::ModuleWidget* ModuleStructureBundler::makeModuleWidget() {
-  rack::plugin::Model* model = findModel();
-  if (!model) {
-    WARN(
-      "ModuleStructureBundler unable to find Model for %s:%s",
-      pluginSlug.c_str(),
-      moduleSlug.c_str()
-    );
-    return NULL;
-  }
-
-  rack::engine::Module* module = model->createModule();
-  rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(module);
-  APP->engine->addModule(module);
-  return moduleWidget;
-}
-
-float ModuleStructureBundler::px2cm(const float& px) const {
-  return px / (rack::window::SVG_DPI / rack::window::MM_PER_IN) / 10.f;
-}
-
-rack::math::Vec ModuleStructureBundler::vec2cm(const rack::math::Vec& pxVec) const {
-  return rack::math::Vec(
-    px2cm(pxVec.x),
-    px2cm(pxVec.y)
-  );
 }
 
 bool ModuleStructureBundler::needsParamTypeOverride(int paramId) {

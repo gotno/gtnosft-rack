@@ -1,5 +1,7 @@
 #include "Renderer.hpp"
 
+#include "../util/Util.hpp"
+
 // static
 RenderResult Renderer::MODEL_NOT_FOUND(
   std::string caller,
@@ -55,10 +57,10 @@ RenderResult Renderer::renderPanel(
   const std::string& pluginSlug,
   const std::string& moduleSlug
 ) {
-  rack::plugin::Model* model = findModel(pluginSlug, moduleSlug);
+  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) return MODEL_NOT_FOUND("renderPanel", pluginSlug, moduleSlug);
 
-  rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
+  rack::app::ModuleWidget* moduleWidget = gtnosft::util::makeModuleWidget(model);
   if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPanel", pluginSlug, moduleSlug);
   DEFER({ delete moduleWidget; });
 
@@ -82,12 +84,13 @@ RenderResult Renderer::renderSwitch(
   int32_t id,
   std::vector<RenderResult>& renderResults
 ) {
-  rack::plugin::Model* model = findModel(pluginSlug, moduleSlug);
+  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) {
     MODEL_NOT_FOUND("renderSwitch", pluginSlug, moduleSlug);
   }
 
-  rack::app::ModuleWidget* moduleWidget = makeConnectedModuleWidget(model);
+  rack::app::ModuleWidget* moduleWidget =
+    gtnosft::util::makeConnectedModuleWidget(model);
   if (!moduleWidget)
     return MODULE_WIDGET_ERROR("renderSwitch", pluginSlug, moduleSlug);
   DEFER({ delete moduleWidget; });
@@ -123,12 +126,12 @@ RenderResult Renderer::renderSlider(
   int32_t id,
   std::map<std::string, RenderResult>& renderResults
 ) {
-  rack::plugin::Model* model = findModel(pluginSlug, moduleSlug);
+  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) {
     MODEL_NOT_FOUND("renderSlider", pluginSlug, moduleSlug);
   }
 
-  rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
+  rack::app::ModuleWidget* moduleWidget = gtnosft::util::makeModuleWidget(model);
   if (!moduleWidget)
     return MODULE_WIDGET_ERROR("renderSlider", pluginSlug, moduleSlug);
   DEFER({ delete moduleWidget; });
@@ -173,12 +176,12 @@ RenderResult Renderer::renderKnob(
   int32_t id,
   std::map<std::string, RenderResult>& renderResults
 ) {
-  rack::plugin::Model* model = findModel(pluginSlug, moduleSlug);
+  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) {
     MODEL_NOT_FOUND("renderKnob", pluginSlug, moduleSlug);
   }
 
-  rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
+  rack::app::ModuleWidget* moduleWidget = gtnosft::util::makeModuleWidget(model);
   if (!moduleWidget)
     return MODULE_WIDGET_ERROR("renderKnob", pluginSlug, moduleSlug);
   DEFER({ delete moduleWidget; });
@@ -251,10 +254,10 @@ RenderResult Renderer::renderPort(
   int32_t id,
   rack::engine::Port::Type type
 ) {
-  rack::plugin::Model* model = findModel(pluginSlug, moduleSlug);
+  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) return MODEL_NOT_FOUND("renderPort", pluginSlug, moduleSlug);
 
-  rack::app::ModuleWidget* moduleWidget = makeModuleWidget(model);
+  rack::app::ModuleWidget* moduleWidget = gtnosft::util::makeModuleWidget(model);
   if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPort", pluginSlug, moduleSlug);
   DEFER({ delete moduleWidget; });
 
@@ -279,21 +282,6 @@ RenderResult Renderer::renderPort(
 }
 
 // static
-rack::plugin::Model* Renderer::findModel(
-  const std::string& pluginSlug,
-  const std::string& moduleSlug
-) {
-  for (rack::plugin::Plugin* plugin : rack::plugin::plugins) {
-    if (plugin->slug == pluginSlug) {
-      for (rack::plugin::Model* model : plugin->models) {
-        if (model->slug == moduleSlug) return model;
-      }
-    }
-  }
-  return NULL;
-}
-
-// static
 rack::widget::FramebufferWidget* Renderer::findFramebuffer(
   rack::widget::Widget* widget
 ) {
@@ -303,25 +291,6 @@ rack::widget::FramebufferWidget* Renderer::findFramebuffer(
     if (fb) return fb;
   }
   return NULL;
-}
-
-// static
-// static rack::app::ModuleWidget* Renderer::getModuleWidget(int64_t moduleId) {
-// }
-
-// static
-rack::app::ModuleWidget* Renderer::makeModuleWidget(rack::plugin::Model* model) {
-  return model->createModuleWidget(NULL);
-}
-
-// static
-rack::app::ModuleWidget* Renderer::makeConnectedModuleWidget(
-  rack::plugin::Model* model
-) {
-  rack::engine::Module* module = model->createModule();
-  rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(module);
-  APP->engine->addModule(module);
-  return moduleWidget;
 }
 
 Renderer::Renderer(rack::widget::FramebufferWidget* _framebuffer):

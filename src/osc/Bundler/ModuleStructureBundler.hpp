@@ -36,13 +36,7 @@ struct ModuleStructureBundler : Bundler {
   bool needsParamTypeOverride(int paramId);
   ParamType getParamTypeOverride(int paramId);
 
-  rack::plugin::Model* findModel();
-  rack::app::ModuleWidget* makeModuleWidget();
-
   int32_t numParams{0}, numInputs{0}, numOutputs{0}, numLights{0};
-
-  float px2cm(const float& px) const;
-  rack::math::Vec vec2cm(const rack::math::Vec& px) const;
 
   void addLightMessages(rack::app::ModuleWidget* moduleWidget);
   void addLightMessage(rack::app::LightWidget* lightWidget, int32_t paramId = -1);
