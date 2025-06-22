@@ -12,6 +12,7 @@
 
 #include "Bundler/ModuleStubsBundler.hpp"
 #include "Bundler/ModuleStructureBundler.hpp"
+#include "Bundler/ModuleStateBundler.hpp"
 
 #include "../renderer/Renderer.hpp"
 
@@ -379,6 +380,20 @@ void OscReceiver::generateRoutes() {
           chunkedImage->id = handleId;
           chunkman->add(chunkedImage);
         }
+      });
+    }
+  );
+
+  // state
+  routes.emplace(
+    "/get/module_state",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int64_t moduleId = (args++)->AsInt64();
+
+      ctrl->enqueueAction([this, moduleId]() {
+        osctx->enqueueBundler(
+          new ModuleStateBundler(moduleId, ctrl->box)
+        );
       });
     }
   );
