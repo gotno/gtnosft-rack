@@ -129,12 +129,6 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     defaultVisible = paramWidget->isVisible();
     snap = pq->snapEnabled;
 
-    // state
-    // std::string display = pq->getString(); // (getLabel + getDisplayValueString + getUnit)
-    // float value = pq->getValue();
-    // bool visible = paramWidget->isVisible();
-    // tooltip: pq->getString /n pq->getDescription
-
     sliderWidget = NULL;
     knobWidget = NULL;
     switchWidget = NULL;
@@ -218,7 +212,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       // Vult knobs do min/max angle some other way?
       bool isVult = pluginSlug.find("Vult") != std::string::npos;
       float minAngle = isVult ? -0.75f * M_PI : knobWidget->minAngle;
-      float maxAngle = isVult ? 0.75f * M_PI : knobWidget->minAngle;
+      float maxAngle = isVult ? 0.75f * M_PI : knobWidget->maxAngle;
 
       messages.emplace_back(
         "/set/module_structure/param/knob",

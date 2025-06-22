@@ -7,6 +7,7 @@
 #include "ChunkedManager.hpp"
 
 #include "Bundler/ModuleLightsBundler.hpp"
+#include "Bundler/ModuleParamsBundler.hpp"
 
 SubscriptionManager::SubscriptionManager(
   OSCctrlWidget* _ctrl, OscSender* _osctx, ChunkedManager* _chunkman
@@ -52,6 +53,7 @@ void SubscriptionManager::reset() {
   // clear cache after any other enqueued items
   ctrl->enqueueAction([this]() {
     ModuleLightsBundler::lights.clear();
+    ModuleParamsBundler::params.clear();
   });
 }
 

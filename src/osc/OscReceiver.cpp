@@ -13,6 +13,7 @@
 #include "Bundler/ModuleStubsBundler.hpp"
 #include "Bundler/ModuleStructureBundler.hpp"
 #include "Bundler/ModuleStateBundler.hpp"
+#include "Bundler/ModuleParamsBundler.hpp"
 
 #include "../renderer/Renderer.hpp"
 
@@ -393,6 +394,21 @@ void OscReceiver::generateRoutes() {
       ctrl->enqueueAction([this, moduleId]() {
         osctx->enqueueBundler(
           new ModuleStateBundler(moduleId, ctrl->box)
+        );
+      });
+    }
+  );
+
+  routes.emplace(
+    "/get/params_state",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int64_t moduleId = (args++)->AsInt64();
+
+      ctrl->enqueueAction([this, moduleId]() {
+        std::vector<int64_t> moduleIds = {moduleId};
+
+        osctx->enqueueBundler(
+          new ModuleParamsBundler(moduleIds)
         );
       });
     }
