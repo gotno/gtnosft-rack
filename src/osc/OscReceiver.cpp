@@ -206,6 +206,28 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
+    "/get/texture/overlay",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int64_t moduleId = (args++)->AsInt64();
+      int32_t requestedId = (args++)->AsInt32();
+
+      ctrl->enqueueAction([this, moduleId, requestedId]() {
+        RenderResult render = Renderer::renderOverlay(moduleId);
+
+        if (render.failure()) {
+          INFO("failed to render overlay %lld", moduleId);
+          INFO("  %s", render.statusMessage.c_str());
+          return;
+        }
+
+        ChunkedImage* chunkedImage = new ChunkedImage(render);
+        chunkedImage->id = requestedId;
+        chunkman->add(chunkedImage);
+      });
+    }
+  );
+
+  routes.emplace(
     "/get/texture/port",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       std::string pluginSlug = (args++)->AsString();

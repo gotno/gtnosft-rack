@@ -3,6 +3,20 @@
 #include "../util/Util.hpp"
 
 // static
+RenderResult Renderer::MODULE_NOT_FOUND(
+  std::string caller,
+  int64_t moduleId
+) {
+  return RenderResult(
+    rack::string::f(
+      "Renderer::%s Module not found %lld",
+      caller.c_str(),
+      moduleId
+    )
+  );
+}
+
+// static
 RenderResult Renderer::MODEL_NOT_FOUND(
   std::string caller,
   const std::string& pluginSlug,
@@ -71,6 +85,36 @@ RenderResult Renderer::renderPanel(
   rack::widget::FramebufferWidget* framebuffer = findFramebuffer(panel);
   if (!framebuffer)
     return WIDGET_NOT_FOUND("renderPanel-fb", pluginSlug, moduleSlug);
+
+  RenderResult result = Renderer(framebuffer).render();
+
+  return result;
+}
+
+// static
+RenderResult Renderer::renderOverlay(int64_t moduleId) {
+  rack::app::ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
+  if (!moduleWidget) return MODULE_NOT_FOUND("renderOverlay", moduleId);
+
+  rack::app::ModuleWidget* surrogate =
+    moduleWidget->getModel()->createModuleWidget(moduleWidget->getModule());
+
+  // hide panel
+  surrogate->children.front()->setVisible(false);
+
+  // hide params/ports/lights/screws
+  for (auto it = surrogate->children.begin(); it != surrogate->children.end(); ++it) {
+    if (dynamic_cast<rack::app::SvgScrew*>(*it) || dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
+      (*it)->setVisible(false);
+    }
+  }
+
+  rack::widget::FramebufferWidget* framebuffer = wrapModuleWidget(surrogate);
+  framebuffer->step();
+  DEFER({
+    surrogate->module = NULL;
+    delete framebuffer;
+  });
 
   RenderResult result = Renderer(framebuffer).render();
 

@@ -54,6 +54,8 @@ struct Renderer {
     const std::string& moduleSlug
   );
 
+  static RenderResult MODULE_NOT_FOUND(std::string caller, int64_t moduleId);
+
   static RenderResult MODULE_WIDGET_ERROR(
     std::string caller,
     const std::string& pluginSlug,
@@ -71,6 +73,8 @@ struct Renderer {
     const std::string& pluginSlug,
     const std::string& moduleSlug
   );
+
+  static RenderResult renderOverlay(int64_t moduleId);
 
   static RenderResult renderKnob(
     const std::string& pluginSlug,
