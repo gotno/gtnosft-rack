@@ -154,16 +154,7 @@ void OscReceiver::generateRoutes() {
       (void)args;
 
       ctrl->enqueueAction([&]() {
-        ModuleStubsBundler* bundler = new ModuleStubsBundler();
-        std::vector<int64_t> moduleIds = APP->engine->getModuleIds();
-
-        // TODO: this can and should happen in the bundler
-        for (const auto& id : moduleIds) {
-          rack::plugin::Model* model = APP->engine->getModule(id)->getModel();
-          bundler->addModule(id, model->plugin->slug, model->slug);
-        }
-
-        osctx->enqueueBundler(bundler);
+        osctx->enqueueBundler(new ModuleStubsBundler());
       });
     }
   );
