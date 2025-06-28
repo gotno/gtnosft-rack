@@ -14,6 +14,7 @@
 #include "Bundler/ModuleStructureBundler.hpp"
 #include "Bundler/ModuleStateBundler.hpp"
 #include "Bundler/ModuleParamsBundler.hpp"
+#include "Bundler/CablesBundler.hpp"
 
 #include "../renderer/Renderer.hpp"
 
@@ -163,6 +164,17 @@ void OscReceiver::generateRoutes() {
         }
 
         osctx->enqueueBundler(bundler);
+      });
+    }
+  );
+
+  routes.emplace(
+    "/get/cables",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      (void)args;
+
+      ctrl->enqueueAction([&]() {
+        osctx->enqueueBundler(new CablesBundler());
       });
     }
   );
