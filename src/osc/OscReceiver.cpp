@@ -1,3 +1,4 @@
+#include "app/ModuleWidget.hpp"
 #include "rack.hpp"
 #include "patch.hpp"
 
@@ -459,8 +460,14 @@ void OscReceiver::generateRoutes() {
       float value = (args++)->AsFloat();
 
       ctrl->enqueueAction([moduleId, paramId, value]() {
-        APP->scene->rack->getModule(moduleId)->
-          getParam(paramId)->getParamQuantity()->setValue(value);
+        rack::app::ModuleWidget* module =
+          APP->scene->rack->getModule(moduleId);
+        if (!module) return;
+
+        rack::app::ParamWidget* param = module->getParam(paramId);
+        if (!param) return;
+
+        param->getParamQuantity()->setValue(value);
       });
     }
   );
