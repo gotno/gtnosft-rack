@@ -1,4 +1,5 @@
 #include "app/ModuleWidget.hpp"
+#include "color.hpp"
 #include "rack.hpp"
 #include "patch.hpp"
 
@@ -468,6 +469,48 @@ void OscReceiver::generateRoutes() {
         if (!param) return;
 
         param->getParamQuantity()->setValue(value);
+      });
+    }
+  );
+
+  routes.emplace(
+    "/make/cable",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int32_t returnId = (args++)->AsInt32();
+
+      int64_t inputModuleId = (args++)->AsInt64();
+      int64_t outputModuleId = (args++)->AsInt64();
+      int32_t inputPortId = (args++)->AsInt32();
+      int32_t outputPortId = (args++)->AsInt32();
+
+      std::string color = (args++)->AsString();
+
+      ctrl->enqueueAction([=, this]() {
+        // TODO: history (see PortWidget::dragStart/dragEnd for example)
+        rack::app::ModuleWidget* inputModule =
+          APP->scene->rack->getModule(inputModuleId);
+        if (!inputModule) return;
+        rack::app::ModuleWidget* outputModule =
+          APP->scene->rack->getModule(outputModuleId);
+        if (!outputModule) return;
+
+        rack::app::PortWidget* inputPort = inputModule->getInput(inputPortId);
+        if (!inputPort) return;
+        rack::app::PortWidget* outputPort = outputModule->getInput(outputPortId);
+        if (!outputPort) return;
+        
+        rack::app::CableWidget* cableWidget = new rack::app::CableWidget;
+        cableWidget->inputPort = inputPort;
+        cableWidget->outputPort = outputPort;
+        cableWidget->color = rack::color::fromHexString(color);
+
+        // updateCable handles creating and adding the engine::Cable
+        cableWidget->updateCable();
+        APP->scene->rack->addCable(cableWidget);
+
+        osctx->enqueueBundler(
+          new CablesBundler(cableWidget->getCable()->id, returnId)
+        );
       });
     }
   );
