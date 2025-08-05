@@ -516,6 +516,27 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
+    "/remove/cable",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int64_t cableId = (args++)->AsInt64();
+
+      ctrl->enqueueAction([cableId]() {
+        // TODO: history (see PortWidget::dragStart/dragEnd for example)
+        rack::app::CableWidget* cw =
+          APP->scene->rack->getCable(cableId);
+
+        // update cable will handle removing engine::Cable
+        cw->inputPort = NULL;
+        cw->outputPort = NULL;
+        cw->updateCable();
+
+        APP->scene->rack->removeCable(cw);
+        delete cw;
+      });
+    }
+  );
+
+  routes.emplace(
     "/patch/open",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       std::string path = (args++)->AsString();
