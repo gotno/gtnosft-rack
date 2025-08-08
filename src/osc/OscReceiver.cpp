@@ -524,11 +524,7 @@ void OscReceiver::generateRoutes() {
         // TODO: history (see PortWidget::dragStart/dragEnd for example)
         rack::app::CableWidget* cw =
           APP->scene->rack->getCable(cableId);
-
-        // update cable will handle removing engine::Cable
-        cw->inputPort = NULL;
-        cw->outputPort = NULL;
-        cw->updateCable();
+        if (!cw) return;
 
         APP->scene->rack->removeCable(cw);
         delete cw;
