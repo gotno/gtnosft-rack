@@ -6,8 +6,6 @@
 #define QOI_IMPLEMENTATION
 #include "qoi/qoi.h"
 
-#include <algorithm>
-
 ChunkedImage::ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height):
   ChunkedSend(_pixels, _width * _height * ChunkedImage::DEPTH),
   width(_width), height(_height) {}
