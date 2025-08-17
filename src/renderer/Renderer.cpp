@@ -83,6 +83,8 @@ RenderResult Renderer::renderPanel(
     return WIDGET_NOT_FOUND("renderPanel-panel", pluginSlug, moduleSlug);
 
   rack::widget::FramebufferWidget* framebuffer = findFramebuffer(panel);
+  // TODO: brute force this if no fb found. _something_ is still renderable.
+  //       use wrapModuleWidget?
   if (!framebuffer)
     return WIDGET_NOT_FOUND("renderPanel-fb", pluginSlug, moduleSlug);
 
@@ -109,6 +111,7 @@ RenderResult Renderer::renderOverlay(int64_t moduleId) {
     }
   }
 
+  // TODO: for Fundamental:Scope, copy input cables to get proper colors
   rack::widget::FramebufferWidget* framebuffer = wrapModuleWidget(surrogate);
   framebuffer->step();
   DEFER({
