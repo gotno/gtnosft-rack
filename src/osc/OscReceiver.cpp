@@ -221,7 +221,7 @@ void OscReceiver::generateRoutes() {
 
         RenderResult render = Renderer::renderOverlay(moduleId);
         if (render.failure()) {
-          INFO("failed to render overlay %ld", moduleId);
+          INFO("failed to render overlay %lld", moduleId);
           INFO("  %s", render.statusMessage.c_str());
           return;
         }
@@ -499,7 +499,7 @@ void OscReceiver::generateRoutes() {
         if (!inputPort) return;
         rack::app::PortWidget* outputPort = outputModule->getOutput(outputPortId);
         if (!outputPort) return;
-
+        
         rack::app::CableWidget* cableWidget = new rack::app::CableWidget;
         cableWidget->inputPort = inputPort;
         cableWidget->outputPort = outputPort;
