@@ -217,8 +217,9 @@ void OscReceiver::generateRoutes() {
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([this, moduleId, requestedId]() {
-        RenderResult render = Renderer::renderOverlay(moduleId);
+        if (chunkman->isProcessing(requestedId)) return;
 
+        RenderResult render = Renderer::renderOverlay(moduleId);
         if (render.failure()) {
           INFO("failed to render overlay %lld", moduleId);
           INFO("  %s", render.statusMessage.c_str());
