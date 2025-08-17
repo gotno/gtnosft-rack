@@ -24,7 +24,7 @@ void ChunkedManager::ack(int32_t id, int32_t chunkNum) {
 }
 
 bool ChunkedManager::isProcessing(int32_t id) {
-  return chunkedExists(id) && !getChunked(id)->sendSucceeded();
+  return chunkedExists(id);
 }
 
 ChunkedSend* ChunkedManager::findChunked(int32_t id) {
