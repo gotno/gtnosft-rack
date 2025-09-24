@@ -498,7 +498,7 @@ void OscReceiver::generateRoutes() {
         if (!inputPort) return;
         rack::app::PortWidget* outputPort = outputModule->getOutput(outputPortId);
         if (!outputPort) return;
-        
+
         rack::app::CableWidget* cableWidget = new rack::app::CableWidget;
         cableWidget->inputPort = inputPort;
         cableWidget->outputPort = outputPort;
