@@ -345,17 +345,16 @@ void OscReceiver::generateRoutes() {
             renderResults
           );
 
-        if (result.failure()) {
-          INFO(
-            "failed to render switch %s:%s:%d",
-            pluginSlug.c_str(), moduleSlug.c_str(), paramId
-          );
-          INFO("  %s", result.statusMessage.c_str());
-          return;
-        }
-
         for (size_t i = 0; i < renderResults.size(); ++i) {
-          if (renderResults[i].failure()) continue;
+          if (renderResults[i].failure()) {
+            INFO(
+              "failed to render switch %s:%s:%d",
+              pluginSlug.c_str(), moduleSlug.c_str(), paramId
+            );
+            INFO("  %s", renderResults[i].statusMessage.c_str());
+            continue;
+          }
+
           if (i >= requestedIds.size()) {
             WARN("/get/texture/switch more switch textures than requested ids");
             break;
