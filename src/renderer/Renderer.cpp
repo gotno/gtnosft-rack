@@ -344,10 +344,10 @@ Renderer::Renderer(rack::widget::FramebufferWidget* _framebuffer):
   framebuffer(_framebuffer) {}
 Renderer::~Renderer() {}
 
-RenderResult Renderer::render() {
+RenderResult Renderer::render(float scale) {
   try {
     int width, height;
-    uint8_t* pixels = renderPixels(framebuffer, width, height, 3.f);
+    uint8_t* pixels = renderPixels(framebuffer, width, height, scale);
 
     return RenderResult(pixels, width, height);
   } catch (std::exception& e) {

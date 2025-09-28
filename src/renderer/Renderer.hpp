@@ -44,7 +44,7 @@ struct Renderer {
   Renderer(rack::widget::FramebufferWidget* framebuffer);
   ~Renderer();
 
-  RenderResult render();
+  RenderResult render(float scale = 3.f);
 
   rack::widget::FramebufferWidget* framebuffer = NULL;
 
