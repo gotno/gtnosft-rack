@@ -121,7 +121,7 @@ struct Renderer {
   // render FramebufferWidget to rgba pixel array
   uint8_t* renderPixels(rack::widget::FramebufferWidget* fb, int& width, int& height, float zoom = 3.f);
 
-  // remove shadoes/screws/params/ports/lights from widget
+  // remove shadows/screws/params/ports/lights from widget
   static void hideChildren(rack::widget::Widget* mw);
 
   void flipBitmap(uint8_t* pixels, int width, int height, int depth);

@@ -105,6 +105,7 @@ RenderResult Renderer::renderOverlay(int64_t moduleId, float scale) {
   // hide panel
   surrogate->children.front()->setVisible(false);
 
+  // this.. is different from hideChildren?
   // hide params/ports/lights/screws
   for (auto it = surrogate->children.begin(); it != surrogate->children.end(); ++it) {
     if (dynamic_cast<rack::app::SvgScrew*>(*it) || dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
