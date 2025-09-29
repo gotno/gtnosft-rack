@@ -69,7 +69,8 @@ RenderResult Renderer::WIDGET_NOT_FOUND(
 // static
 RenderResult Renderer::renderPanel(
   const std::string& pluginSlug,
-  const std::string& moduleSlug
+  const std::string& moduleSlug,
+  float scale
 ) {
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) return MODEL_NOT_FOUND("renderPanel", pluginSlug, moduleSlug);
@@ -88,13 +89,13 @@ RenderResult Renderer::renderPanel(
   if (!framebuffer)
     return WIDGET_NOT_FOUND("renderPanel-fb", pluginSlug, moduleSlug);
 
-  RenderResult result = Renderer(framebuffer).render();
+  RenderResult result = Renderer(framebuffer).render(scale);
 
   return result;
 }
 
 // static
-RenderResult Renderer::renderOverlay(int64_t moduleId) {
+RenderResult Renderer::renderOverlay(int64_t moduleId, float scale) {
   rack::app::ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
   if (!moduleWidget) return MODULE_NOT_FOUND("renderOverlay", moduleId);
 
@@ -119,7 +120,7 @@ RenderResult Renderer::renderOverlay(int64_t moduleId) {
     delete framebuffer;
   });
 
-  RenderResult result = Renderer(framebuffer).render();
+  RenderResult result = Renderer(framebuffer).render(scale);
 
   return result;
 }
@@ -129,7 +130,8 @@ RenderResult Renderer::renderSwitch(
   const std::string& pluginSlug,
   const std::string& moduleSlug,
   int32_t id,
-  std::vector<RenderResult>& renderResults
+  std::vector<RenderResult>& renderResults,
+  float scale
 ) {
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) {
@@ -159,7 +161,7 @@ RenderResult Renderer::renderSwitch(
     pq->setValue(i);
     switchWidget->step();
     renderResults.push_back(
-      Renderer(framebuffer).render()
+      Renderer(framebuffer).render(scale)
     );
   }
 
@@ -171,7 +173,8 @@ RenderResult Renderer::renderSlider(
   const std::string& pluginSlug,
   const std::string& moduleSlug,
   int32_t id,
-  std::map<std::string, RenderResult>& renderResults
+  std::map<std::string, RenderResult>& renderResults,
+  float scale
 ) {
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) {
@@ -202,7 +205,7 @@ RenderResult Renderer::renderSlider(
     framebuffer->box.size = track->box.size;
     if (handle) handle->visible = false;
 
-    renderResults["track"] = Renderer(framebuffer).render();
+    renderResults["track"] = Renderer(framebuffer).render(scale);
   }
 
   if (handle) {
@@ -210,7 +213,7 @@ RenderResult Renderer::renderSlider(
     handle->visible = true;
     framebuffer->box.size = handle->box.size;
 
-    renderResults["handle"] = Renderer(framebuffer).render();
+    renderResults["handle"] = Renderer(framebuffer).render(scale);
   }
 
   return RenderResult();
@@ -221,7 +224,8 @@ RenderResult Renderer::renderKnob(
   const std::string& pluginSlug,
   const std::string& moduleSlug,
   int32_t id,
-  std::map<std::string, RenderResult>& renderResults
+  std::map<std::string, RenderResult>& renderResults,
+  float scale
 ) {
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) {
@@ -272,7 +276,7 @@ RenderResult Renderer::renderKnob(
     if (mg) mg->visible = false;
     if (fg) fg->visible = false;
 
-    renderResults["bg"] = Renderer(framebuffer).render();
+    renderResults["bg"] = Renderer(framebuffer).render(scale);
   }
 
   if (mg) {
@@ -280,7 +284,7 @@ RenderResult Renderer::renderKnob(
     mg->visible = true;
     if (fg) fg->visible = false;
 
-    renderResults["mg"] = Renderer(framebuffer).render();
+    renderResults["mg"] = Renderer(framebuffer).render(scale);
   }
 
   if (fg) {
@@ -288,7 +292,7 @@ RenderResult Renderer::renderKnob(
     if (mg) mg->visible = false;
     fg->visible = true;
 
-    renderResults["fg"] = Renderer(framebuffer).render();
+    renderResults["fg"] = Renderer(framebuffer).render(scale);
   }
 
   return RenderResult();
@@ -299,7 +303,8 @@ RenderResult Renderer::renderPort(
   const std::string& pluginSlug,
   const std::string& moduleSlug,
   int32_t id,
-  rack::engine::Port::Type type
+  rack::engine::Port::Type type,
+  float scale
 ) {
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) return MODEL_NOT_FOUND("renderPort", pluginSlug, moduleSlug);
@@ -323,7 +328,7 @@ RenderResult Renderer::renderPort(
     return WIDGET_NOT_FOUND("renderPort-fb", pluginSlug, moduleSlug, id);
 
   hideChildren(framebuffer);
-  RenderResult result = Renderer(framebuffer).render();
+  RenderResult result = Renderer(framebuffer).render(scale);
 
   return result;
 }

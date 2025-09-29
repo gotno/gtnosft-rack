@@ -192,13 +192,19 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
+      float scale = (args++)->AsInt32();
       int32_t requestedId = (args++)->AsInt32();
 
-      ctrl->enqueueAction([this, requestedId, pluginSlug, moduleSlug]() {
-        RenderResult render = Renderer::renderPanel(pluginSlug, moduleSlug);
+      ctrl->enqueueAction([=, this]() {
+        RenderResult render =
+          Renderer::renderPanel(pluginSlug, moduleSlug, scale);
 
         if (render.failure()) {
-          INFO("failed to render panel %s:%s", pluginSlug.c_str(), moduleSlug.c_str());
+          INFO(
+            "failed to render panel %s:%s",
+            pluginSlug.c_str(),
+            moduleSlug.c_str()
+          );
           INFO("  %s", render.statusMessage.c_str());
           return;
         }
@@ -214,12 +220,13 @@ void OscReceiver::generateRoutes() {
     "/get/texture/overlay",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
+      float scale = (args++)->AsInt32();
       int32_t requestedId = (args++)->AsInt32();
 
-      ctrl->enqueueAction([this, moduleId, requestedId]() {
+      ctrl->enqueueAction([=, this]() {
         if (chunkman->isProcessing(requestedId)) return;
 
-        RenderResult render = Renderer::renderOverlay(moduleId);
+        RenderResult render = Renderer::renderOverlay(moduleId, scale);
         if (render.failure()) {
           INFO("failed to render overlay %lld", moduleId);
           INFO("  %s", render.statusMessage.c_str());
@@ -240,6 +247,7 @@ void OscReceiver::generateRoutes() {
       std::string moduleSlug = (args++)->AsString();
       int32_t portId = (args++)->AsInt32();
       PortType portType = (PortType)(args++)->AsInt32();
+      float scale = (args++)->AsInt32();
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
@@ -250,7 +258,8 @@ void OscReceiver::generateRoutes() {
             portId,
             portType == PortType::Input
               ? rack::engine::Port::INPUT
-              : rack::engine::Port::OUTPUT
+              : rack::engine::Port::OUTPUT,
+            scale
           );
 
         if (render.failure()) {
@@ -272,6 +281,7 @@ void OscReceiver::generateRoutes() {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
       int paramId = (int)(args++)->AsInt32();
+      float scale = (args++)->AsInt32();
       int bgId = (int)(args++)->AsInt32();
       int mgId = (int)(args++)->AsInt32();
       int fgId = (int)(args++)->AsInt32();
@@ -284,7 +294,8 @@ void OscReceiver::generateRoutes() {
             pluginSlug,
             moduleSlug,
             paramId,
-            renderResults
+            renderResults,
+            scale
           );
 
         if (result.failure()) {
@@ -323,6 +334,7 @@ void OscReceiver::generateRoutes() {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
       int paramId = (int)(args++)->AsInt32();
+      float scale = (args++)->AsFloat();
 
       std::vector<int32_t> requestedIds;
 
@@ -342,7 +354,8 @@ void OscReceiver::generateRoutes() {
             pluginSlug,
             moduleSlug,
             paramId,
-            renderResults
+            renderResults,
+            scale
           );
 
         for (size_t i = 0; i < renderResults.size(); ++i) {
@@ -374,6 +387,7 @@ void OscReceiver::generateRoutes() {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
       int paramId = (int)(args++)->AsInt32();
+      float scale = (args++)->AsFloat();
       int trackId = (int)(args++)->AsInt32();
       int handleId = (int)(args++)->AsInt32();
 
@@ -385,7 +399,8 @@ void OscReceiver::generateRoutes() {
             pluginSlug,
             moduleSlug,
             paramId,
-            renderResults
+            renderResults,
+            scale
           );
 
         if (result.failure()) {

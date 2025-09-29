@@ -71,37 +71,42 @@ struct Renderer {
 
   static RenderResult renderPanel(
     const std::string& pluginSlug,
-    const std::string& moduleSlug
+    const std::string& moduleSlug,
+    float scale
   );
 
-  static RenderResult renderOverlay(int64_t moduleId);
+  static RenderResult renderOverlay(int64_t moduleId, float scale);
 
   static RenderResult renderKnob(
     const std::string& pluginSlug,
     const std::string& moduleSlug,
     int id,
-    std::map<std::string, RenderResult>& renderResults
+    std::map<std::string, RenderResult>& renderResults,
+    float scale
   );
 
   static RenderResult renderSwitch(
     const std::string& pluginSlug,
     const std::string& moduleSlug,
     int32_t id,
-    std::vector<RenderResult>& renderResults
+    std::vector<RenderResult>& renderResults,
+    float scale
   );
 
   static RenderResult renderSlider(
     const std::string& pluginSlug,
     const std::string& moduleSlug,
     int32_t id,
-    std::map<std::string, RenderResult>& renderResults
+    std::map<std::string, RenderResult>& renderResults,
+    float scale
   );
 
   static RenderResult renderPort(
     const std::string& pluginSlug,
     const std::string& moduleSlug,
     int id,
-    rack::engine::Port::Type type
+    rack::engine::Port::Type type,
+    float scale
   );
 
   static rack::widget::FramebufferWidget* findFramebuffer(
