@@ -117,6 +117,10 @@ struct Renderer {
   static rack::widget::FramebufferWidget* wrapForRendering(
     rack::widget::Widget* widget
   );
+  // clear children from wrapper
+  static void clearRenderWrapper(
+    rack::widget::FramebufferWidget* fb
+  );
 
   // render FramebufferWidget to rgba pixel array
   uint8_t* renderPixels(rack::widget::FramebufferWidget* fb, int& width, int& height, float zoom = 3.f);

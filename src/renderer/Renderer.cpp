@@ -379,6 +379,11 @@ rack::widget::FramebufferWidget* Renderer::wrapForRendering(
   return fbcontainer;
 }
 
+// static
+void Renderer::clearRenderWrapper(rack::widget::FramebufferWidget* fb) {
+  fb->children.front()->children.clear();
+}
+
 uint8_t* Renderer::renderPixels(
   rack::widget::FramebufferWidget* fb,
   int& width,
