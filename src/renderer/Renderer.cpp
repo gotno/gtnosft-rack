@@ -84,12 +84,23 @@ RenderResult Renderer::renderPanel(
     return WIDGET_NOT_FOUND("renderPanel-panel", pluginSlug, moduleSlug);
 
   rack::widget::FramebufferWidget* framebuffer = findFramebuffer(panel);
-  // TODO: brute force this if no fb found. _something_ is still renderable.
-  //       use wrapModuleWidget?
-  if (!framebuffer)
-    return WIDGET_NOT_FOUND("renderPanel-fb", pluginSlug, moduleSlug);
+
+  rack::widget::Widget* parent = NULL;
+  if (!framebuffer) {
+    INFO("no framebuffer found for panel, falling back to wrapped widget");
+    parent = panel->parent;
+    panel->parent = NULL;
+    framebuffer = wrapForRendering(panel);
+  }
 
   RenderResult result = Renderer(framebuffer).render(scale);
+
+  // if parent is not NULL, we have used wrapForRendering and need to clean up
+  if (parent) {
+    panel->parent = parent;
+    clearRenderWrapper(framebuffer);
+    delete framebuffer;
+  }
 
   return result;
 }
