@@ -114,7 +114,7 @@ RenderResult Renderer::renderOverlay(int64_t moduleId, float scale) {
   }
 
   // TODO: for Fundamental:Scope, copy input cables to get proper colors
-  rack::widget::FramebufferWidget* framebuffer = wrapModuleWidget(surrogate);
+  rack::widget::FramebufferWidget* framebuffer = wrapForRendering(surrogate);
   framebuffer->step();
   DEFER({
     surrogate->module = NULL;
@@ -364,12 +364,12 @@ RenderResult Renderer::render(float scale) {
 }
 
 // static
-rack::widget::FramebufferWidget* Renderer::wrapModuleWidget(
-  rack::app::ModuleWidget* widget
+rack::widget::FramebufferWidget* Renderer::wrapForRendering(
+  rack::widget::Widget* widget
 ) {
   rack::widget::FramebufferWidget* fbcontainer =
     new rack::widget::FramebufferWidget;
-  ModuleWidgetContainer* container = new ModuleWidgetContainer;
+  WidgetContainer* container = new WidgetContainer;
 
   fbcontainer->addChild(container);
   container->box.size = widget->box.size;
@@ -482,7 +482,7 @@ void Renderer::hideChildren(rack::widget::Widget* widget) {
 //   rack::app::ModuleWidget* moduleWidget
 // ) {
 //   widget::FramebufferWidget* fb =
-//     wrapModuleWidget(
+//     wrapForRendering(
 //       makeDummyModuleWidget(moduleWidget)
 //     );
 
@@ -529,7 +529,7 @@ void Renderer::hideChildren(rack::widget::Widget* widget) {
 //   float zoom
 // ) {
 //   rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
-//   widget::FramebufferWidget* fb = wrapModuleWidget(surrogate);
+//   widget::FramebufferWidget* fb = wrapForRendering(surrogate);
 //   abandonChildren(surrogate);
 //   abandonPanel(surrogate);
 

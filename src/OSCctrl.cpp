@@ -111,7 +111,7 @@ rack::widget::FramebufferWidget* OSCctrlWidget::wrapModuleWidget(
   rack::app::ModuleWidget* mw
 ) {
   widget::FramebufferWidget* fbcontainer = new widget::FramebufferWidget;
-  ModuleWidgetContainer* mwcontainer = new ModuleWidgetContainer;
+  WidgetContainer* mwcontainer = new WidgetContainer;
 
   fbcontainer->addChild(mwcontainer);
   mwcontainer->box.size = mw->box.size;

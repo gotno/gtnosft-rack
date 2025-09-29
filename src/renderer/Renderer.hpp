@@ -2,7 +2,7 @@
 
 #include "rack.hpp"
 
-struct ModuleWidgetContainer : rack::widget::Widget {
+struct WidgetContainer : rack::widget::Widget {
   void draw(const DrawArgs& args) override {
     Widget::draw(args);
     Widget::drawLayer(args, 1);
@@ -113,9 +113,9 @@ struct Renderer {
     rack::widget::Widget* widget
   );
 
-  // wrap ModuleWidget in container and framebuffer
-  static rack::widget::FramebufferWidget* wrapModuleWidget(
-    rack::app::ModuleWidget* widget
+  // wrap Widget in container and framebuffer
+  static rack::widget::FramebufferWidget* wrapForRendering(
+    rack::widget::Widget* widget
   );
 
   // render FramebufferWidget to rgba pixel array
