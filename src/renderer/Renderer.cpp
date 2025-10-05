@@ -399,9 +399,9 @@ uint8_t* Renderer::renderPixels(
   rack::widget::FramebufferWidget* fb,
   int& width,
   int& height,
-  float zoom
+  float scale
 ) {
-  fb->render(rack::math::Vec(zoom, zoom));
+  fb->render(rack::math::Vec(scale, scale));
 
   nvgluBindFramebuffer(fb->getFramebuffer());
 
