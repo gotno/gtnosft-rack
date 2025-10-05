@@ -209,10 +209,12 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     ++numParams;
 
     if (type == ParamType::Knob) {
-      // Vult knobs do min/max angle some other way?
+      // some knobs do min/max angle some other way?
       bool isVult = pluginSlug.find("Vult") != std::string::npos;
-      float minAngle = isVult ? -0.75f * M_PI : knobWidget->minAngle;
-      float maxAngle = isVult ? 0.75f * M_PI : knobWidget->maxAngle;
+      bool isSlimechild = pluginSlug.find("SlimeChild") != std::string::npos;
+      bool needsOverride = isVult || isSlimechild;
+      float minAngle = needsOverride ? -0.75f * M_PI : knobWidget->minAngle;
+      float maxAngle = needsOverride ? 0.75f * M_PI : knobWidget->maxAngle;
 
       messages.emplace_back(
         "/set/module_structure/param/knob",
