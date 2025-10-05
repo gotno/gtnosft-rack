@@ -192,7 +192,7 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
-      float scale = (args++)->AsInt32();
+      float scale = (args++)->AsFloat();
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
@@ -220,7 +220,7 @@ void OscReceiver::generateRoutes() {
     "/get/texture/overlay",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
-      float scale = (args++)->AsInt32();
+      float scale = (args++)->AsFloat();
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
@@ -247,7 +247,7 @@ void OscReceiver::generateRoutes() {
       std::string moduleSlug = (args++)->AsString();
       int32_t portId = (args++)->AsInt32();
       PortType portType = (PortType)(args++)->AsInt32();
-      float scale = (args++)->AsInt32();
+      float scale = (args++)->AsFloat();
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
@@ -281,7 +281,7 @@ void OscReceiver::generateRoutes() {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
       int paramId = (int)(args++)->AsInt32();
-      float scale = (args++)->AsInt32();
+      float scale = (args++)->AsFloat();
       int bgId = (int)(args++)->AsInt32();
       int mgId = (int)(args++)->AsInt32();
       int fgId = (int)(args++)->AsInt32();
