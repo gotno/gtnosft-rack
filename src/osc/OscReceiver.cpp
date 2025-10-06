@@ -221,10 +221,11 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
       float scale = (args++)->AsFloat();
+      int32_t forceRender = (args++)->AsBool();
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
-        if (chunkman->isProcessing(requestedId)) return;
+        if (chunkman->isProcessing(requestedId) && !forceRender) return;
 
         RenderResult render = Renderer::renderOverlay(moduleId, scale);
         if (render.failure()) {
@@ -235,7 +236,7 @@ void OscReceiver::generateRoutes() {
 
         ChunkedImage* chunkedImage = new ChunkedImage(render);
         chunkedImage->id = requestedId;
-        chunkman->add(chunkedImage);
+        chunkman->add(chunkedImage, true);
       });
     }
   );

@@ -13,10 +13,24 @@ ChunkedManager::ChunkedManager(OSCctrlWidget* _ctrl, OscSender* sender)
 
 ChunkedManager::~ChunkedManager() {}
 
-void ChunkedManager::add(ChunkedSend* chunked) {
+void ChunkedManager::add(ChunkedSend* chunked, bool deferIfAlreadyQueued) {
+  if (chunkedExists(chunked->id)) {
+    if (deferIfAlreadyQueued) defer(chunked);
+    if (!deferIfAlreadyQueued) delete chunked;
+    return;
+  }
+
   chunked->init();
   chunkedSends.emplace(chunked->id, std::unique_ptr<ChunkedSend>(chunked));
   processChunked(chunked->id);
+}
+
+void ChunkedManager::defer(ChunkedSend* chunked) {
+  if (deferredExists(chunked->id)) {
+    delete deferredSends.at(chunked->id);
+    deferredSends.erase(chunked->id);
+  }
+  deferredSends.emplace(chunked->id, chunked);
 }
 
 void ChunkedManager::ack(int32_t id, int32_t chunkNum) {
@@ -36,6 +50,10 @@ bool ChunkedManager::chunkedExists(int32_t id) {
   return chunkedSends.count(id) != 0;
 }
 
+bool ChunkedManager::deferredExists(int32_t id) {
+  return deferredSends.count(id) != 0;
+}
+
 ChunkedSend* ChunkedManager::getChunked(int32_t id) {
   assert(chunkedExists(id));
   return chunkedSends.at(id).get();
@@ -53,6 +71,12 @@ void ChunkedManager::processChunked(int32_t id) {
 
   if (sendFailed || sendSucceeded) {
     chunkedSends.erase(id);
+
+    if (deferredExists(id)) {
+      add(deferredSends.at(id));
+      deferredSends.erase(id);
+    }
+
     return;
   }
 
