@@ -12,6 +12,7 @@
 
 #include "ChunkedSend/ChunkedImage.hpp"
 
+#include "Bundler/PatchInfoBundler.hpp"
 #include "Bundler/ModuleStubsBundler.hpp"
 #include "Bundler/ModuleStructureBundler.hpp"
 #include "Bundler/ModuleStateBundler.hpp"
@@ -147,6 +148,17 @@ void OscReceiver::generateRoutes() {
       int32_t chunkedId = (args++)->AsInt32();
       int32_t chunkNum = (args++)->AsInt32();
       chunkman->ack(chunkedId, chunkNum);
+    }
+  );
+
+  routes.emplace(
+    "/get/patch_info",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      (void)args;
+
+      ctrl->enqueueAction([&]() {
+        osctx->enqueueBundler(new PatchInfoBundler());
+      });
     }
   );
 
