@@ -17,7 +17,9 @@ ModuleStateBundler::ModuleStateBundler(int64_t moduleId, rack::math::Rect ctrlBo
 
   // if this module is on the same row and to the right of ctrl,
   // subtract ctrl's width to close the gap
-  if (pos.y == ctrlPos.y && pos.x > 0) pos.x = pos.x - ctrlBox.size.x;
+  // edit: is there a better way to handle this? ideally, we'd only
+  // close the gap if ctrl was in between modules
+  // if (pos.y == ctrlPos.y && pos.x > 0) pos.x = pos.x - ctrlBox.size.x;
 
   pos = gtnosft::util::vec2cm(pos);
 
