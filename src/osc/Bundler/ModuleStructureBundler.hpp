@@ -38,6 +38,8 @@ struct ModuleStructureBundler : Bundler {
 
   int32_t numParams{0}, numInputs{0}, numOutputs{0}, numLights{0};
 
+  bool shouldLog{true};
+
   void addLightMessages(rack::app::ModuleWidget* moduleWidget);
   void addLightMessage(rack::app::LightWidget* lightWidget, int32_t paramId = -1);
   void addParamMessages(rack::app::ModuleWidget* moduleWidget);

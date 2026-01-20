@@ -14,11 +14,17 @@ ModuleStructureBundler::ModuleStructureBundler(
     gtnosft::util::makeConnectedModuleWidget(model);
   if (!moduleWidget) return;
 
+  rack::math::Vec panelSize = gtnosft::util::vec2cm(moduleWidget->box.size);
+
+  if (shouldLog) {
+    INFO("ModuleStructureBundler: %s:%s", pluginSlug.c_str(), moduleSlug.c_str());
+    INFO("  panel: %f/%f", panelSize.x, panelSize.y);
+  }
+
   addLightMessages(moduleWidget);
   addParamMessages(moduleWidget);
   addPortMessages(moduleWidget);
 
-  rack::math::Vec panelSize = gtnosft::util::vec2cm(moduleWidget->box.size);
   messages.emplace(
     messages.begin(),
     "/set/module_structure",
@@ -49,6 +55,11 @@ void ModuleStructureBundler::addLightMessage(
   int32_t lightId = numLights;
   bool defaultVisible = lightWidget->isVisible();
   std::string bgColorHex = rack::color::toHexString(lightWidget->bgColor);
+
+  if (shouldLog) {
+    if (paramId == -1) INFO("  - light %d", lightId);
+    if (paramId != -1) INFO("  - light %d (param %d)", lightId, paramId);
+  }
 
   messages.emplace_back(
     "/set/module_structure/light",
@@ -173,6 +184,32 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       continue;
     }
 
+    if (shouldLog) {
+      std::string typeString;
+      switch(type) {
+        case ParamType::Button:
+          typeString = "button";
+          break;
+        case ParamType::Switch:
+          typeString = "switch";
+          break;
+        case ParamType::Knob:
+          typeString = "knob";
+          break;
+        case ParamType::Slider:
+          typeString = "slider";
+          break;
+        case ParamType::Unknown:
+          typeString = "???";
+          break;
+      }
+      INFO("  - param %d (%s) %s", paramId, typeString.c_str(), name.c_str());
+      INFO(
+        "    min/max val %f/%f (default %f) %s",
+        minValue, maxValue, defaultValue, snap ? "snap" : ""
+      );
+    }
+
     messages.emplace_back(
       "/set/module_structure/param",
       [
@@ -216,6 +253,10 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       float minAngle = needsOverride ? -0.75f * M_PI : knobWidget->minAngle;
       float maxAngle = needsOverride ? 0.75f * M_PI : knobWidget->maxAngle;
 
+      if (shouldLog) {
+        INFO("    min/max angle %f/%f (actual)", knobWidget->minAngle, knobWidget->maxAngle);
+      }
+
       messages.emplace_back(
         "/set/module_structure/param/knob",
         [this, paramId, minAngle, maxAngle](osc::OutboundPacketStream& pstream) {
@@ -236,6 +277,10 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       rack::math::Vec maxHandlePos =
         gtnosft::util::vec2cm(sliderWidget->maxHandlePos);
       bool horizontal = sliderWidget->horizontal;
+
+      if (shouldLog) {
+        INFO("    %s", horizontal ? "horizontal" : "vertical");
+      }
 
       messages.emplace_back(
         "/set/module_structure/param/slider",
@@ -264,6 +309,10 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     if (type == ParamType::Button) {
       bool momentary = switchWidget->momentary;
 
+      if (shouldLog) {
+        INFO("    %s", momentary ? "momentary" : "latch");
+      }
+
       messages.emplace_back(
         "/set/module_structure/param/button",
         [this, paramId, momentary](osc::OutboundPacketStream& pstream) {
@@ -278,6 +327,10 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     if (type == ParamType::Switch) {
       bool horizontal = size.x > size.y;
       int numFrames = maxValue + 1;
+
+      if (shouldLog) {
+        INFO("    %d frames", numFrames);
+      }
 
       messages.emplace_back(
         "/set/module_structure/param/switch",
@@ -311,6 +364,13 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
     name = portWidget->getPortInfo()->name;
     description = portWidget->getPortInfo()->description;
     defaultVisible = portWidget->isVisible();
+
+    if (shouldLog) {
+      INFO(
+        "  - port %d (%s) %s",
+        portId, type == PortType::Input ? "input" : "output", name.c_str()
+      );
+    }
 
     messages.emplace_back(
       "/set/module_structure/port",
