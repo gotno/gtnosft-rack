@@ -2,7 +2,7 @@
 
 CablesBundler::CablesBundler(
   int64_t cableId,
-  int32_t returnId
+  int64_t returnId
 ) : Bundler("CablesBundler") {
   bundleCable(cableId, returnId);
 }
@@ -17,7 +17,7 @@ CablesBundler::CablesBundler(): Bundler("CablesBundler") {
   // TODO: send "finished" message with total sent count
 }
 
-void CablesBundler::bundleCable(int64_t cableId, int32_t returnId) {
+void CablesBundler::bundleCable(int64_t cableId, int64_t returnId) {
   rack::engine::Cable* cable = APP->engine->getCable(cableId);
   rack::app::CableWidget* cableWidget = APP->scene->rack->getCable(cableId);
 

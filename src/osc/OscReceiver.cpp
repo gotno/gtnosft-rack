@@ -504,14 +504,17 @@ void OscReceiver::generateRoutes() {
   routes.emplace(
     "/add/cable",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
-      int32_t returnId = (args++)->AsInt32();
-
       int64_t inputModuleId = (args++)->AsInt64();
       int64_t outputModuleId = (args++)->AsInt64();
       int32_t inputPortId = (args++)->AsInt32();
       int32_t outputPortId = (args++)->AsInt32();
 
       std::string color = (args++)->AsString();
+
+      int64_t returnId = -1;
+      try {
+        returnId = (args++)->AsInt64();
+      } catch (const osc::WrongArgumentTypeException& e) {}
 
       ctrl->enqueueAction([=, this]() {
         // TODO: history (see PortWidget::dragStart/dragEnd for example)
