@@ -70,7 +70,7 @@ RenderResult Renderer::WIDGET_NOT_FOUND(
 RenderResult Renderer::renderPanel(
   const std::string& pluginSlug,
   const std::string& moduleSlug,
-  float scale
+  std::variant<float, int32_t> scaleOrHeight
 ) {
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) return MODEL_NOT_FOUND("renderPanel", pluginSlug, moduleSlug);
@@ -93,6 +93,7 @@ RenderResult Renderer::renderPanel(
     framebuffer = wrapForRendering(panel);
   }
 
+  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
   RenderResult result = Renderer(framebuffer).render(scale);
 
   // if parent is not NULL, we have used wrapForRendering and need to clean up
@@ -106,7 +107,10 @@ RenderResult Renderer::renderPanel(
 }
 
 // static
-RenderResult Renderer::renderOverlay(int64_t moduleId, float scale) {
+RenderResult Renderer::renderOverlay(
+  int64_t moduleId,
+  std::variant<float, int32_t> scaleOrHeight
+) {
   rack::app::ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
   if (!moduleWidget) return MODULE_NOT_FOUND("renderOverlay", moduleId);
 
@@ -132,6 +136,7 @@ RenderResult Renderer::renderOverlay(int64_t moduleId, float scale) {
     delete framebuffer;
   });
 
+  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
   RenderResult result = Renderer(framebuffer).render(scale);
 
   return result;
@@ -143,7 +148,7 @@ RenderResult Renderer::renderSwitch(
   const std::string& moduleSlug,
   int32_t id,
   std::vector<RenderResult>& renderResults,
-  float scale
+  std::variant<float, int32_t> scaleOrHeight
 ) {
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) {
@@ -169,6 +174,8 @@ RenderResult Renderer::renderSwitch(
   rack::engine::ParamQuantity* pq = switchWidget->getParamQuantity();
   pq->setMin();
 
+  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
+
   for (int i = 0; i <= pq->getMaxValue(); ++i) {
     pq->setValue(i);
     switchWidget->step();
@@ -186,7 +193,7 @@ RenderResult Renderer::renderSlider(
   const std::string& moduleSlug,
   int32_t id,
   std::map<std::string, RenderResult>& renderResults,
-  float scale
+  std::variant<float, int32_t> scaleOrHeight
 ) {
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) {
@@ -211,6 +218,8 @@ RenderResult Renderer::renderSlider(
 
   rack::widget::Widget* track = sliderWidget->background;
   rack::widget::Widget* handle = sliderWidget->handle;
+
+  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
 
   if (track) {
     track->visible = true;
@@ -237,7 +246,7 @@ RenderResult Renderer::renderKnob(
   const std::string& moduleSlug,
   int32_t id,
   std::map<std::string, RenderResult>& renderResults,
-  float scale
+  std::variant<float, int32_t> scaleOrHeight
 ) {
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) {
@@ -282,6 +291,8 @@ RenderResult Renderer::renderKnob(
     lastWidget = child;
   }
 
+  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
+
   // toggle layer visibility and render each
   if (bg) {
     bg->visible = true;
@@ -316,7 +327,7 @@ RenderResult Renderer::renderPort(
   const std::string& moduleSlug,
   int32_t id,
   rack::engine::Port::Type type,
-  float scale
+  std::variant<float, int32_t> scaleOrHeight
 ) {
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   if (!model) return MODEL_NOT_FOUND("renderPort", pluginSlug, moduleSlug);
@@ -340,6 +351,8 @@ RenderResult Renderer::renderPort(
     return WIDGET_NOT_FOUND("renderPort-fb", pluginSlug, moduleSlug, id);
 
   hideChildren(framebuffer);
+
+  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
   RenderResult result = Renderer(framebuffer).render(scale);
 
   return result;
@@ -393,6 +406,19 @@ rack::widget::FramebufferWidget* Renderer::wrapForRendering(
 // static
 void Renderer::clearRenderWrapper(rack::widget::FramebufferWidget* fb) {
   fb->children.front()->children.clear();
+}
+
+// static
+float Renderer::getScaleFromVariant(
+  rack::widget::FramebufferWidget* framebuffer,
+  std::variant<float, int32_t> scaleOrHeight
+) {
+  if (std::holds_alternative<float>(scaleOrHeight)) {
+    return std::get<float>(scaleOrHeight);
+  } else {
+    int32_t height = std::get<int32_t>(scaleOrHeight);
+    return height / (framebuffer->box.size.y * 2.f);
+  }
 }
 
 uint8_t* Renderer::renderPixels(

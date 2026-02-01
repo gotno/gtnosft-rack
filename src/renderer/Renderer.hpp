@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rack.hpp"
+#include <variant>
 
 struct WidgetContainer : rack::widget::Widget {
   void draw(const DrawArgs& args) override {
@@ -72,17 +73,20 @@ struct Renderer {
   static RenderResult renderPanel(
     const std::string& pluginSlug,
     const std::string& moduleSlug,
-    float scale
+    std::variant<float, int32_t> scaleOrHeight
   );
 
-  static RenderResult renderOverlay(int64_t moduleId, float scale);
+  static RenderResult renderOverlay(
+    int64_t moduleId,
+    std::variant<float, int32_t> scaleOrHeight
+  );
 
   static RenderResult renderKnob(
     const std::string& pluginSlug,
     const std::string& moduleSlug,
     int id,
     std::map<std::string, RenderResult>& renderResults,
-    float scale
+    std::variant<float, int32_t> scaleOrHeight
   );
 
   static RenderResult renderSwitch(
@@ -90,7 +94,7 @@ struct Renderer {
     const std::string& moduleSlug,
     int32_t id,
     std::vector<RenderResult>& renderResults,
-    float scale
+    std::variant<float, int32_t> scaleOrHeight
   );
 
   static RenderResult renderSlider(
@@ -98,7 +102,7 @@ struct Renderer {
     const std::string& moduleSlug,
     int32_t id,
     std::map<std::string, RenderResult>& renderResults,
-    float scale
+    std::variant<float, int32_t> scaleOrHeight
   );
 
   static RenderResult renderPort(
@@ -106,7 +110,7 @@ struct Renderer {
     const std::string& moduleSlug,
     int id,
     rack::engine::Port::Type type,
-    float scale
+    std::variant<float, int32_t> scaleOrHeight
   );
 
   static rack::widget::FramebufferWidget* findFramebuffer(
@@ -123,7 +127,17 @@ struct Renderer {
   );
 
   // render FramebufferWidget to rgba pixel array
-  uint8_t* renderPixels(rack::widget::FramebufferWidget* fb, int& width, int& height, float zoom = 3.f);
+  uint8_t* renderPixels(
+    rack::widget::FramebufferWidget* fb,
+    int& width,
+    int& height,
+    float scale = 3.f
+  );
+
+  static float getScaleFromVariant(
+    rack::widget::FramebufferWidget* framebuffer,
+    std::variant<float, int32_t> scaleOrHeight
+  );
 
   // remove shadows/screws/params/ports/lights from widget
   static void hideChildren(rack::widget::Widget* mw);

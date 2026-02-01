@@ -120,6 +120,26 @@ void OscReceiver::ProcessMessage(
   }
 }
 
+bool OscReceiver::floatOrInt32(
+  osc::ReceivedMessage::const_iterator& arg,
+  float& outFloat,
+  int32_t& outInt32
+) {
+  outFloat = -1.f;
+  if (arg->IsFloat()) {
+    outFloat = arg->AsFloat();
+  }
+
+  outInt32 = -1;
+  if (arg->IsInt32()) {
+    outInt32 = arg->AsInt32();
+  }
+
+  arg++;
+
+  return outFloat != -1.f || outInt32 != -1;
+}
+
 void OscReceiver::generateRoutes() {
   routes.emplace(
     "/register",
@@ -204,12 +224,30 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
-      float scale = (args++)->AsFloat();
+
+      float scale;
+      int32_t height;
+      if (!floatOrInt32(args, scale, height)) {
+        INFO(
+          "/get/texture/panel %s:%s received neither scale (float) nor height (int32)",
+          pluginSlug.c_str(),
+          moduleSlug.c_str()
+        );
+        return;
+      }
+
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
+        std::variant<float, int32_t> scaleOrHeight;
+        if (scale != -1.f) {
+          scaleOrHeight = scale;
+        } else {
+          scaleOrHeight = height;
+        }
+
         RenderResult render =
-          Renderer::renderPanel(pluginSlug, moduleSlug, scale);
+          Renderer::renderPanel(pluginSlug, moduleSlug, scaleOrHeight);
 
         if (render.failure()) {
           INFO(
@@ -232,14 +270,31 @@ void OscReceiver::generateRoutes() {
     "/get/texture/overlay",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
-      float scale = (args++)->AsFloat();
+
+      float scale;
+      int32_t height;
+      if (!floatOrInt32(args, scale, height)) {
+        INFO(
+          "/get/texture/overlay %lld received neither scale (float) nor height (int32)",
+          moduleId
+        );
+        return;
+      }
+
       int32_t forceRender = (args++)->AsBool();
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
         if (chunkman->isProcessing(requestedId) && !forceRender) return;
 
-        RenderResult render = Renderer::renderOverlay(moduleId, scale);
+        std::variant<float, int32_t> scaleOrHeight;
+        if (scale != -1.f) {
+          scaleOrHeight = scale;
+        } else {
+          scaleOrHeight = height;
+        }
+
+        RenderResult render = Renderer::renderOverlay(moduleId, scaleOrHeight);
         if (render.failure()) {
           INFO("failed to render overlay %lld", moduleId);
           INFO("  %s", render.statusMessage.c_str());
@@ -260,10 +315,30 @@ void OscReceiver::generateRoutes() {
       std::string moduleSlug = (args++)->AsString();
       int32_t portId = (args++)->AsInt32();
       PortType portType = (PortType)(args++)->AsInt32();
-      float scale = (args++)->AsFloat();
+
+      float scale;
+      int32_t height;
+      if (!floatOrInt32(args, scale, height)) {
+        INFO(
+          "/get/texture/port %s:%s:%d(%s) received neither scale (float) nor height (int32)",
+          pluginSlug.c_str(),
+          moduleSlug.c_str(),
+          portId,
+          portType == PortType::Input ? "input" : "output"
+        );
+        return;
+      }
+
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
+        std::variant<float, int32_t> scaleOrHeight;
+        if (scale == -1.f) {
+          scaleOrHeight = height;
+        } else {
+          scaleOrHeight = scale;
+        }
+
         RenderResult render =
           Renderer::renderPort(
             pluginSlug,
@@ -272,7 +347,7 @@ void OscReceiver::generateRoutes() {
             portType == PortType::Input
               ? rack::engine::Port::INPUT
               : rack::engine::Port::OUTPUT,
-            scale
+            scaleOrHeight
           );
 
         if (render.failure()) {
@@ -294,7 +369,19 @@ void OscReceiver::generateRoutes() {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
       int paramId = (int)(args++)->AsInt32();
-      float scale = (args++)->AsFloat();
+
+      float scale;
+      int32_t height;
+      if (!floatOrInt32(args, scale, height)) {
+        INFO(
+          "/get/texture/knob %s:%s:%d received neither scale (float) nor height (int32)",
+          pluginSlug.c_str(),
+          moduleSlug.c_str(),
+          paramId
+        );
+        return;
+      }
+
       int bgId = (int)(args++)->AsInt32();
       int mgId = (int)(args++)->AsInt32();
       int fgId = (int)(args++)->AsInt32();
@@ -302,13 +389,20 @@ void OscReceiver::generateRoutes() {
       ctrl->enqueueAction([=, this]() {
         std::map<std::string, RenderResult> renderResults;
 
+        std::variant<float, int32_t> scaleOrHeight;
+        if (scale != -1.f) {
+          scaleOrHeight = scale;
+        } else {
+          scaleOrHeight = height;
+        }
+
         RenderResult result =
           Renderer::renderKnob(
             pluginSlug,
             moduleSlug,
             paramId,
             renderResults,
-            scale
+            scaleOrHeight
           );
 
         if (result.failure()) {
@@ -347,7 +441,18 @@ void OscReceiver::generateRoutes() {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
       int paramId = (int)(args++)->AsInt32();
-      float scale = (args++)->AsFloat();
+
+      float scale;
+      int32_t height;
+      if (!floatOrInt32(args, scale, height)) {
+        INFO(
+          "/get/texture/switch %s:%s:%d received neither scale (float) nor height (int32)",
+          pluginSlug.c_str(),
+          moduleSlug.c_str(),
+          paramId
+        );
+        return;
+      }
 
       std::vector<int32_t> requestedIds;
 
@@ -362,13 +467,20 @@ void OscReceiver::generateRoutes() {
       ctrl->enqueueAction([=, this]() {
         std::vector<RenderResult> renderResults;
 
+        std::variant<float, int32_t> scaleOrHeight;
+        if (scale != -1.f) {
+          scaleOrHeight = scale;
+        } else {
+          scaleOrHeight = height;
+        }
+
         RenderResult result =
           Renderer::renderSwitch(
             pluginSlug,
             moduleSlug,
             paramId,
             renderResults,
-            scale
+            scaleOrHeight
           );
 
         for (size_t i = 0; i < renderResults.size(); ++i) {
@@ -400,12 +512,31 @@ void OscReceiver::generateRoutes() {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
       int paramId = (int)(args++)->AsInt32();
-      float scale = (args++)->AsFloat();
+
+      float scale;
+      int32_t height;
+      if (!floatOrInt32(args, scale, height)) {
+        INFO(
+          "/get/texture/slider %s:%s:%d received neither scale (float) nor height (int32)",
+          pluginSlug.c_str(),
+          moduleSlug.c_str(),
+          paramId
+        );
+        return;
+      }
+
       int trackId = (int)(args++)->AsInt32();
       int handleId = (int)(args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
         std::map<std::string, RenderResult> renderResults;
+
+        std::variant<float, int32_t> scaleOrHeight;
+        if (scale != -1.f) {
+          scaleOrHeight = scale;
+        } else {
+          scaleOrHeight = height;
+        }
 
         RenderResult result =
           Renderer::renderSlider(
@@ -413,7 +544,7 @@ void OscReceiver::generateRoutes() {
             moduleSlug,
             paramId,
             renderResults,
-            scale
+            scaleOrHeight
           );
 
         if (result.failure()) {
