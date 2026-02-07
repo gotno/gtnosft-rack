@@ -1,6 +1,7 @@
 #include "DirectHeartbeatBundler.hpp"
 
 DirectHeartbeatBundler::DirectHeartbeatBundler(): Bundler("DirectHeartbeatBundler") {
+  // TODO: these should be floats, 0-100
   double meterAverage = APP->engine->getMeterAverage();
   std::string avg = rack::string::f("%.1f%%",  meterAverage * 100);
 

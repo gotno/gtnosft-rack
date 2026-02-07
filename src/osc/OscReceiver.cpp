@@ -107,6 +107,8 @@ void OscReceiver::ProcessMessage(
 ) {
   // DEBUG("oscrx received message on path %s", message.AddressPattern());
 
+  // TODO: bail early if we're still broadcasting
+
   try {
     std::string address = message.AddressPattern();
     if (!routes.count(address)) throw osc::Exception("no route for address");
