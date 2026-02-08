@@ -69,13 +69,14 @@ This explains several design decisions:
 - qoi: MIT License (`dependencies/qoi/LICENSE`)
 
 ## Code Conventions
-
-### Naming Patterns
-- **Classes/Structs:** PascalCase (`OscSender`, `ModuleParamsBundler`, `OSCctrlWidget`)
-- **Methods:** camelCase (`enqueueBundler()`, `setBroadcasting()`, `process()`)
-- **Variables:** camelCase (`osctx`, `chunkman`, `messageWidgets`)
-- **Bundler naming:** `[Data]*Bundler` pattern (e.g., `ModuleStateBundler`, `PatchInfoBundler`)
-- **Widget suffix:** Classes ending in `Widget` for UI components
+- **2 space tabs**
+- **NEVER** vertically align code just for the sake of neatness
+- **Naming:**
+    - **Classes/Structs:** PascalCase (`OscSender`, `ModuleParamsBundler`, `OSCctrlWidget`)
+    - **Methods:** camelCase (`enqueueBundler()`, `setBroadcasting()`, `process()`)
+    - **Variables:** camelCase (`osctx`, `chunkman`, `messageWidgets`)
+    - **Bundler naming:** `[Data]*Bundler` pattern (e.g., `ModuleStateBundler`, `PatchInfoBundler`)
+    - **Widget suffix:** Rack classes ending in `Widget` for UI components
 
 ### File Organization
 - Header/implementation separation: `.hpp` for declarations, `.cpp` for definitions
@@ -114,16 +115,16 @@ oscrx = new OscReceiver(this, osctx, chunkman, subman);  // 4. Needs all
 1. **VCV Rack main thread** (runs `step()` every frame)
    - ✅ **SAFE:** Create/modify widgets, change parameters, access Rack API
    - Processes `actionQueue` - runs lambdas from other threads
-   
+
 2. **OSC listener thread** (`OscReceiver::listenerThread`)
    - ❌ **UNSAFE:** Cannot touch VCV Rack widgets/modules directly
    - ✅ **SAFE:** Must use `ctrl->enqueueAction(lambda)` to schedule work
    - Receives UDP packets, dispatches to route handlers
-   
+
 3. **OSC sender thread** (`OscSender::queueWorker`)
    - ✅ **SAFE:** Can send messages (doesn't touch widgets)
    - Processes bundler queue, builds/sends OSC messages
-   
+
 4. **Heartbeat thread** (`heartbeatInterval`)
    - Monitors client connection
    - Enqueues heartbeat sends on main thread
@@ -144,7 +145,7 @@ routes.emplace("/set/param", [&](auto& args, auto&) {
 routes.emplace("/set/param", [&](auto& args, auto&) {
   int64_t id = (args++)->AsInt64();
   float value = (args++)->AsFloat();
-  
+
   ctrl->enqueueAction([id, value]() {  // ✅ Runs on main thread
     auto mw = APP->scene->rack->getModule(id);
     if (!mw) return;
@@ -296,10 +297,10 @@ routes.emplace(
     ctrl->enqueueAction([moduleId, paramId, value]() {
       auto mw = APP->scene->rack->getModule(moduleId);
       if (!mw) return;  // Always null-check
-      
+
       auto param = mw->getParam(paramId);
       if (!param) return;
-      
+
       param->getParamQuantity()->setValue(value);
     });
   }
@@ -360,7 +361,7 @@ routes.emplace("/get/module_stubs", [&](auto& args, auto&) {
 
 struct MyFeatureBundler : Bundler {
   MyFeatureBundler(/* args */);
-  
+
   // Optional overrides:
   // bool isNoop() override;
   // void sent() override;
@@ -374,7 +375,7 @@ struct MyFeatureBundler : Bundler {
 ```cpp
 PatchInfoBundler::PatchInfoBundler(): Bundler("PatchInfoBundler") {
   std::string filename = rack::system::getFilename(APP->patch->path);
-  
+
   messages.emplace_back(
     "/set/patch_info",
     [=](osc::OutboundPacketStream& pstream) {
@@ -391,7 +392,7 @@ ModuleStubsBundler::ModuleStubsBundler(): Bundler("ModuleStubsBundler") {
     auto model = APP->engine->getModule(id)->getModel();
     std::string pluginSlug = model->plugin->slug;
     std::string moduleSlug = model->slug;
-    
+
     messages.emplace_back(
       "/set/module_stub",
       [id, pluginSlug, moduleSlug](osc::OutboundPacketStream& p) {
@@ -411,11 +412,11 @@ ModuleStructureBundler::ModuleStructureBundler(
   auto model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   auto mw = gtnosft::util::makeConnectedModuleWidget(model);
   if (!mw) return;
-  
+
   // Analyze widget hierarchy
   addParamMessages(mw);
   addPortMessages(mw);
-  
+
   delete mw;  // Always cleanup temp widgets
 }
 ```
@@ -435,8 +436,8 @@ ctrl->enqueueAction([this, pluginSlug, moduleSlug]() {
 messages.emplace_back(
   "/set/module_stub",
   [id, pluginSlug, moduleSlug, bypassed](auto& p) {  // Add new var
-    p << id 
-      << pluginSlug.c_str() 
+    p << id
+      << pluginSlug.c_str()
       << moduleSlug.c_str()
       << bypassed;  // Add to message
   }
@@ -588,7 +589,7 @@ make clean        # Clean build artifacts
   // WRONG:
   std::string slug = (args++)->AsString();
   ctrl->enqueueAction([&slug]() { ... });  // CRASH!
-  
+
   // CORRECT:
   std::string slug = (args++)->AsString();
   ctrl->enqueueAction([slug]() { ... });  // Safe - copied
@@ -635,7 +636,7 @@ make clean        # Clean build artifacts
 - **Broadcast address calculation:** Relies on network adapter detection
   - May fail on complex network setups (VPNs, virtual adapters)
   - Logs warning if broadcast address can't be determined
-- **Heartbeat timing:** 
+- **Heartbeat timing:**
   - Server expects client `/keepalive` every <1000ms
   - Client should send every ~500-750ms for safety margin
   - 5 missed heartbeats → switches to broadcast mode
