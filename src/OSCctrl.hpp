@@ -6,11 +6,11 @@
 #include <queue>
 #include <utility>
 
+struct OSCctrl;
 class OscSender;
 class OscReceiver;
 class ChunkedManager;
 class SubscriptionManager;
-class OSCctrl;
 
 typedef std::function<void(void)> Action;
 
