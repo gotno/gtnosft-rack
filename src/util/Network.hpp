@@ -46,7 +46,6 @@ struct AdapterInfo {
 // internal helper functions
 // ============================================================================
 
-namespace detail {
 // convert ip address string to 32-bit integer (host byte order)
 inline bool ip_string_to_uint32(const std::string& ip_str, uint32_t& result) {
   struct in_addr addr;
@@ -219,8 +218,6 @@ inline std::vector<AdapterInfo> get_adapters_unix() {
 }
 #endif
 
-} // namespace detail
-
 // ============================================================================
 // public api
 // ============================================================================
@@ -228,9 +225,9 @@ inline std::vector<AdapterInfo> get_adapters_unix() {
 // get all network adapters with IPv4 addresses
 inline std::vector<AdapterInfo> get_all_adapters() {
 #ifdef ARCH_WIN
-  return detail::get_adapters_windows();
+  return get_adapters_windows();
 #else
-  return detail::get_adapters_unix();
+  return get_adapters_unix();
 #endif
 }
 
@@ -279,14 +276,14 @@ inline bool calculate_broadcast_address(std::string& broadcast_address) {
   }
 
   uint32_t ip_int, mask_int;
-  if (!detail::ip_string_to_uint32(ip_address, ip_int)) return false;
-  if (!detail::ip_string_to_uint32(netmask, mask_int)) return false;
+  if (!ip_string_to_uint32(ip_address, ip_int)) return false;
+  if (!ip_string_to_uint32(netmask, mask_int)) return false;
 
   // Calculate: network_address = ip & mask, broadcast = network | ~mask
   uint32_t network_int = ip_int & mask_int;
   uint32_t broadcast_int = network_int | (~mask_int);
 
-  return detail::uint32_to_ip_string(broadcast_int, broadcast_address);
+  return uint32_to_ip_string(broadcast_int, broadcast_address);
 }
 
 } // namespace Network
