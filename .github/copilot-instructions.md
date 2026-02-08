@@ -45,13 +45,38 @@ This explains several design decisions:
 - `plugin.json` — Plugin manifest
 
 ## Build & Test Commands
-- **Build (local):**
-  - Run `make` (requires VCV Rack repository (or SDK), set `RACK_DIR` if not autodetected)
+
+### Build System Architecture
+This repository is shared between WSL2 (Linux) and MSYS2 (Windows) environments. The VCV Rack build system hardcodes the `build/` directory, which causes conflicts when switching between toolchains.
+
+**Solution:** Build wrapper scripts manage environment-specific caches:
+- `build-wsl/` - WSL2/Linux build cache
+- `build-msys/` - MSYS2/Windows build cache  
+- `build/` - Temporary, actively used by make (cleaned/restored by wrappers)
+
+### Build Commands
+**IMPORTANT: You (Copilot) are always running in WSL2. Always use `./build-wsl.sh` instead of `make`.**
+
+- **Build (WSL2 - YOU):**
+  - `./build-wsl.sh` - Build the plugin (preserves incremental builds)
+  - `./build-wsl.sh clean` - Clean build artifacts
+  - `./build-wsl.sh dist` - Package plugin for release
+  - Never run `make` directly - it will pollute the shared `build/` directory
+
+- **Build (MSYS2 - User only):**
+  - `./build-msys.sh` - Windows builds (you cannot test this)
+  
 - **Build (CI):**
   - GitHub Actions workflow: `.github/workflows/build-plugin.yml`
   - Builds for Windows, Linux, and Mac (cross-compilation via containers)
-- **Distribution:**
-  - Run `make dist` to package plugin for release
+
+### How the Wrappers Work
+1. Restore environment-specific cache: `build-{env}/ → build/`
+2. Run `make` with all passed arguments
+3. Save artifacts back: `build/ → build-{env}/`
+4. On first run in new environment, cleans incompatible `build/` artifacts
+
+This allows fast incremental builds when switching between WSL2 and MSYS2 without full recompilation.
 
 ## Project Conventions
 - All source files are in `src/` and its subdirectories.
