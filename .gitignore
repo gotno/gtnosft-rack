@@ -1,5 +1,7 @@
 /.cache
 /build
+/build-wsl
+/build-msys
 /dist
 /*.so
 /*.dylib
