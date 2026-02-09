@@ -30,7 +30,7 @@ endif
 
 # Add .cpp files to the build
 SOURCES += $(wildcard src/*.cpp)
-SOURCES += $(wildcard src/renderer/*.cpp)
+SOURCES += $(wildcard src/texture/*.cpp)
 SOURCES += $(wildcard src/util/*.cpp)
 SOURCES += $(wildcard src/osc/*.cpp)
 SOURCES += $(wildcard src/osc/MessagePacker/*.cpp)

@@ -19,7 +19,7 @@
 #include "Bundler/ModuleParamsBundler.hpp"
 #include "Bundler/CablesBundler.hpp"
 
-#include "../renderer/Renderer.hpp"
+#include "../texture/Renderer.hpp"
 
 OscReceiver::OscReceiver(
   OSCctrlWidget* _ctrl,

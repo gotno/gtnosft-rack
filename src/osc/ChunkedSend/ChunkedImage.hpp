@@ -2,7 +2,7 @@
 
 #include "ChunkedSend.hpp"
 
-#include "../../renderer/Renderer.hpp"
+#include "../../texture/Renderer.hpp"
 
 struct ChunkedImage : ChunkedSend {
   ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height);
