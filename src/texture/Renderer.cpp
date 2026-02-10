@@ -219,6 +219,7 @@ RenderResult Renderer::renderSlider(
   rack::widget::Widget* track = sliderWidget->background;
   rack::widget::Widget* handle = sliderWidget->handle;
 
+  // TODO: handle should be scaled relative to track scale?
   float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
 
   if (track) {
