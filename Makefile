@@ -45,6 +45,7 @@ DISTRIBUTABLES += res
 DISTRIBUTABLES += $(wildcard LICENSE*)
 DISTRIBUTABLES += dependencies/oscpack/LICENSE
 DISTRIBUTABLES += dependencies/qoi/LICENSE
+DISTRIBUTABLES += dependencies/rapidhash/LICENSE
 DISTRIBUTABLES += $(wildcard presets)
 
 include $(RACK_DIR)/plugin.mk
