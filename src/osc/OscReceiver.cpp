@@ -19,6 +19,7 @@
 #include "Bundler/ModuleParamsBundler.hpp"
 #include "Bundler/CablesBundler.hpp"
 
+#include "../texture/Catalog.hpp"
 #include "../texture/Renderer.hpp"
 
 OscReceiver::OscReceiver(
@@ -241,15 +242,15 @@ void OscReceiver::generateRoutes() {
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
-        std::variant<float, int32_t> scaleOrHeight;
-        if (scale != -1.f) {
-          scaleOrHeight = scale;
+        Recipe recipe;
+        if (scale > 0.f) {
+          recipe = Recipe(scale);
         } else {
-          scaleOrHeight = height;
+          recipe = Recipe(height);
         }
+        Breadcrumbs crumbs(pluginSlug, moduleSlug, TextureType::Panel);
 
-        RenderResult render =
-          Renderer::renderPanel(pluginSlug, moduleSlug, scaleOrHeight);
+        RenderResult render = Renderer::renderTexture(crumbs, recipe);
 
         if (render.failure()) {
           INFO(
@@ -289,14 +290,22 @@ void OscReceiver::generateRoutes() {
       ctrl->enqueueAction([=, this]() {
         if (chunkman->isProcessing(requestedId) && !forceRender) return;
 
-        std::variant<float, int32_t> scaleOrHeight;
-        if (scale != -1.f) {
-          scaleOrHeight = scale;
+        Recipe recipe;
+        if (scale > 0.f) {
+          recipe = Recipe(scale);
         } else {
-          scaleOrHeight = height;
+          recipe = Recipe(height);
         }
 
-        RenderResult render = Renderer::renderOverlay(moduleId, scaleOrHeight);
+        rack::app::ModuleWidget* mw = APP->scene->rack->getModule(moduleId);
+        Breadcrumbs crumbs(
+          mw->getModel()->plugin->slug,
+          mw->getModel()->slug,
+          TextureType::Overlay
+        );
+
+        RenderResult render = Renderer::renderTexture(crumbs, recipe);
+
         if (render.failure()) {
           INFO("failed to render overlay %lld", moduleId);
           INFO("  %s", render.statusMessage.c_str());
@@ -334,23 +343,23 @@ void OscReceiver::generateRoutes() {
       int32_t requestedId = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
-        std::variant<float, int32_t> scaleOrHeight;
-        if (scale == -1.f) {
-          scaleOrHeight = height;
+        Recipe recipe;
+        if (scale > 0.f) {
+          recipe = Recipe(scale);
         } else {
-          scaleOrHeight = scale;
+          recipe = Recipe(height);
         }
 
-        RenderResult render =
-          Renderer::renderPort(
-            pluginSlug,
-            moduleSlug,
-            portId,
-            portType == PortType::Input
-              ? rack::engine::Port::INPUT
-              : rack::engine::Port::OUTPUT,
-            scaleOrHeight
-          );
+        Breadcrumbs crumbs(
+          pluginSlug,
+          moduleSlug,
+          portId,
+          portType == PortType::Input
+            ? TextureType::Port_input
+            : TextureType::Port_output
+        );
+
+        RenderResult render = Renderer::renderTexture(crumbs, recipe);
 
         if (render.failure()) {
           INFO("failed to render port %s:%s:%d", pluginSlug.c_str(), moduleSlug.c_str(), portId);
@@ -389,48 +398,37 @@ void OscReceiver::generateRoutes() {
       int fgId = (int)(args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
-        std::map<std::string, RenderResult> renderResults;
-
-        std::variant<float, int32_t> scaleOrHeight;
-        if (scale != -1.f) {
-          scaleOrHeight = scale;
+        Recipe recipe;
+        if (scale > 0.f) {
+          recipe = Recipe(scale);
         } else {
-          scaleOrHeight = height;
+          recipe = Recipe(height);
         }
 
-        RenderResult result =
-          Renderer::renderKnob(
-            pluginSlug,
-            moduleSlug,
-            paramId,
-            renderResults,
-            scaleOrHeight
-          );
+        std::vector<TextureType> types{
+          TextureType::Knob_bg,
+          TextureType::Knob_mg,
+          TextureType::Knob_fg,
+        };
+        for (TextureType type : types) {
+          Breadcrumbs crumbs(pluginSlug, moduleSlug, paramId, type);
+          RenderResult render = Renderer::renderTexture(crumbs, recipe);
+          if (render.failure() || render.empty()) continue;
 
-        if (result.failure()) {
-          INFO(
-            "failed to render knob %s:%s:%d",
-            pluginSlug.c_str(), moduleSlug.c_str(), paramId
-          );
-          INFO("  %s", result.statusMessage.c_str());
-          return;
-        }
-
-        if (renderResults.contains("bg") && !renderResults.at("bg").failure()) {
-          ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("bg"));
-          chunkedImage->id = bgId;
-          chunkman->add(chunkedImage);
-        }
-
-        if (renderResults.contains("mg") && !renderResults.at("mg").failure()) {
-          ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("mg"));
-          chunkedImage->id = mgId;
-          chunkman->add(chunkedImage);
-        }
-
-        if (renderResults.contains("fg") && !renderResults.at("fg").failure()) {
-          ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("fg"));
-          chunkedImage->id = fgId;
+          ChunkedImage* chunkedImage = new ChunkedImage(render);
+          switch (type) {
+            case TextureType::Knob_bg:
+              chunkedImage->id = bgId;
+              break;
+            case TextureType::Knob_mg:
+              chunkedImage->id = mgId;
+              break;
+            case TextureType::Knob_fg:
+              chunkedImage->id = fgId;
+              break;
+            default:
+              break;
+          }
           chunkman->add(chunkedImage);
         }
       });
@@ -467,40 +465,25 @@ void OscReceiver::generateRoutes() {
       } catch (const osc::WrongArgumentTypeException& e) {}
 
       ctrl->enqueueAction([=, this]() {
-        std::vector<RenderResult> renderResults;
-
-        std::variant<float, int32_t> scaleOrHeight;
-        if (scale != -1.f) {
-          scaleOrHeight = scale;
+        Recipe recipe;
+        if (scale > 0.f) {
+          recipe = Recipe(scale);
         } else {
-          scaleOrHeight = height;
+          recipe = Recipe(height);
         }
 
-        RenderResult result =
-          Renderer::renderSwitch(
+        for (size_t i = 0; i < requestedIds.size(); ++i) {
+          Breadcrumbs crumbs(
             pluginSlug,
             moduleSlug,
             paramId,
-            renderResults,
-            scaleOrHeight
+            TextureType::Switch_frame,
+            i
           );
+          RenderResult render = Renderer::renderTexture(crumbs, recipe);
+          if (render.failure() || render.empty()) continue;
 
-        for (size_t i = 0; i < renderResults.size(); ++i) {
-          if (renderResults[i].failure()) {
-            INFO(
-              "failed to render switch %s:%s:%d",
-              pluginSlug.c_str(), moduleSlug.c_str(), paramId
-            );
-            INFO("  %s", renderResults[i].statusMessage.c_str());
-            continue;
-          }
-
-          if (i >= requestedIds.size()) {
-            WARN("/get/texture/switch more switch textures than requested ids");
-            break;
-          }
-
-          ChunkedImage* chunkedImage = new ChunkedImage(renderResults[i]);
+          ChunkedImage* chunkedImage = new ChunkedImage(render);
           chunkedImage->id = requestedIds[i];
           chunkman->add(chunkedImage);
         }
@@ -531,42 +514,33 @@ void OscReceiver::generateRoutes() {
       int handleId = (int)(args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
-        std::map<std::string, RenderResult> renderResults;
-
-        std::variant<float, int32_t> scaleOrHeight;
-        if (scale != -1.f) {
-          scaleOrHeight = scale;
+        Recipe recipe;
+        if (scale > 0.f) {
+          recipe = Recipe(scale);
         } else {
-          scaleOrHeight = height;
+          recipe = Recipe(height);
         }
 
-        RenderResult result =
-          Renderer::renderSlider(
-            pluginSlug,
-            moduleSlug,
-            paramId,
-            renderResults,
-            scaleOrHeight
-          );
+        std::vector<TextureType> types{
+          TextureType::Slider_track,
+          TextureType::Slider_handle
+        };
+        for (TextureType type : types) {
+          Breadcrumbs crumbs(pluginSlug, moduleSlug, paramId, type);
+          RenderResult render = Renderer::renderTexture(crumbs, recipe);
+          if (render.failure() || render.empty()) continue;
 
-        if (result.failure()) {
-          INFO(
-            "failed to render slider %s:%s:%d",
-            pluginSlug.c_str(), moduleSlug.c_str(), paramId
-          );
-          INFO("  %s", result.statusMessage.c_str());
-          return;
-        }
-
-        if (renderResults.contains("track") && !renderResults.at("track").failure()) {
-          ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("track"));
-          chunkedImage->id = trackId;
-          chunkman->add(chunkedImage);
-        }
-
-        if (renderResults.contains("handle") && !renderResults.at("handle").failure()) {
-          ChunkedImage* chunkedImage = new ChunkedImage(renderResults.at("handle"));
-          chunkedImage->id = handleId;
+          ChunkedImage* chunkedImage = new ChunkedImage(render);
+          switch (type) {
+            case TextureType::Slider_track:
+              chunkedImage->id = trackId;
+              break;
+            case TextureType::Slider_handle:
+              chunkedImage->id = handleId;
+              break;
+            default:
+              break;
+          }
           chunkman->add(chunkedImage);
         }
       });

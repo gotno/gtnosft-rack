@@ -14,6 +14,30 @@ enum RenderStatus {
   Unknown,
   Failure,
   Success,
+  Empty,
+};
+
+enum class RenderType {
+	Unknown,
+	Scaled,
+	Exact
+};
+
+// Catalog
+enum class TextureType;
+struct Breadcrumbs;
+
+struct Recipe {
+	RenderType type{RenderType::Unknown};
+	float scale{-1.f};
+	int32_t height{-1};
+	int32_t width{-1};
+
+	Recipe() = default;
+	Recipe(float _scale): type(RenderType::Scaled), scale(_scale) {};
+	Recipe(int32_t _height): type(RenderType::Exact), height(_height) {};
+	Recipe(int32_t _height, int32_t _width):
+		type(RenderType::Exact), height(_height), width(_width) {};
 };
 
 struct RenderResult {
@@ -32,7 +56,11 @@ struct RenderResult {
     return status == RenderStatus::Failure;
   }
 
-  RenderResult(): status(RenderStatus::Unknown) {}
+  bool empty() {
+    return status == RenderStatus::Empty;
+  }
+
+  RenderResult(): status(RenderStatus::Empty) {}
 
   RenderResult(uint8_t* pixels, int width, int height):
     pixels(pixels), width(width), height(height), status(RenderStatus::Success) {}
@@ -45,9 +73,14 @@ struct Renderer {
   Renderer(rack::widget::FramebufferWidget* framebuffer);
   ~Renderer();
 
-  RenderResult render(float scale = 3.f);
+  RenderResult render(rack::math::Vec scale);
 
   rack::widget::FramebufferWidget* framebuffer = NULL;
+
+  static RenderResult UNKNOWN_TEXTURE_TYPE(
+    std::string caller,
+		const Breadcrumbs& breadcrumbs
+  );
 
   static RenderResult MODEL_NOT_FOUND(
     std::string caller,
@@ -70,47 +103,43 @@ struct Renderer {
     int id = -1
   );
 
+  static RenderResult renderTexture(
+		const Breadcrumbs& breadcrumbs,
+		const Recipe& recipe
+	);
+
   static RenderResult renderPanel(
-    const std::string& pluginSlug,
-    const std::string& moduleSlug,
-    std::variant<float, int32_t> scaleOrHeight
+		rack::app::ModuleWidget* moduleWidget,
+		const Recipe& recipe
   );
 
   static RenderResult renderOverlay(
-    int64_t moduleId,
-    std::variant<float, int32_t> scaleOrHeight
+		rack::app::ModuleWidget* moduleWidget,
+		const Recipe& recipe
   );
 
   static RenderResult renderKnob(
-    const std::string& pluginSlug,
-    const std::string& moduleSlug,
-    int id,
-    std::map<std::string, RenderResult>& renderResults,
-    std::variant<float, int32_t> scaleOrHeight
+		rack::app::ParamWidget* knobWidget,
+    const Breadcrumbs& breadcrumbs,
+		const Recipe& recipe
   );
 
   static RenderResult renderSwitch(
-    const std::string& pluginSlug,
-    const std::string& moduleSlug,
-    int32_t id,
-    std::vector<RenderResult>& renderResults,
-    std::variant<float, int32_t> scaleOrHeight
+		rack::app::ParamWidget* switchWidget,
+    const Breadcrumbs& breadcrumbs,
+		const Recipe& recipe
   );
 
   static RenderResult renderSlider(
-    const std::string& pluginSlug,
-    const std::string& moduleSlug,
-    int32_t id,
-    std::map<std::string, RenderResult>& renderResults,
-    std::variant<float, int32_t> scaleOrHeight
+		rack::app::ParamWidget* paramWidget,
+    const Breadcrumbs& breadcrumbs,
+		const Recipe& recipe
   );
 
   static RenderResult renderPort(
-    const std::string& pluginSlug,
-    const std::string& moduleSlug,
-    int id,
-    rack::engine::Port::Type type,
-    std::variant<float, int32_t> scaleOrHeight
+		rack::app::PortWidget* portWidget,
+    const Breadcrumbs& breadcrumbs,
+		const Recipe& recipe
   );
 
   static rack::widget::FramebufferWidget* findFramebuffer(
@@ -126,17 +155,21 @@ struct Renderer {
     rack::widget::FramebufferWidget* fb
   );
 
-  // render FramebufferWidget to rgba pixel array
   uint8_t* renderPixels(
     rack::widget::FramebufferWidget* fb,
     int& width,
     int& height,
-    float scale = 3.f
+    rack::math::Vec scale
   );
 
   static float getScaleFromVariant(
     rack::widget::FramebufferWidget* framebuffer,
     std::variant<float, int32_t> scaleOrHeight
+  );
+
+  static rack::math::Vec getScaleFromRecipe(
+    rack::widget::FramebufferWidget* framebuffer,
+    const Recipe& recipe
   );
 
   // remove shadows/screws/params/ports/lights from widget

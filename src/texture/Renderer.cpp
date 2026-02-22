@@ -1,8 +1,11 @@
 #include "Renderer.hpp"
-
+#include "Catalog.hpp"
 #include "../util/Util.hpp"
+#include "math.hpp"
 
-// static
+// rendering at 1x scale creates 2x box.size pixels
+#define MAGIC_SCALE_MULTIPLIER 2.f
+
 RenderResult Renderer::MODULE_NOT_FOUND(
   std::string caller,
   int64_t moduleId
@@ -16,7 +19,21 @@ RenderResult Renderer::MODULE_NOT_FOUND(
   );
 }
 
-// static
+RenderResult Renderer::UNKNOWN_TEXTURE_TYPE(
+  std::string caller,
+  const Breadcrumbs& breadcrumbs
+) {
+  return RenderResult(
+    rack::string::f(
+      "Renderer::%s %s:%s unknown texture type %d",
+      caller.c_str(),
+      breadcrumbs.pluginSlug.c_str(),
+      breadcrumbs.moduleSlug.c_str(),
+      breadcrumbs.textureType
+    )
+  );
+}
+
 RenderResult Renderer::MODEL_NOT_FOUND(
   std::string caller,
   const std::string& pluginSlug,
@@ -32,7 +49,6 @@ RenderResult Renderer::MODEL_NOT_FOUND(
   );
 }
 
-// static
 RenderResult Renderer::MODULE_WIDGET_ERROR(
   std::string caller,
   const std::string& pluginSlug,
@@ -48,7 +64,6 @@ RenderResult Renderer::MODULE_WIDGET_ERROR(
   );
 }
 
-// static
 RenderResult Renderer::WIDGET_NOT_FOUND(
   std::string caller,
   const std::string& pluginSlug,
@@ -66,34 +81,94 @@ RenderResult Renderer::WIDGET_NOT_FOUND(
   );
 }
 
-// static
-RenderResult Renderer::renderPanel(
-  const std::string& pluginSlug,
-  const std::string& moduleSlug,
-  std::variant<float, int32_t> scaleOrHeight
+RenderResult Renderer::renderTexture(
+  const Breadcrumbs& breadcrumbs,
+  const Recipe& recipe
 ) {
-  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
-  if (!model) return MODEL_NOT_FOUND("renderPanel", pluginSlug, moduleSlug);
+  rack::plugin::Model* model =
+    gtnosft::util::findModel(breadcrumbs.pluginSlug, breadcrumbs.moduleSlug);
+  if (!model)
+    return MODEL_NOT_FOUND(
+      "renderTexture",
+      breadcrumbs.pluginSlug,
+      breadcrumbs.moduleSlug
+    );
 
-  rack::app::ModuleWidget* moduleWidget = gtnosft::util::makeModuleWidget(model);
-  if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPanel", pluginSlug, moduleSlug);
+  // Switch_frame needs access to ParamQuantities
+  rack::app::ModuleWidget* moduleWidget =
+    breadcrumbs.textureType == TextureType::Switch_frame
+      ? gtnosft::util::makeConnectedModuleWidget(model)
+      : gtnosft::util::makeModuleWidget(model);
+  if (!moduleWidget)
+    return MODULE_WIDGET_ERROR(
+      "renderTexture",
+      breadcrumbs.pluginSlug,
+      breadcrumbs.moduleSlug
+    );
   DEFER({ delete moduleWidget; });
 
+  switch (breadcrumbs.textureType) {
+    case TextureType::Panel:
+      return renderPanel(moduleWidget, recipe);
+    case TextureType::Overlay:
+      return renderOverlay(moduleWidget, recipe);
+    case TextureType::Knob_bg:
+    case TextureType::Knob_mg:
+    case TextureType::Knob_fg:
+      return renderKnob(
+        moduleWidget->getParam(breadcrumbs.componentId),
+        breadcrumbs,
+        recipe
+      );
+    case TextureType::Slider_track:
+    case TextureType::Slider_handle:
+      return renderSlider(
+        moduleWidget->getParam(breadcrumbs.componentId),
+        breadcrumbs,
+        recipe
+      );
+    case TextureType::Switch_frame:
+      return renderSwitch(
+        moduleWidget->getParam(breadcrumbs.componentId),
+        breadcrumbs,
+        recipe
+      );
+    case TextureType::Port_input:
+    case TextureType::Port_output:
+      return renderPort(
+        breadcrumbs.textureType == TextureType::Port_input
+          ? moduleWidget->getInput(breadcrumbs.componentId)
+          : moduleWidget->getOutput(breadcrumbs.componentId),
+        breadcrumbs,
+        recipe
+      );
+    default:
+      return UNKNOWN_TEXTURE_TYPE("renderTexture", breadcrumbs);
+  }
+}
+
+RenderResult Renderer::renderPanel(
+  rack::app::ModuleWidget* moduleWidget,
+  const Recipe& recipe
+) {
   rack::widget::Widget* panel = moduleWidget->children.front();
-  if (!panel)
+  if (!panel) {
+    std::string& pluginSlug = moduleWidget->module->getModel()->plugin->slug;
+    std::string& moduleSlug = moduleWidget->module->getModel()->slug;
     return WIDGET_NOT_FOUND("renderPanel-panel", pluginSlug, moduleSlug);
+  }
 
   rack::widget::FramebufferWidget* framebuffer = findFramebuffer(panel);
 
   rack::widget::Widget* parent = NULL;
   if (!framebuffer) {
-    INFO("no framebuffer found for panel, falling back to wrapped widget");
+    INFO("no framebuffer found for module panel, falling back to wrapped widget");
     parent = panel->parent;
     panel->parent = NULL;
     framebuffer = wrapForRendering(panel);
   }
 
-  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
+  rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
   RenderResult result = Renderer(framebuffer).render(scale);
 
   // if parent is not NULL, we have used wrapForRendering and need to clean up
@@ -106,27 +181,15 @@ RenderResult Renderer::renderPanel(
   return result;
 }
 
-// static
 RenderResult Renderer::renderOverlay(
-  int64_t moduleId,
-  std::variant<float, int32_t> scaleOrHeight
+  rack::app::ModuleWidget* moduleWidget,
+  const Recipe& recipe
 ) {
-  rack::app::ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
-  if (!moduleWidget) return MODULE_NOT_FOUND("renderOverlay", moduleId);
-
   rack::app::ModuleWidget* surrogate =
     moduleWidget->getModel()->createModuleWidget(moduleWidget->getModule());
 
-  // hide panel
-  surrogate->children.front()->setVisible(false);
-
-  // this.. is different from hideChildren?
-  // hide params/ports/lights/screws
-  for (auto it = surrogate->children.begin(); it != surrogate->children.end(); ++it) {
-    if (dynamic_cast<rack::app::SvgScrew*>(*it) || dynamic_cast<rack::app::ParamWidget*>(*it) || dynamic_cast<rack::app::PortWidget*>(*it) || dynamic_cast<rack::app::LightWidget*>(*it)) {
-      (*it)->setVisible(false);
-    }
-  }
+  surrogate->children.front()->setVisible(false); // panel
+  hideChildren(surrogate);
 
   // TODO: for Fundamental:Scope, copy input cables to get proper colors
   rack::widget::FramebufferWidget* framebuffer = wrapForRendering(surrogate);
@@ -136,137 +199,88 @@ RenderResult Renderer::renderOverlay(
     delete framebuffer;
   });
 
-  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
-  RenderResult result = Renderer(framebuffer).render(scale);
-
-  return result;
+  rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
+  return Renderer(framebuffer).render(scale);
 }
 
-// static
 RenderResult Renderer::renderSwitch(
-  const std::string& pluginSlug,
-  const std::string& moduleSlug,
-  int32_t id,
-  std::vector<RenderResult>& renderResults,
-  std::variant<float, int32_t> scaleOrHeight
+  rack::app::ParamWidget* switchWidget,
+  const Breadcrumbs& breadcrumbs,
+  const Recipe& recipe
 ) {
-  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
-  if (!model) {
-    MODEL_NOT_FOUND("renderSwitch", pluginSlug, moduleSlug);
-  }
-
-  rack::app::ModuleWidget* moduleWidget =
-    gtnosft::util::makeConnectedModuleWidget(model);
-  if (!moduleWidget)
-    return MODULE_WIDGET_ERROR("renderSwitch", pluginSlug, moduleSlug);
-  DEFER({ delete moduleWidget; });
-
-  rack::app::ParamWidget* switchWidget = moduleWidget->getParam(id);
-  if (!switchWidget)
-    return WIDGET_NOT_FOUND("renderSwitch-param", pluginSlug, moduleSlug, id);
-
   rack::widget::FramebufferWidget* framebuffer = findFramebuffer(switchWidget);
   if (!framebuffer)
-    return WIDGET_NOT_FOUND("renderSwitch-fb", pluginSlug, moduleSlug, id);
-
+    return WIDGET_NOT_FOUND(
+      "renderSwitch-fb",
+      breadcrumbs.pluginSlug,
+      breadcrumbs.moduleSlug,
+      breadcrumbs.componentId
+    );
   hideChildren(framebuffer);
+
+  rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
 
   rack::engine::ParamQuantity* pq = switchWidget->getParamQuantity();
-  pq->setMin();
+  pq->setValue(breadcrumbs.frameIdx);
+  switchWidget->step();
 
-  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
+  return Renderer(framebuffer).render(scale);
+}
 
-  for (int i = 0; i <= pq->getMaxValue(); ++i) {
-    pq->setValue(i);
-    switchWidget->step();
-    renderResults.push_back(
-      Renderer(framebuffer).render(scale)
-    );
-  }
-
-  return RenderResult();
-};
-
-// static
 RenderResult Renderer::renderSlider(
-  const std::string& pluginSlug,
-  const std::string& moduleSlug,
-  int32_t id,
-  std::map<std::string, RenderResult>& renderResults,
-  std::variant<float, int32_t> scaleOrHeight
+  rack::app::ParamWidget* paramWidget,
+  const Breadcrumbs& breadcrumbs,
+  const Recipe& recipe
 ) {
-  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
-  if (!model) {
-    MODEL_NOT_FOUND("renderSlider", pluginSlug, moduleSlug);
-  }
-
-  rack::app::ModuleWidget* moduleWidget = gtnosft::util::makeModuleWidget(model);
-  if (!moduleWidget)
-    return MODULE_WIDGET_ERROR("renderSlider", pluginSlug, moduleSlug);
-  DEFER({ delete moduleWidget; });
-
-  rack::app::SvgSlider* sliderWidget =
-    dynamic_cast<rack::app::SvgSlider*>(moduleWidget->getParam(id));
-  if (!sliderWidget)
-    return WIDGET_NOT_FOUND("renderSlider-param", pluginSlug, moduleSlug, id);
-
-  rack::widget::FramebufferWidget* framebuffer = findFramebuffer(sliderWidget);
+  rack::widget::FramebufferWidget* framebuffer = findFramebuffer(paramWidget);
   if (!framebuffer)
-    return WIDGET_NOT_FOUND("renderSlider-fb", pluginSlug, moduleSlug, id);
-
+    return WIDGET_NOT_FOUND(
+      "renderSlider-fb",
+      breadcrumbs.pluginSlug,
+      breadcrumbs.moduleSlug,
+      breadcrumbs.componentId
+    );
   hideChildren(framebuffer);
 
+  rack::app::SvgSlider* sliderWidget =
+    dynamic_cast<rack::app::SvgSlider*>(paramWidget);
   rack::widget::Widget* track = sliderWidget->background;
   rack::widget::Widget* handle = sliderWidget->handle;
 
-  // TODO: handle should be scaled relative to track scale?
-  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
+  rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
 
-  if (track) {
+  if (track && breadcrumbs.textureType == TextureType::Slider_track) {
     track->visible = true;
     framebuffer->box.size = track->box.size;
     if (handle) handle->visible = false;
 
-    renderResults["track"] = Renderer(framebuffer).render(scale);
+    return Renderer(framebuffer).render(scale);
   }
 
-  if (handle) {
+  if (handle && breadcrumbs.textureType == TextureType::Slider_handle) {
     if (track) track->visible = false;
     handle->visible = true;
     framebuffer->box.size = handle->box.size;
 
-    renderResults["handle"] = Renderer(framebuffer).render(scale);
+    return Renderer(framebuffer).render(scale);
   }
 
   return RenderResult();
 }
 
-// static
 RenderResult Renderer::renderKnob(
-  const std::string& pluginSlug,
-  const std::string& moduleSlug,
-  int32_t id,
-  std::map<std::string, RenderResult>& renderResults,
-  std::variant<float, int32_t> scaleOrHeight
+  rack::app::ParamWidget* knobWidget,
+  const Breadcrumbs& breadcrumbs,
+  const Recipe& recipe
 ) {
-  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
-  if (!model) {
-    MODEL_NOT_FOUND("renderKnob", pluginSlug, moduleSlug);
-  }
-
-  rack::app::ModuleWidget* moduleWidget = gtnosft::util::makeModuleWidget(model);
-  if (!moduleWidget)
-    return MODULE_WIDGET_ERROR("renderKnob", pluginSlug, moduleSlug);
-  DEFER({ delete moduleWidget; });
-
-  rack::widget::Widget* knobWidget = moduleWidget->getParam(id);
-  if (!knobWidget)
-    return WIDGET_NOT_FOUND("renderKnob-param", pluginSlug, moduleSlug, id);
-
   rack::widget::FramebufferWidget* framebuffer = findFramebuffer(knobWidget);
   if (!framebuffer)
-    return WIDGET_NOT_FOUND("renderKnob-fb", pluginSlug, moduleSlug, id);
-
+    return WIDGET_NOT_FOUND(
+      "renderKnob-fb",
+      breadcrumbs.pluginSlug,
+      breadcrumbs.moduleSlug,
+      breadcrumbs.componentId
+    );
   hideChildren(framebuffer);
 
   rack::widget::Widget* bg{NULL};
@@ -276,15 +290,15 @@ RenderResult Renderer::renderKnob(
 
   // find each layer's widget
   for (auto& child : framebuffer->children) {
-    // if this is the TransformWidget and there was a widget before, it must be the background
-    if (lastWidget && dynamic_cast<rack::widget::TransformWidget*>(child)) {
-      bg = lastWidget;
+    rack::widget::TransformWidget* tw =
+      dynamic_cast<rack::widget::TransformWidget*>(child);
+    if (tw) {
+      // the widget before the TransformWidget is the background
+      if (lastWidget) bg = lastWidget;
+      // the child of the transform widget is the midground
+      mg = tw->children.front();
     }
-    // the child of the transform widget is the midground
-    if (dynamic_cast<rack::widget::TransformWidget*>(child)) {
-      mg = child->children.front();
-    }
-    // if the last widget was a TransformWidget and we're still iterating, this must be the foreground
+    // the widget after the TransformWidget is the foreground
     if (dynamic_cast<rack::widget::TransformWidget*>(lastWidget)) {
       fg = child;
     }
@@ -292,74 +306,54 @@ RenderResult Renderer::renderKnob(
     lastWidget = child;
   }
 
-  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
+  rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
 
-  // toggle layer visibility and render each
-  if (bg) {
+  if (bg && breadcrumbs.textureType == TextureType::Knob_bg) {
     bg->visible = true;
     if (mg) mg->visible = false;
     if (fg) fg->visible = false;
 
-    renderResults["bg"] = Renderer(framebuffer).render(scale);
+    return Renderer(framebuffer).render(scale);
   }
 
-  if (mg) {
+  if (mg && breadcrumbs.textureType == TextureType::Knob_mg) {
     if (bg) bg->visible = false;
     mg->visible = true;
     if (fg) fg->visible = false;
 
-    renderResults["mg"] = Renderer(framebuffer).render(scale);
+    return Renderer(framebuffer).render(scale);
   }
 
-  if (fg) {
+  if (fg && breadcrumbs.textureType == TextureType::Knob_fg) {
     if (bg) bg->visible = false;
     if (mg) mg->visible = false;
     fg->visible = true;
 
-    renderResults["fg"] = Renderer(framebuffer).render(scale);
+    return Renderer(framebuffer).render(scale);
   }
 
   return RenderResult();
 }
 
-// static
 RenderResult Renderer::renderPort(
-  const std::string& pluginSlug,
-  const std::string& moduleSlug,
-  int32_t id,
-  rack::engine::Port::Type type,
-  std::variant<float, int32_t> scaleOrHeight
+  rack::app::PortWidget* portWidget,
+  const Breadcrumbs& breadcrumbs,
+  const Recipe& recipe
 ) {
-  rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
-  if (!model) return MODEL_NOT_FOUND("renderPort", pluginSlug, moduleSlug);
-
-  rack::app::ModuleWidget* moduleWidget = gtnosft::util::makeModuleWidget(model);
-  if (!moduleWidget) return MODULE_WIDGET_ERROR("renderPort", pluginSlug, moduleSlug);
-  DEFER({ delete moduleWidget; });
-
-  rack::widget::Widget* portWidget = NULL;
-  portWidget =
-    type == rack::engine::Port::INPUT
-      ? moduleWidget->getInput(id)
-      : moduleWidget->getOutput(id);
-
-  if (!portWidget)
-    return WIDGET_NOT_FOUND("renderPort-port", pluginSlug, moduleSlug, id);
-
   rack::widget::FramebufferWidget* framebuffer = findFramebuffer(portWidget);
-
   if (!framebuffer)
-    return WIDGET_NOT_FOUND("renderPort-fb", pluginSlug, moduleSlug, id);
-
+    return WIDGET_NOT_FOUND(
+      "renderPort-fb",
+      breadcrumbs.pluginSlug,
+      breadcrumbs.moduleSlug,
+      breadcrumbs.componentId
+    );
   hideChildren(framebuffer);
 
-  float scale = getScaleFromVariant(framebuffer, scaleOrHeight);
-  RenderResult result = Renderer(framebuffer).render(scale);
-
-  return result;
+  rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
+  return Renderer(framebuffer).render(scale);
 }
 
-// static
 rack::widget::FramebufferWidget* Renderer::findFramebuffer(
   rack::widget::Widget* widget
 ) {
@@ -375,7 +369,7 @@ Renderer::Renderer(rack::widget::FramebufferWidget* _framebuffer):
   framebuffer(_framebuffer) {}
 Renderer::~Renderer() {}
 
-RenderResult Renderer::render(float scale) {
+RenderResult Renderer::render(rack::math::Vec scale) {
   try {
     int width, height;
     uint8_t* pixels = renderPixels(framebuffer, width, height, scale);
@@ -388,7 +382,6 @@ RenderResult Renderer::render(float scale) {
   }
 }
 
-// static
 rack::widget::FramebufferWidget* Renderer::wrapForRendering(
   rack::widget::Widget* widget
 ) {
@@ -404,12 +397,10 @@ rack::widget::FramebufferWidget* Renderer::wrapForRendering(
   return fbcontainer;
 }
 
-// static
 void Renderer::clearRenderWrapper(rack::widget::FramebufferWidget* fb) {
   fb->children.front()->children.clear();
 }
 
-// static
 float Renderer::getScaleFromVariant(
   rack::widget::FramebufferWidget* framebuffer,
   std::variant<float, int32_t> scaleOrHeight
@@ -422,13 +413,34 @@ float Renderer::getScaleFromVariant(
   }
 }
 
+rack::math::Vec Renderer::getScaleFromRecipe(
+  rack::widget::FramebufferWidget* framebuffer,
+  const Recipe& recipe
+) {
+  switch (recipe.type) {
+    case RenderType::Scaled:
+      return rack::math::Vec(recipe.scale);
+    case RenderType::Exact: {
+      float yScale =
+        recipe.height / (framebuffer->box.size.y * MAGIC_SCALE_MULTIPLIER);
+      if (recipe.width == -1) return rack::math::Vec(yScale);
+
+      float xScale =
+        recipe.width / (framebuffer->box.size.x * MAGIC_SCALE_MULTIPLIER);
+      return rack::math::Vec(xScale, yScale);
+    }
+    default:
+      assert(false && "unknown Recipe.RenderType");
+  }
+}
+
 uint8_t* Renderer::renderPixels(
   rack::widget::FramebufferWidget* fb,
   int& width,
   int& height,
-  float scale
+  rack::math::Vec scale
 ) {
-  fb->render(rack::math::Vec(scale, scale));
+  fb->render(scale);
 
   nvgluBindFramebuffer(fb->getFramebuffer());
 
@@ -498,7 +510,6 @@ void Renderer::flipBitmap(uint8_t* pixels, int width, int height, int depth) {
 //   nvgluBindFramebuffer(NULL);
 // }
 
-// static
 // remove params/ports/lights/screws/shadows from children
 void Renderer::hideChildren(rack::widget::Widget* widget) {
   for (auto& child : widget->children) {
