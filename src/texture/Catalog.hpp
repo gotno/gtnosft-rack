@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rack.hpp"
+
 enum class TextureType {
   Unknown,
   Panel,
@@ -13,6 +15,14 @@ enum class TextureType {
   Port_input,
   Port_output,
 };
+
+// ModuleStructureBundler
+enum class ParamType;
+enum class PortType;
+
+// Renderer
+struct RenderResult;
+struct Recipe;
 
 struct Breadcrumbs {
 	std::string pluginSlug{""};
@@ -45,4 +55,28 @@ struct Breadcrumbs {
     componentId(id),
     textureType(_textureType),
     frameIdx(_frameIdx) {}
+};
+
+// to avoid re-hashing our rapidhash'd hashes
+struct IdentiHash {
+	size_t operator()(uint64_t v) const noexcept {
+		return static_cast<size_t>(v);
+	}
+};
+
+struct Catalog {
+  static RenderResult pullTexture(uint64_t id, Recipe recipe);
+
+  static std::vector<int64_t> pullIds(
+    ParamType type,
+    rack::app::ParamWidget* widget
+  );
+  static int64_t pullId(PortType type, rack::app::PortWidget* widget);
+
+private:
+	static inline std::unordered_map<uint64_t, int64_t, IdentiHash> registry;
+	static inline std::unordered_map<int64_t, Breadcrumbs> textureBreadcrumbs;
+
+	static int64_t ingest(Breadcrumbs breadcrumbs);
+	static uint64_t hashBitmap(uint8_t* pixels);
 };
