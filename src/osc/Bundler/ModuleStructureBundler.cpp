@@ -1,5 +1,6 @@
 #include "ModuleStructureBundler.hpp"
 #include "../../util/Util.hpp"
+#include "../../texture/Catalog.hpp"
 
 ModuleStructureBundler::ModuleStructureBundler(
   const std::string& _pluginSlug,
@@ -257,13 +258,19 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
         INFO("    min/max angle %f/%f (actual)", knobWidget->minAngle, knobWidget->maxAngle);
       }
 
+      std::vector<int64_t> textureIds =
+        Catalog::pullIds(ParamType::Knob, knobWidget);
+
       messages.emplace_back(
         "/set/module_structure/param/knob",
-        [this, paramId, minAngle, maxAngle](osc::OutboundPacketStream& pstream) {
+        [=, this](osc::OutboundPacketStream& pstream) {
           pstream << id
             << paramId
             << minAngle
             << maxAngle
+            << textureIds[0] // Knob_bg
+            << textureIds[1] // Knob_mg
+            << textureIds[2] // Knob_fg
             ;
         }
       );
@@ -282,16 +289,12 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
         INFO("    %s", horizontal ? "horizontal" : "vertical");
       }
 
+      std::vector<int64_t> textureIds =
+        Catalog::pullIds(ParamType::Slider, sliderWidget);
+
       messages.emplace_back(
         "/set/module_structure/param/slider",
-        [
-          this,
-          paramId,
-          handleSize,
-          minHandlePos,
-          maxHandlePos,
-          horizontal
-        ](osc::OutboundPacketStream& pstream) {
+        [=, this](osc::OutboundPacketStream& pstream) {
           pstream << id
             << paramId
             << handleSize.x
@@ -301,6 +304,8 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
             << maxHandlePos.x
             << maxHandlePos.y
             << horizontal
+            << textureIds[0] // Slider_track
+            << textureIds[1] // Slider_handle
             ;
         }
       );
@@ -313,13 +318,20 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
         INFO("    %s", momentary ? "momentary" : "latch");
       }
 
+      std::vector<int64_t> textureIds =
+        Catalog::pullIds(ParamType::Button, switchWidget);
+
       messages.emplace_back(
         "/set/module_structure/param/button",
-        [this, paramId, momentary](osc::OutboundPacketStream& pstream) {
+        [=, this](osc::OutboundPacketStream& pstream) {
           pstream << id
             << paramId
             << momentary
             ;
+
+          for (int64_t textureId : textureIds) {
+            pstream << textureId; // Switch_frame
+          }
         }
       );
     }
@@ -332,14 +344,21 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
         INFO("    %d frames", numFrames);
       }
 
+      std::vector<int64_t> textureIds =
+        Catalog::pullIds(ParamType::Button, switchWidget);
+
       messages.emplace_back(
         "/set/module_structure/param/switch",
-        [this, paramId, horizontal, numFrames](osc::OutboundPacketStream& pstream) {
+        [=, this](osc::OutboundPacketStream& pstream) {
           pstream << id
             << paramId
             << numFrames
             << horizontal
             ;
+
+          for (int64_t textureId : textureIds) {
+            pstream << textureId; // Switch_frame
+          }
         }
       );
     }
@@ -372,9 +391,11 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
       );
     }
 
+    int64_t textureId = Catalog::pullId(type, portWidget);
+
     messages.emplace_back(
       "/set/module_structure/port",
-      [this, portId, type, name, description, size, pos, defaultVisible](
+      [=, this](
         osc::OutboundPacketStream& pstream
       ) {
         pstream << id
@@ -387,6 +408,7 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
           << pos.x
           << pos.y
           << defaultVisible
+          << textureId // Port_input | Port_output
           ;
       }
     );
