@@ -67,6 +67,7 @@ struct IdentiHash {
 struct Catalog {
   static RenderResult pullTexture(uint64_t id, Recipe recipe);
 
+  static std::vector<int64_t> pullIds(rack::app::ModuleWidget* widget);
   static std::vector<int64_t> pullIds(
     ParamType type,
     rack::app::ParamWidget* widget
@@ -74,9 +75,14 @@ struct Catalog {
   static int64_t pullId(PortType type, rack::app::PortWidget* widget);
 
 private:
-	static inline std::unordered_map<uint64_t, int64_t, IdentiHash> registry;
-	static inline std::unordered_map<int64_t, Breadcrumbs> textureBreadcrumbs;
+  static inline std::unordered_map<uint64_t, int64_t, IdentiHash> registry;
+  static inline std::unordered_map<int64_t, Breadcrumbs> textureBreadcrumbs;
 
-	static int64_t ingest(Breadcrumbs breadcrumbs);
-	static uint64_t hashBitmap(uint8_t* pixels);
+  static inline std::unordered_map<
+    std::string, std::unordered_map<std::string, std::pair<int64_t, int64_t>>
+  > panelTextureIds;
+
+  static int64_t makeId();
+  static int64_t ingest(Breadcrumbs breadcrumbs);
+  static uint64_t hashBitmap(uint8_t* pixels);
 };

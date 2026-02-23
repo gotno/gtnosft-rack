@@ -26,15 +26,19 @@ ModuleStructureBundler::ModuleStructureBundler(
   addParamMessages(moduleWidget);
   addPortMessages(moduleWidget);
 
+  std::vector<int64_t> textureIds = Catalog::pullIds(moduleWidget);
+
   messages.emplace(
     messages.begin(),
     "/set/module_structure",
-    [this, panelSize](osc::OutboundPacketStream& pstream) {
+    [=, this](osc::OutboundPacketStream& pstream) {
       pstream << id
         << pluginSlug.c_str()
         << moduleSlug.c_str()
         << panelSize.x
         << panelSize.y
+        << textureIds[0] // Panel
+        << textureIds[1] // Overlay
         << numParams
         << numInputs
         << numOutputs

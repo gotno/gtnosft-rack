@@ -14,6 +14,10 @@ rack::math::Vec vec2cm(const rack::math::Vec& pxVec) {
   );
 }
 
+int64_t makeRackId() {
+  return rack::random::u64() % (1ull << 53);
+}
+
 rack::plugin::Model* findModel(std::string pluginSlug, std::string moduleSlug) {
   for (rack::plugin::Plugin* plugin : rack::plugin::plugins) {
     if (plugin->slug == pluginSlug) {

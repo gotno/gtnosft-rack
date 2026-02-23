@@ -1,5 +1,6 @@
 #include "Catalog.hpp"
 #include "Renderer.hpp"
+#include "../util/Util.hpp"
 
 // ParamType, PortType
 #include "../osc/Bundler/ModuleStructureBundler.hpp"
@@ -19,11 +20,7 @@ int64_t Catalog::ingest(Breadcrumbs breadcrumbs) {
   INFO("Catalog::ingest cache: %s", registry.contains(hash) ? "hit" : "miss");
 
   if (!registry.contains(hash)) {
-    int64_t textureId = -1;
-
-    while (textureId < 0 || textureBreadcrumbs.contains(textureId))
-      textureId = rack::random::u64() % (1ull << 53);
-
+    int64_t textureId = makeId();
     registry.emplace(hash, textureId);
     textureBreadcrumbs.emplace(textureId, breadcrumbs);
   }
@@ -37,9 +34,59 @@ uint64_t Catalog::hashBitmap(uint8_t* pixels) {
   return rapidhash(pixels, 256);
 }
 
+int64_t Catalog::makeId() {
+  int64_t id = -1;
+  while (id < 0 || textureBreadcrumbs.contains(id))
+    id = gtnosft::util::makeRackId();
+  return id;
+}
+
 RenderResult Catalog::pullTexture(uint64_t id, Recipe recipe) {
   if (!textureBreadcrumbs.contains(id)) return RenderResult();
   return Renderer::renderTexture(textureBreadcrumbs.at(id), recipe);
+}
+
+std::vector<int64_t> Catalog::pullIds(rack::app::ModuleWidget* widget) {
+  std::vector<int64_t> textureIds;
+  std::string& pluginSlug = widget->getModel()->plugin->slug;
+  std::string& moduleSlug = widget->getModel()->slug;
+
+  if (!panelTextureIds.contains(pluginSlug))
+    panelTextureIds.emplace(
+      pluginSlug,
+      std::unordered_map<std::string, std::pair<int64_t, int64_t>>()
+    );
+
+  if (!panelTextureIds.at(pluginSlug).contains(moduleSlug)) {
+    int64_t panelTextureId = makeId();
+    textureBreadcrumbs.emplace(
+      panelTextureId,
+      Breadcrumbs(
+        pluginSlug,
+        moduleSlug,
+        TextureType::Panel
+      )
+    );
+
+    int64_t overlayTextureId = makeId();
+    textureBreadcrumbs.emplace(
+      overlayTextureId,
+      Breadcrumbs(
+        pluginSlug,
+        moduleSlug,
+        TextureType::Overlay
+      )
+    );
+
+    panelTextureIds
+      .at(pluginSlug)
+      .emplace(moduleSlug, std::make_pair(panelTextureId, overlayTextureId));
+  }
+
+  auto ids = panelTextureIds.at(pluginSlug).at(moduleSlug);
+  textureIds.push_back(ids.first); // Panel
+  textureIds.push_back(ids.second); // Overlay
+  return textureIds;
 }
 
 std::vector<int64_t> Catalog::pullIds(ParamType type, rack::app::ParamWidget* widget) {

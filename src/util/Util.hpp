@@ -5,6 +5,8 @@
 namespace gtnosft {
 namespace util {
 
+int64_t makeRackId();
+
 float px2cm(const float& px);
 rack::math::Vec vec2cm(const rack::math::Vec& pxVec);
 
