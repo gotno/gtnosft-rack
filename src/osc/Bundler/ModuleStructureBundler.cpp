@@ -217,20 +217,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 
     messages.emplace_back(
       "/set/module_structure/param",
-      [
-        this,
-        paramId,
-        type,
-        name,
-        description,
-        size,
-        pos,
-        defaultValue,
-        minValue,
-        maxValue,
-        defaultVisible,
-        snap
-      ](osc::OutboundPacketStream& pstream) {
+      [=, this](osc::OutboundPacketStream& pstream) {
         pstream << id
           << paramId
           << (int32_t)type
