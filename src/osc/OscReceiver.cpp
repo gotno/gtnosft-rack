@@ -315,7 +315,7 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
-    "/get/texture/overlay",
+    "/get/overlay",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
 
