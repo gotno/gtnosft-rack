@@ -223,6 +223,51 @@ void OscReceiver::generateRoutes() {
 
   // textures
   routes.emplace(
+    "/get/texture",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int64_t textureId = (args++)->AsInt64();
+
+      float scale;
+      int32_t height;
+      if (!floatOrInt32(args, scale, height)) {
+        INFO(
+          "/get/texture %ld received neither scale (float) nor height (int32)",
+          textureId
+        );
+        return;
+      }
+
+      int32_t width{-1};
+      try {
+        width = (args++)->AsInt32();
+      } catch (const osc::WrongArgumentTypeException& e) {}
+
+      ctrl->enqueueAction([=, this]() {
+        Recipe recipe;
+        if (scale > 0.f) {
+          recipe = Recipe(scale);
+        } else if (width > 0) {
+          recipe = Recipe(height, width);
+        } else {
+          recipe = Recipe(height);
+        }
+
+        RenderResult render = Catalog::pullTexture(textureId, recipe);
+
+        if (render.failure()) {
+          INFO("failed to render texture %ld", textureId);
+          INFO("  %s", render.statusMessage.c_str());
+          return;
+        }
+
+        ChunkedImage* chunkedImage = new ChunkedImage(render);
+        chunkedImage->id = textureId;
+        chunkman->add(chunkedImage);
+      });
+    }
+  );
+
+  routes.emplace(
     "/get/texture/panel",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       std::string pluginSlug = (args++)->AsString();
