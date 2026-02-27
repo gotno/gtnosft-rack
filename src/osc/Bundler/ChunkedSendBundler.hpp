@@ -8,7 +8,7 @@ class ChunkedManager;
 struct ChunkedSendBundler : virtual Bundler {
   ChunkedSendBundler(
     std::string address,
-    int32_t chunkedSendId,
+    int64_t chunkedSendId,
     int32_t chunkNum,
     int32_t numChunks,
     int32_t chunkSize,
@@ -18,7 +18,7 @@ struct ChunkedSendBundler : virtual Bundler {
   );
 
   std::string address;
-  int32_t chunkedSendId;
+  int64_t chunkedSendId;
   int32_t chunkNum;
   int32_t numChunks;
   int32_t chunkSize;

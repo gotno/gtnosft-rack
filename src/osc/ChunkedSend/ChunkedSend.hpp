@@ -13,7 +13,7 @@ class ChunkedManager;
 class ChunkedSendBundler;
 
 struct ChunkedSend {
-  inline static int32_t idCounter{0};
+  inline static int64_t idCounter{0};
 
   ChunkedSend(uint8_t* _data, int64_t _size);
   virtual ~ChunkedSend();
@@ -30,7 +30,7 @@ struct ChunkedSend {
   bool sendFailed();
   bool sendSucceeded();
 
-  int32_t id;
+  int64_t id;
   uint8_t* data;
   int64_t size;
   int32_t numChunks{0};

@@ -56,7 +56,7 @@ void ChunkedSend::logCompletionDuration(int32_t chunkNum) {
   ).count();
 
   INFO(
-    "chunked send %d chunk %d ack'd in %lld milliseconds",
+    "chunked send %lld chunk %d ack'd in %lld milliseconds",
     id,
     chunkNum,
     duration

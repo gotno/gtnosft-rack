@@ -33,33 +33,33 @@ void ChunkedManager::defer(ChunkedSend* chunked) {
   deferredSends.emplace(chunked->id, chunked);
 }
 
-void ChunkedManager::ack(int32_t id, int32_t chunkNum) {
+void ChunkedManager::ack(int64_t id, int32_t chunkNum) {
   if (chunkedExists(id)) getChunked(id)->ack(chunkNum);
 }
 
-bool ChunkedManager::isProcessing(int32_t id) {
+bool ChunkedManager::isProcessing(int64_t id) {
   return chunkedExists(id);
 }
 
-ChunkedSend* ChunkedManager::findChunked(int32_t id) {
+ChunkedSend* ChunkedManager::findChunked(int64_t id) {
   if (!chunkedExists(id)) return NULL;
   return chunkedSends.at(id).get();
 }
 
-bool ChunkedManager::chunkedExists(int32_t id) {
+bool ChunkedManager::chunkedExists(int64_t id) {
   return chunkedSends.count(id) != 0;
 }
 
-bool ChunkedManager::deferredExists(int32_t id) {
+bool ChunkedManager::deferredExists(int64_t id) {
   return deferredSends.count(id) != 0;
 }
 
-ChunkedSend* ChunkedManager::getChunked(int32_t id) {
+ChunkedSend* ChunkedManager::getChunked(int64_t id) {
   assert(chunkedExists(id));
   return chunkedSends.at(id).get();
 }
 
-void ChunkedManager::processChunked(int32_t id) {
+void ChunkedManager::processChunked(int64_t id) {
   if (!chunkedExists(id)) return;
   ChunkedSend* chunkedSend = getChunked(id);
 

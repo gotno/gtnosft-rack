@@ -168,7 +168,7 @@ void OscReceiver::generateRoutes() {
   routes.emplace(
     "/ack_chunk",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
-      int32_t chunkedId = (args++)->AsInt32();
+      int64_t chunkedId = (args++)->AsInt64();
       int32_t chunkNum = (args++)->AsInt32();
       chunkman->ack(chunkedId, chunkNum);
     }
@@ -284,7 +284,7 @@ void OscReceiver::generateRoutes() {
         return;
       }
 
-      int32_t requestedId = (args++)->AsInt32();
+      int64_t requestedId = (args++)->AsInt64();
 
       ctrl->enqueueAction([=, this]() {
         Recipe recipe;
@@ -330,7 +330,7 @@ void OscReceiver::generateRoutes() {
       }
 
       int32_t forceRender = (args++)->AsBool();
-      int32_t requestedId = (args++)->AsInt32();
+      int64_t requestedId = (args++)->AsInt64();
 
       ctrl->enqueueAction([=, this]() {
         if (chunkman->isProcessing(requestedId) && !forceRender) return;
@@ -385,7 +385,7 @@ void OscReceiver::generateRoutes() {
         return;
       }
 
-      int32_t requestedId = (args++)->AsInt32();
+      int64_t requestedId = (args++)->AsInt64();
 
       ctrl->enqueueAction([=, this]() {
         Recipe recipe;
@@ -438,9 +438,9 @@ void OscReceiver::generateRoutes() {
         return;
       }
 
-      int bgId = (int)(args++)->AsInt32();
-      int mgId = (int)(args++)->AsInt32();
-      int fgId = (int)(args++)->AsInt32();
+      int64_t bgId = (int)(args++)->AsInt64();
+      int64_t mgId = (int)(args++)->AsInt64();
+      int64_t fgId = (int)(args++)->AsInt64();
 
       ctrl->enqueueAction([=, this]() {
         Recipe recipe;
@@ -499,12 +499,12 @@ void OscReceiver::generateRoutes() {
         return;
       }
 
-      std::vector<int32_t> requestedIds;
+      std::vector<int64_t> requestedIds;
 
-      int32_t requestedId;
+      int64_t requestedId;
       try {
         while(true) {
-          requestedId = (args++)->AsInt32();
+          requestedId = (args++)->AsInt64();
           requestedIds.push_back(requestedId);
         }
       } catch (const osc::WrongArgumentTypeException& e) {}
@@ -555,8 +555,8 @@ void OscReceiver::generateRoutes() {
         return;
       }
 
-      int trackId = (int)(args++)->AsInt32();
-      int handleId = (int)(args++)->AsInt32();
+      int64_t trackId = (args++)->AsInt64();
+      int64_t handleId = (args++)->AsInt64();
 
       ctrl->enqueueAction([=, this]() {
         Recipe recipe;

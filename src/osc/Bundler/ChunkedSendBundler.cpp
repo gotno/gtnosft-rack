@@ -7,7 +7,7 @@
 
 ChunkedSendBundler::ChunkedSendBundler(
   std::string _address,
-  int32_t _chunkedSendId,
+  int64_t _chunkedSendId,
   int32_t _chunkNum,
   int32_t _numChunks,
   int32_t _chunkSize,
