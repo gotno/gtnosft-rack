@@ -109,7 +109,6 @@ void OscReceiver::ProcessMessage(
   // DEBUG("oscrx received message on path %s", message.AddressPattern());
 
   // TODO: bail early if we're still broadcasting
-
   try {
     std::string address = message.AddressPattern();
     if (!routes.count(address)) throw osc::Exception("no route for address");
@@ -117,7 +116,8 @@ void OscReceiver::ProcessMessage(
     osc::ReceivedMessage::const_iterator argsIterator = message.ArgumentsBegin();
     routes.at(address)(argsIterator, remoteEndpoint);
 
-    if (argsIterator != message.ArgumentsEnd()) throw osc::ExcessArgumentException();
+    if (argsIterator != message.ArgumentsEnd())
+      throw osc::ExcessArgumentException();
   } catch(osc::Exception& e) {
     WARN("error parsing OSC message %s: %s", message.AddressPattern(), e.what());
   }
@@ -201,7 +201,6 @@ void OscReceiver::generateRoutes() {
     }
   );
 
-  // textures
   routes.emplace(
     "/get/texture",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
@@ -244,7 +243,7 @@ void OscReceiver::generateRoutes() {
         );
         return;
       }
-      args++;
+      ++args;
 
       // 2. bool or int32 (width)
       try {
@@ -253,13 +252,14 @@ void OscReceiver::generateRoutes() {
         } else if (args->IsInt32()) {
           width = args->AsInt32();
         }
-        args++;
+        ++args;
       } catch (const osc::WrongArgumentTypeException& e) {}
 
       // 3. bool
       try {
         ensureEnqueue = args->AsBool();
       } catch (const osc::WrongArgumentTypeException& e) {}
+      ++args;
 
       ctrl->enqueueAction([=, this]() {
         Recipe recipe;
