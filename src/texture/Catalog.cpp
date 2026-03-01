@@ -46,47 +46,43 @@ RenderResult Catalog::pullTexture(uint64_t id, Recipe recipe) {
   return Renderer::renderTexture(textureBreadcrumbs.at(id), recipe);
 }
 
-std::vector<int64_t> Catalog::pullIds(rack::app::ModuleWidget* widget) {
-  std::vector<int64_t> textureIds;
+int64_t Catalog::pullPanelId(rack::app::ModuleWidget* widget) {
   std::string& pluginSlug = widget->getModel()->plugin->slug;
   std::string& moduleSlug = widget->getModel()->slug;
 
   if (!panelTextureIds.contains(pluginSlug))
     panelTextureIds.emplace(
       pluginSlug,
-      std::unordered_map<std::string, std::pair<int64_t, int64_t>>()
+      std::unordered_map<std::string, int64_t>()
     );
 
   if (!panelTextureIds.at(pluginSlug).contains(moduleSlug)) {
     int64_t panelTextureId = makeId();
     textureBreadcrumbs.emplace(
       panelTextureId,
-      Breadcrumbs(
-        pluginSlug,
-        moduleSlug,
-        TextureType::Panel
-      )
+      Breadcrumbs(pluginSlug, moduleSlug)
     );
 
+    panelTextureIds.at(pluginSlug).emplace(moduleSlug, panelTextureId);
+  }
+
+  return panelTextureIds.at(pluginSlug).at(moduleSlug);
+}
+
+int64_t Catalog::pullOverlayId(rack::app::ModuleWidget* widget) {
+  int64_t moduleId = widget->getModule()->getId();
+
+  if (!overlayTextureIds.contains(moduleId)) {
     int64_t overlayTextureId = makeId();
     textureBreadcrumbs.emplace(
       overlayTextureId,
-      Breadcrumbs(
-        pluginSlug,
-        moduleSlug,
-        TextureType::Overlay
-      )
+      Breadcrumbs(moduleId)
     );
 
-    panelTextureIds
-      .at(pluginSlug)
-      .emplace(moduleSlug, std::make_pair(panelTextureId, overlayTextureId));
+    overlayTextureIds.emplace(moduleId, overlayTextureId);
   }
 
-  auto ids = panelTextureIds.at(pluginSlug).at(moduleSlug);
-  textureIds.push_back(ids.first); // Panel
-  textureIds.push_back(ids.second); // Overlay
-  return textureIds;
+  return overlayTextureIds.at(moduleId);
 }
 
 std::vector<int64_t> Catalog::pullIds(ParamType type, rack::app::ParamWidget* widget) {

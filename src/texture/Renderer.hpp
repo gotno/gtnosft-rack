@@ -114,8 +114,8 @@ struct Renderer {
   );
 
   static RenderResult renderOverlay(
-		rack::app::ModuleWidget* moduleWidget,
-		const Recipe& recipe
+    int64_t moduleId,
+    const Recipe& recipe
   );
 
   static RenderResult renderKnob(

@@ -25,23 +25,25 @@ struct RenderResult;
 struct Recipe;
 
 struct Breadcrumbs {
-	std::string pluginSlug{""};
-	std::string moduleSlug{""};
+  std::string pluginSlug{""};
+  std::string moduleSlug{""};
 
-	uint8_t componentId{0}; // param/input/output id
+  int64_t moduleId{0};
+  uint8_t componentId{0}; // param/input/output id
 
-	TextureType textureType{TextureType::Unknown};
+  TextureType textureType{TextureType::Unknown};
 
-	uint8_t frameIdx{0};
+  uint8_t frameIdx{0};
 
-  // panel, overlay
-  Breadcrumbs(
-    std::string _pluginSlug,
-    std::string _moduleSlug,
-    TextureType _textureType = TextureType::Panel
-  ): pluginSlug(_pluginSlug),
+  // panel
+  Breadcrumbs(std::string _pluginSlug, std::string _moduleSlug):
+    pluginSlug(_pluginSlug),
     moduleSlug(_moduleSlug),
-    textureType(_textureType) {}
+    textureType(TextureType::Panel) {}
+
+  // overlay
+  Breadcrumbs(int64_t _moduleId):
+    moduleId(_moduleId), textureType(TextureType::Overlay) {}
 
   // param, port
   Breadcrumbs(
@@ -67,7 +69,8 @@ struct IdentiHash {
 struct Catalog {
   static RenderResult pullTexture(uint64_t id, Recipe recipe);
 
-  static std::vector<int64_t> pullIds(rack::app::ModuleWidget* widget);
+  static int64_t pullPanelId(rack::app::ModuleWidget* widget);
+  static int64_t pullOverlayId(rack::app::ModuleWidget* widget);
   static std::vector<int64_t> pullIds(
     ParamType type,
     rack::app::ParamWidget* widget
@@ -79,8 +82,13 @@ private:
   static inline std::unordered_map<int64_t, Breadcrumbs> textureBreadcrumbs;
 
   static inline std::unordered_map<
-    std::string, std::unordered_map<std::string, std::pair<int64_t, int64_t>>
+    std::string, // moduleSlug
+    std::unordered_map<std::string /* pluginSlug */, int64_t /* textureId */>
   > panelTextureIds;
+  static inline std::unordered_map<
+    int64_t, // moduleId
+    int64_t // textureId
+  > overlayTextureIds;
 
   static int64_t makeId();
   static int64_t ingest(Breadcrumbs breadcrumbs);

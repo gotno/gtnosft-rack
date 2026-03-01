@@ -1,6 +1,7 @@
 #include "ModuleStateBundler.hpp"
 
 #include "../../util/Util.hpp"
+#include "../../texture/Catalog.hpp"
 
 ModuleStateBundler::ModuleStateBundler(int64_t moduleId, rack::math::Rect ctrlBox):
   Bundler("ModuleStateBundler") {
@@ -23,12 +24,15 @@ ModuleStateBundler::ModuleStateBundler(int64_t moduleId, rack::math::Rect ctrlBo
 
   pos = gtnosft::util::vec2cm(pos);
 
+  int64_t textureId = Catalog::pullOverlayId(moduleWidget);
+
   messages.emplace_back(
     "/set/s/m",
-    [moduleId, pos](osc::OutboundPacketStream& pstream) {
+    [=](osc::OutboundPacketStream& pstream) {
       pstream << moduleId
         << pos.x
         << pos.y
+        << textureId // Overlay
         ;
     }
   );

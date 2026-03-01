@@ -47,12 +47,6 @@ private:
     const IpEndpointName& remoteEndpoint
   ) override;
 
-  bool floatOrInt32(
-    osc::ReceivedMessage::const_iterator& arg,
-    float& outFloat,
-    int32_t& outInt32
-  );
-
   std::map<
     std::string,
     std::function<

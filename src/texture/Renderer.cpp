@@ -85,6 +85,9 @@ RenderResult Renderer::renderTexture(
   const Breadcrumbs& breadcrumbs,
   const Recipe& recipe
 ) {
+  if (breadcrumbs.textureType == TextureType::Overlay)
+    return renderOverlay(breadcrumbs.moduleId, recipe);
+
   rack::plugin::Model* model =
     gtnosft::util::findModel(breadcrumbs.pluginSlug, breadcrumbs.moduleSlug);
   if (!model)
@@ -111,7 +114,8 @@ RenderResult Renderer::renderTexture(
     case TextureType::Panel:
       return renderPanel(moduleWidget, recipe);
     case TextureType::Overlay:
-      return renderOverlay(moduleWidget, recipe);
+      WARN("should not have entered `case TextureType::Overlay`");
+      return RenderResult();
     case TextureType::Knob_bg:
     case TextureType::Knob_mg:
     case TextureType::Knob_fg:
@@ -182,9 +186,12 @@ RenderResult Renderer::renderPanel(
 }
 
 RenderResult Renderer::renderOverlay(
-  rack::app::ModuleWidget* moduleWidget,
+  int64_t moduleId,
   const Recipe& recipe
 ) {
+  rack::app::ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
+  if (!moduleWidget) return MODULE_NOT_FOUND("renderOverlay", moduleId);
+
   rack::app::ModuleWidget* surrogate =
     moduleWidget->getModel()->createModuleWidget(moduleWidget->getModule());
 

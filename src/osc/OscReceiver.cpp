@@ -123,26 +123,6 @@ void OscReceiver::ProcessMessage(
   }
 }
 
-bool OscReceiver::floatOrInt32(
-  osc::ReceivedMessage::const_iterator& arg,
-  float& outFloat,
-  int32_t& outInt32
-) {
-  outFloat = -1.f;
-  if (arg->IsFloat()) {
-    outFloat = arg->AsFloat();
-  }
-
-  outInt32 = -1;
-  if (arg->IsInt32()) {
-    outInt32 = arg->AsInt32();
-  }
-
-  arg++;
-
-  return outFloat != -1.f || outInt32 != -1;
-}
-
 void OscReceiver::generateRoutes() {
   routes.emplace(
     "/register",
@@ -232,19 +212,53 @@ void OscReceiver::generateRoutes() {
         return;
       }
 
-      float scale;
-      int32_t height;
-      if (!floatOrInt32(args, scale, height)) {
+      // five possible argument combinations:
+      //
+      // 1st: float scale
+      //
+      // 1st: int32 height
+      //
+      // 1st: float scale
+      // 2nd: bool ensureEnqueue
+
+      // 1st: int32 height
+      // 2nd: bool ensureEnqueue
+
+      // 1st: int32 height
+      // 2nd: int32 width
+      // 3rd: bool ensureEnqueue
+
+      float scale{-1.f};
+      int32_t height{-1}, width{-1};
+      bool ensureEnqueue{false};
+
+      // 1. float or int32 (height)
+      if (args->IsFloat()) {
+        scale = args->AsFloat();
+      } else if (args->IsInt32()) {
+        height = args->AsInt32();
+      } else {
         INFO(
-          "/get/texture %ld received neither scale (float) nor height (int32)",
+          "/get/texture %ld scale (float) or height (int32) param was neither",
           textureId
         );
         return;
       }
+      args++;
 
-      int32_t width{-1};
+      // 2. bool or int32 (width)
       try {
-        width = (args++)->AsInt32();
+        if (args->IsBool()) {
+          ensureEnqueue = args->AsBool();
+        } else if (args->IsInt32()) {
+          width = args->AsInt32();
+        }
+        args++;
+      } catch (const osc::WrongArgumentTypeException& e) {}
+
+      // 3. bool
+      try {
+        ensureEnqueue = args->AsBool();
       } catch (const osc::WrongArgumentTypeException& e) {}
 
       ctrl->enqueueAction([=, this]() {
@@ -260,64 +274,14 @@ void OscReceiver::generateRoutes() {
         RenderResult render = Catalog::pullTexture(textureId, recipe);
 
         if (render.failure()) {
-          INFO("failed to render texture %ld", textureId);
+          INFO("failed to render texture %lld", textureId);
           INFO("  %s", render.statusMessage.c_str());
           return;
         }
 
         ChunkedImage* chunkedImage = new ChunkedImage(render);
         chunkedImage->id = textureId;
-        chunkman->add(chunkedImage);
-      });
-    }
-  );
-
-  routes.emplace(
-    "/get/overlay",
-    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
-      int64_t moduleId = (args++)->AsInt64();
-
-      float scale;
-      int32_t height;
-      if (!floatOrInt32(args, scale, height)) {
-        INFO(
-          "/get/texture/overlay %lld received neither scale (float) nor height (int32)",
-          moduleId
-        );
-        return;
-      }
-
-      int32_t forceRender = (args++)->AsBool();
-      int64_t requestedId = (args++)->AsInt64();
-
-      ctrl->enqueueAction([=, this]() {
-        if (chunkman->isProcessing(requestedId) && !forceRender) return;
-
-        Recipe recipe;
-        if (scale > 0.f) {
-          recipe = Recipe(scale);
-        } else {
-          recipe = Recipe(height);
-        }
-
-        rack::app::ModuleWidget* mw = APP->scene->rack->getModule(moduleId);
-        Breadcrumbs crumbs(
-          mw->getModel()->plugin->slug,
-          mw->getModel()->slug,
-          TextureType::Overlay
-        );
-
-        RenderResult render = Renderer::renderTexture(crumbs, recipe);
-
-        if (render.failure()) {
-          INFO("failed to render overlay %lld", moduleId);
-          INFO("  %s", render.statusMessage.c_str());
-          return;
-        }
-
-        ChunkedImage* chunkedImage = new ChunkedImage(render);
-        chunkedImage->id = requestedId;
-        chunkman->add(chunkedImage, true);
+        chunkman->add(chunkedImage, ensureEnqueue);
       });
     }
   );

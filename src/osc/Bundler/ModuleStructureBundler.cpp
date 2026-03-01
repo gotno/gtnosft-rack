@@ -26,7 +26,7 @@ ModuleStructureBundler::ModuleStructureBundler(
   addParamMessages(moduleWidget);
   addPortMessages(moduleWidget);
 
-  std::vector<int64_t> textureIds = Catalog::pullIds(moduleWidget);
+  int64_t textureId = Catalog::pullPanelId(moduleWidget);
 
   messages.emplace(
     messages.begin(),
@@ -37,8 +37,7 @@ ModuleStructureBundler::ModuleStructureBundler(
         << moduleSlug.c_str()
         << panelSize.x
         << panelSize.y
-        << textureIds[0] // Panel
-        << textureIds[1] // Overlay
+        << textureId // Panel
         << numParams
         << numInputs
         << numOutputs
