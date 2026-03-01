@@ -11,13 +11,13 @@ int64_t Catalog::ingest(Breadcrumbs breadcrumbs) {
   RenderResult render = Renderer::renderTexture(breadcrumbs, Recipe(8, 8));
 
   if (render.empty() || render.failure()) {
-    INFO("Catalog::ingest %s", render.empty() ? "empty" : "failure");
+    // INFO("Catalog::ingest %s", render.empty() ? "empty" : "failure");
     return -1;
   }
 
   uint64_t hash = hashBitmap(render.pixels);
 
-  INFO("Catalog::ingest cache: %s", registry.contains(hash) ? "hit" : "miss");
+  // INFO("Catalog::ingest cache: %s", registry.contains(hash) ? "hit" : "miss");
 
   if (!registry.contains(hash)) {
     int64_t textureId = makeId();
