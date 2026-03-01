@@ -22,8 +22,6 @@ struct ModuleStructureBundler : Bundler {
     const std::string& moduleSlug
   );
 
-  // typedef std::pair<std::string, std::string> SlugPair;
-  // static std::map<SlugPair, int32_t> structureIds;
   static inline int32_t structureIdCounter = 0;
   int32_t id;
 
