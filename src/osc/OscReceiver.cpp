@@ -227,6 +227,11 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t textureId = (args++)->AsInt64();
 
+      if (textureId <= 0) {
+        INFO("/get/texture received invalid texture id %ld", textureId);
+        return;
+      }
+
       float scale;
       int32_t height;
       if (!floatOrInt32(args, scale, height)) {
