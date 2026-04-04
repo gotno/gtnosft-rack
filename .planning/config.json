@@ -1,0 +1,7 @@
+{
+  "phase_granularity": "coarse",
+  "verify": true,
+  "model_profile": "quality",
+  "research": false,
+  "commit_docs": true
+}
