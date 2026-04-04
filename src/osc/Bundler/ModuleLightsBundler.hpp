@@ -6,19 +6,18 @@ struct LightState {
   LightState(int _id, rack::app::LightWidget* widget):
     id(_id),
     visible(widget->isVisible()),
-    hexColor(rack::color::toHexString(widget->color)) {}
+    color(widget->color) {}
 
   int id;
   bool visible;
-  std::string hexColor;
+  NVGcolor color;
 
   bool update(rack::app::LightWidget* widget) {
-    std::string currentHexColor = rack::color::toHexString(widget->color);
-    if (visible == widget->isVisible() && hexColor == currentHexColor)
+    if (visible == widget->isVisible() && memcmp(&color, &widget->color, sizeof(NVGcolor)) == 0)
       return false;
 
     visible = widget->isVisible();
-    hexColor = currentHexColor;
+    color = widget->color;
     return true;
   }
 };

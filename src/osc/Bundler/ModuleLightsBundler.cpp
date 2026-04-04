@@ -79,7 +79,7 @@ void ModuleLightsBundler::addMessage(
       pstream << moduleId
         << state.id
         << state.visible
-        << state.hexColor.c_str()
+        << rack::color::toHexString(state.color).c_str()
         ;
     }
   );
