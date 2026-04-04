@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Bundler.hpp"
+#include <unordered_map>
 
 struct LightState {
   LightState(int _id, rack::app::LightWidget* widget):
@@ -25,7 +26,7 @@ struct LightState {
 // TODO: rename ModuleLightsStateBundler
 struct ModuleLightsBundler : Bundler {
   typedef std::list<std::pair<rack::app::LightWidget*, LightState>> LightList;
-  inline static std::map<int64_t, LightList> lights;
+  inline static std::unordered_map<int64_t, LightList> lights;
 
   ModuleLightsBundler(
     const std::vector<int64_t>& moduleIds,
