@@ -254,11 +254,10 @@ RenderResult Renderer::renderSlider(
   rack::widget::Widget* track = sliderWidget->background;
   rack::widget::Widget* handle = sliderWidget->handle;
 
-  rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
-
   if (track && breadcrumbs.textureType == TextureType::Slider_track) {
     track->visible = true;
     framebuffer->box.size = track->box.size;
+    rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
     if (handle) handle->visible = false;
 
     return Renderer(framebuffer).render(scale);
@@ -268,6 +267,7 @@ RenderResult Renderer::renderSlider(
     if (track) track->visible = false;
     handle->visible = true;
     framebuffer->box.size = handle->box.size;
+    rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
 
     return Renderer(framebuffer).render(scale);
   }
