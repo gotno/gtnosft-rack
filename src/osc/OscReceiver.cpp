@@ -280,6 +280,7 @@ void OscReceiver::generateRoutes() {
         }
 
         ChunkedImage* chunkedImage = new ChunkedImage(render);
+        INFO("  sending chunked image @ %dx%d", chunkedImage->width, chunkedImage->height);
         chunkedImage->id = textureId;
         chunkman->add(chunkedImage, ensureEnqueue);
       });
