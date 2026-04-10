@@ -14,8 +14,9 @@ struct LightState {
   NVGcolor color;
 
   bool update(rack::app::LightWidget* widget) {
-    if (visible == widget->isVisible() && memcmp(&color, &widget->color, sizeof(NVGcolor)) == 0)
-      return false;
+    bool visibleChanged = visible != widget->isVisible();
+    bool colorChanged = memcmp(&color, &widget->color, sizeof(NVGcolor)) != 0;
+    if (!visibleChanged && !colorChanged) return false;
 
     visible = widget->isVisible();
     color = widget->color;

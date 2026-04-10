@@ -10,7 +10,10 @@ ModuleLightsBundler::ModuleLightsBundler(
 
   // filter subscriptions to loaded modules
   std::vector<int64_t> rackModuleIds = APP->engine->getModuleIds();
-  std::unordered_set<int64_t> rackModuleSet(rackModuleIds.begin(), rackModuleIds.end());
+  std::unordered_set<int64_t> rackModuleSet(
+    rackModuleIds.begin(),
+    rackModuleIds.end()
+  );
 
   for (const auto& moduleId : subscribedModuleIds) {
     if (!rackModuleSet.contains(moduleId)) continue;
