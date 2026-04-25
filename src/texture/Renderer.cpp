@@ -454,7 +454,6 @@ uint8_t* Renderer::renderPixels(
   nvgluBindFramebuffer(fb->getFramebuffer());
 
   nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
-  INFO("renderPixels fb.box.size %f/%f, scaled %f/%f, nvgImageSize %d/%d", fb->box.size.x, fb->box.size.y, fb->box.size.x * 2.f * scale.x, fb->box.size.y * 2.f * scale.y, width, height);
 
   uint8_t* pixels = new uint8_t[height * width * 4];
   glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
