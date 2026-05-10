@@ -157,8 +157,8 @@ RenderResult Renderer::renderPanel(
 ) {
   rack::widget::Widget* panel = moduleWidget->children.front();
   if (!panel) {
-    std::string& pluginSlug = moduleWidget->module->getModel()->plugin->slug;
-    std::string& moduleSlug = moduleWidget->module->getModel()->slug;
+    std::string& pluginSlug = moduleWidget->getModel()->plugin->slug;
+    std::string& moduleSlug = moduleWidget->getModel()->slug;
     return WIDGET_NOT_FOUND("renderPanel-panel", pluginSlug, moduleSlug);
   }
 
