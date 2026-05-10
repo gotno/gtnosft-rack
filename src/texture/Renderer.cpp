@@ -282,8 +282,6 @@ RenderResult Renderer::renderSlider(
     framebuffer->box.size = handle->box.size;
     rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
 
-    INFO("requested %d/%d, scale %f/%f, box.size %f/%f", recipe.width, recipe.height, scale.x, scale.y, framebuffer->box.size.x, framebuffer->box.size.y);
-
     return Renderer(framebuffer).render(scale);
   }
 
