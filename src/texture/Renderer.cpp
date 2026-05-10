@@ -466,26 +466,26 @@ uint8_t* Renderer::renderPixels(
 
   nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
 
-  int expectedWidth =
-    (int)std::round(fb->box.size.x * MAGIC_SCALE_MULTIPLIER * scale.x);
-  int expectedHeight =
-    (int)std::round(fb->box.size.y * MAGIC_SCALE_MULTIPLIER * scale.y);
-
-  if (width != expectedWidth) {
-    WARN(
-      "renderPixels rendered width %dpx differs from expected %dpx",
-      width, expectedWidth
-    );
-    width = expectedWidth;
-  }
-
-  if (height != expectedHeight) {
-    WARN(
-      "renderPixels rendered height %dpx differs from expected %dpx",
-      height, expectedHeight
-    );
-    height = expectedHeight;
-  }
+  // int expectedWidth =
+  //   (int)std::round(fb->box.size.x * MAGIC_SCALE_MULTIPLIER * scale.x);
+  // int expectedHeight =
+  //   (int)std::round(fb->box.size.y * MAGIC_SCALE_MULTIPLIER * scale.y);
+  //
+  // if (width != expectedWidth) {
+  //   WARN(
+  //     "renderPixels rendered width %dpx differs from expected %dpx",
+  //     width, expectedWidth
+  //   );
+  //   width = expectedWidth;
+  // }
+  //
+  // if (height != expectedHeight) {
+  //   WARN(
+  //     "renderPixels rendered height %dpx differs from expected %dpx",
+  //     height, expectedHeight
+  //   );
+  //   height = expectedHeight;
+  // }
 
   uint8_t* pixels = new uint8_t[height * width * 4];
   glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
