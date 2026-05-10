@@ -3,6 +3,9 @@
 #include "../util/Util.hpp"
 #include "math.hpp"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
 // rendering at 1x scale creates 2x box.size pixels
 #define MAGIC_SCALE_MULTIPLIER 2.f
 
@@ -174,6 +177,16 @@ RenderResult Renderer::renderPanel(
 
   rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
   RenderResult result = Renderer(framebuffer).render(scale);
+
+  // if (result.success()) {
+  //   renderPng(
+  //     result.pixels,
+  //     result.width,
+  //     result.height,
+  //     "render_panel_square",
+  //     makeFilename(moduleWidget)
+  //   );
+  // }
 
   // if parent is not NULL, we have used wrapForRendering and need to clean up
   if (parent) {
@@ -493,52 +506,34 @@ void Renderer::flipBitmap(uint8_t* pixels, int width, int height, int depth) {
   }
 }
 
-// rack::app::ModuleWidget* Renderer::makeDummyModuleWidget(
-//   rack::app::ModuleWidget* mw
-// ) {
-//   return mw->getModel()->createModuleWidget(NULL);
-// }
+std::string Renderer::makeFilename(rack::app::ModuleWidget* mw) {
+  std::string f = "";
+  f.append(mw->getModel()->plugin->slug.c_str());
+  f.append("-");
+  f.append(mw->getModel()->slug.c_str());
+  return f;
+}
 
-// // make a new ModuleWidget and give it the old ModuleWidget's Module
-// rack::app::ModuleWidget* Renderer::makeSurrogateModuleWidget(
-//   rack::app::ModuleWidget* mw
-// ) {
-//   return mw->getModel()->createModuleWidget(mw->getModule());
-// }
-
-// std::string Renderer::makeFilename(rack::app::ModuleWidget* mw) {
-//   std::string f = "";
-//   f.append(mw->getModule()->getModel()->plugin->slug.c_str());
-//   f.append("-");
-//   f.append(mw->getModule()->getModel()->slug.c_str());
-//   return f;
-// }
-
-
-// // render FramebufferWidget to png
-// void Renderer::renderPng(
-//   std::string directory,
-//   std::string filename,
-//   rack::widget::FramebufferWidget* fb
-// ) {
-//   int width, height;
-//   uint8_t* pixels = renderPixels(fb, width, height);
-
-//   std::string renderPath = rack::asset::user(directory);
-//   rack::system::createDirectory(renderPath);
-//   std::string filepath = rack::system::join(renderPath, filename + ".png");
-//   stbi_write_png(
-//     filepath.c_str(),
-//     width,
-//     height,
-//     4,
-//     pixels,
-//     width * 4
-//   );
-
-//   delete[] pixels;
-//   nvgluBindFramebuffer(NULL);
-// }
+// render pixels to png
+void Renderer::renderPng(
+  uint8_t* pixels,
+  int width,
+  int height,
+  std::string directory,
+  std::string filename
+) {
+  std::string renderPath = rack::asset::user(directory);
+  rack::system::createDirectory(renderPath);
+  std::string filepath = rack::system::join(renderPath, filename + ".png");
+  stbi_write_png(
+    filepath.c_str(),
+    width,
+    height,
+    4,
+    pixels,
+    width * 4
+  );
+}
 
 // remove params/ports/lights/screws/shadows from children
 void Renderer::hideChildren(rack::widget::Widget* widget) {

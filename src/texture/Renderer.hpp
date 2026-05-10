@@ -162,6 +162,15 @@ struct Renderer {
     rack::math::Vec scale
   );
 
+  static void renderPng(
+    uint8_t* pixels,
+    int width,
+    int height,
+    std::string directory,
+    std::string filename
+  );
+  static std::string makeFilename(rack::app::ModuleWidget* mw);
+
   static float getScaleFromVariant(
     rack::widget::FramebufferWidget* framebuffer,
     std::variant<float, int32_t> scaleOrHeight
