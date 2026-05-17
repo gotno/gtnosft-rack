@@ -1,0 +1,335 @@
+
+=== DIRECTORY TREE (max depth 3, source files only) ===
+.github
+.github/workflows
+.github/workflows/build-plugin.yml
+.gitignore
+Makefile
+build-common.sh
+build-msys
+build-msys/dependencies
+build-msys/dependencies/oscpack
+build-msys/dependencies/oscpack/ip
+build-msys/dependencies/oscpack/osc
+build-msys/src
+build-msys/src/OSCctrl.cpp.d
+build-msys/src/OSCctrl.cpp.o
+build-msys/src/osc
+build-msys/src/osc/Bundler
+build-msys/src/osc/ChunkedManager.cpp.d
+build-msys/src/osc/ChunkedManager.cpp.o
+build-msys/src/osc/ChunkedSend
+build-msys/src/osc/OscReceiver.cpp.d
+build-msys/src/osc/OscReceiver.cpp.o
+build-msys/src/osc/OscSender.cpp.d
+build-msys/src/osc/OscSender.cpp.o
+build-msys/src/osc/SubscriptionManager.cpp.d
+build-msys/src/osc/SubscriptionManager.cpp.o
+build-msys/src/plugin.cpp.d
+build-msys/src/plugin.cpp.o
+build-msys/src/renderer
+build-msys/src/renderer/Renderer.cpp.d
+build-msys/src/renderer/Renderer.cpp.o
+build-msys/src/texture
+build-msys/src/texture/Catalog.cpp.d
+build-msys/src/texture/Catalog.cpp.o
+build-msys/src/texture/Renderer.cpp.d
+build-msys/src/texture/Renderer.cpp.o
+build-msys/src/util
+build-msys/src/util/Util.cpp.d
+build-msys/src/util/Util.cpp.o
+build-msys.sh
+build-wsl
+build-wsl/dependencies
+build-wsl/dependencies/oscpack
+build-wsl/dependencies/oscpack/ip
+build-wsl/dependencies/oscpack/osc
+build-wsl/src
+build-wsl/src/OSCctrl.cpp.d
+build-wsl/src/OSCctrl.cpp.o
+build-wsl/src/osc
+build-wsl/src/osc/Bundler
+build-wsl/src/osc/ChunkedManager.cpp.d
+build-wsl/src/osc/ChunkedManager.cpp.o
+build-wsl/src/osc/ChunkedSend
+build-wsl/src/osc/OscReceiver.cpp.d
+build-wsl/src/osc/OscReceiver.cpp.o
+build-wsl/src/osc/OscSender.cpp.d
+build-wsl/src/osc/OscSender.cpp.o
+build-wsl/src/osc/SubscriptionManager.cpp.d
+build-wsl/src/osc/SubscriptionManager.cpp.o
+build-wsl/src/plugin.cpp.d
+build-wsl/src/plugin.cpp.o
+build-wsl/src/renderer
+build-wsl/src/renderer/Renderer.cpp.d
+build-wsl/src/renderer/Renderer.cpp.o
+build-wsl/src/texture
+build-wsl/src/texture/Catalog.cpp.d
+build-wsl/src/texture/Catalog.cpp.o
+build-wsl/src/texture/Renderer.cpp.d
+build-wsl/src/texture/Renderer.cpp.o
+build-wsl/src/util
+build-wsl/src/util/Util.cpp.d
+build-wsl/src/util/Util.cpp.o
+build-wsl.sh
+compile_commands.json
+dep
+dependencies
+dependencies/oscpack
+dependencies/oscpack/LICENSE
+dependencies/oscpack/README.md
+dependencies/oscpack/ip
+dependencies/oscpack/ip/IpEndpointName.cpp
+dependencies/oscpack/ip/IpEndpointName.h
+dependencies/oscpack/ip/NetworkingUtils.h
+dependencies/oscpack/ip/PacketListener.h
+dependencies/oscpack/ip/TimerListener.h
+dependencies/oscpack/ip/UdpSocket.h
+dependencies/oscpack/ip/posix
+dependencies/oscpack/ip/win32
+dependencies/oscpack/osc
+dependencies/oscpack/osc/MessageMappingOscPacketListener.h
+dependencies/oscpack/osc/OscException.h
+dependencies/oscpack/osc/OscHostEndianness.h
+dependencies/oscpack/osc/OscOutboundPacketStream.cpp
+dependencies/oscpack/osc/OscOutboundPacketStream.h
+dependencies/oscpack/osc/OscPacketListener.h
+dependencies/oscpack/osc/OscPrintReceivedElements.cpp
+dependencies/oscpack/osc/OscPrintReceivedElements.h
+dependencies/oscpack/osc/OscReceivedElements.cpp
+dependencies/oscpack/osc/OscReceivedElements.h
+dependencies/oscpack/osc/OscTypes.cpp
+dependencies/oscpack/osc/OscTypes.h
+dependencies/qoi
+dependencies/qoi/LICENSE
+dependencies/qoi/qoi.h
+dependencies/rapidhash
+dependencies/rapidhash/LICENSE
+dependencies/rapidhash/rapidhash.h
+dependencies/stb_image_write.h
+docs
+docs/codebase
+docs/codebase/.codebase-scan.txt
+plugin.dll
+plugin.json
+plugin.so
+res
+res/OSCctrl.svg
+src
+src/OSCctrl.cpp
+src/OSCctrl.hpp
+src/osc
+src/osc/Bundler
+src/osc/Bundler/BroadcastHeartbeatBundler.cpp
+src/osc/Bundler/BroadcastHeartbeatBundler.hpp
+src/osc/Bundler/Bundler.hpp
+src/osc/Bundler/CablesBundler.cpp
+src/osc/Bundler/CablesBundler.hpp
+src/osc/Bundler/ChunkedImageBundler.cpp
+src/osc/Bundler/ChunkedImageBundler.hpp
+src/osc/Bundler/ChunkedSendBundler.cpp
+src/osc/Bundler/ChunkedSendBundler.hpp
+src/osc/Bundler/DirectHeartbeatBundler.cpp
+src/osc/Bundler/DirectHeartbeatBundler.hpp
+src/osc/Bundler/ModuleLightsBundler.cpp
+src/osc/Bundler/ModuleLightsBundler.hpp
+src/osc/Bundler/ModuleParamsBundler.cpp
+src/osc/Bundler/ModuleParamsBundler.hpp
+src/osc/Bundler/ModuleStateBundler.cpp
+src/osc/Bundler/ModuleStateBundler.hpp
+src/osc/Bundler/ModuleStructureBundler.cpp
+src/osc/Bundler/ModuleStructureBundler.hpp
+src/osc/Bundler/ModuleStubsBundler.cpp
+src/osc/Bundler/ModuleStubsBundler.hpp
+src/osc/Bundler/PatchInfoBundler.cpp
+src/osc/Bundler/PatchInfoBundler.hpp
+src/osc/ChunkedManager.cpp
+src/osc/ChunkedManager.hpp
+src/osc/ChunkedSend
+src/osc/ChunkedSend/ChunkedImage.cpp
+src/osc/ChunkedSend/ChunkedImage.hpp
+src/osc/ChunkedSend/ChunkedSend.cpp
+src/osc/ChunkedSend/ChunkedSend.hpp
+src/osc/OscConstants.hpp
+src/osc/OscReceiver.cpp
+src/osc/OscReceiver.hpp
+src/osc/OscSender.cpp
+src/osc/OscSender.hpp
+src/osc/SubscriptionManager.cpp
+src/osc/SubscriptionManager.hpp
+src/plugin.cpp
+src/plugin.hpp
+src/texture
+src/texture/Catalog.cpp
+src/texture/Catalog.hpp
+src/texture/Renderer.cpp
+src/texture/Renderer.hpp
+src/util
+src/util/Network.hpp
+src/util/Timer.hpp
+src/util/Util.cpp
+src/util/Util.hpp
+
+=== STACK DETECTION (manifest files) ===
+
+--- Makefile ---
+# If RACK_DIR is not defined when calling the Makefile, default to two directories above
+RACK_DIR ?= ../..
+
+# FLAGS will be passed to both the C and C++ compiler
+FLAGS += -I./dependencies
+CFLAGS +=
+CXXFLAGS += -std=c++20
+
+# Careful about linking to shared libraries, since you can't assume much about the user's environment and library search path.
+# Static libraries are fine, but they should be added to this plugin's build system.
+
+# defines for ARCH_WIN, ARCH_LIN, ARCH_MAC
+include $(RACK_DIR)/arch.mk
+
+MACHINE = $(shell $(CC) -dumpmachine)
+ifneq (, $(findstring mingw, $(MACHINE)))
+	SOURCES += $(wildcard dependencies/oscpack/ip/win32/*.cpp)
+	LDFLAGS += -lws2_32 -lwinmm -liphlpapi
+	LDFLAGS += -lopengl32
+	LDFLAGS += -L$(RACK_DIR)/dep/lib
+else
+	SOURCES += $(wildcard dependencies/oscpack/ip/posix/*.cpp)
+	LDFLAGS += -lstdc++
+endif
+
+ifdef ARCH_MAC
+	LDFLAGS += -framework CoreFoundation -framework SystemConfiguration
+endif
+
+
+# Add .cpp files to the build
+SOURCES += $(wildcard src/*.cpp)
+SOURCES += $(wildcard src/texture/*.cpp)
+SOURCES += $(wildcard src/util/*.cpp)
+SOURCES += $(wildcard src/osc/*.cpp)
+SOURCES += $(wildcard src/osc/MessagePacker/*.cpp)
+SOURCES += $(wildcard src/osc/Bundler/*.cpp)
+SOURCES += $(wildcard src/osc/ChunkedSend/*.cpp)
+SOURCES += $(wildcard dependencies/oscpack/ip/*.cpp)
+SOURCES += $(wildcard dependencies/oscpack/osc/*.cpp)
+
+# Add files to the ZIP package when running `make dist`
+# The compiled plugin and "plugin.json" are automatically added.
+DISTRIBUTABLES += res
+DISTRIBUTABLES += $(wildcard LICENSE*)
+DISTRIBUTABLES += dependencies/oscpack/LICENSE
+DISTRIBUTABLES += dependencies/qoi/LICENSE
+DISTRIBUTABLES += dependencies/rapidhash/LICENSE
+DISTRIBUTABLES += $(wildcard presets)
+
+include $(RACK_DIR)/plugin.mk
+
+CXXFLAGS := $(filter-out -std=c++11,$(CXXFLAGS))
+
+
+=== ENTRY POINTS ===
+No common entry points found. Check 'main' or 'scripts.start' in manifest files above.
+
+=== LINTING AND FORMATTING CONFIG ===
+No linting or formatting config files found in project root.
+
+=== ENVIRONMENT VARIABLE TEMPLATES ===
+No .env.example or .env.template found. Identify required environment variables by searching the code and config for environment variable reads.
+
+=== TODO / FIXME / HACK (production code only, test dirs excluded) ===
+src/texture/Renderer.cpp:214: // TODO: for Fundamental:Scope, copy input cables to get proper colors
+src/texture/Renderer.cpp:603: // // TODO: probably more efficient to hold on to the surrogate and update its module each time
+src/osc/SubscriptionManager.cpp:34: // TODO: osctx deque
+src/osc/OscReceiver.cpp:111: // TODO: bail early if we're still broadcasting
+src/osc/OscReceiver.cpp:367: // TODO: history (see PortWidget::dragStart/dragEnd for example)
+src/osc/OscReceiver.cpp:404: // TODO: history (see PortWidget::dragStart/dragEnd for example)
+src/osc/ChunkedManager.cpp:106: // TODO: dynamic wait time? const?
+src/osc/OscSender.cpp:56: // TODO: immediate via deque
+src/osc/Bundler/ModuleStructureBundler.cpp:73: // TODO: we're assuming lights with a perfectly square size are
+src/osc/Bundler/CablesBundler.cpp:17: // TODO: send "finished" message with total sent count
+src/osc/Bundler/DirectHeartbeatBundler.cpp:4: // TODO: these should be floats, 0-100
+src/osc/ChunkedSend/ChunkedImage.cpp:17: // TODO?: throw on compression failure, catch in caller and dispose
+dependencies/oscpack/ip/win32/UdpSocket.cpp:343: return timeGetTime(); // FIXME: bad choice if you want to run for more than 40 days
+
+=== GIT RECENT COMMITS (last 20) ===
+4218d59 remove copilot-instructions
+b0ad55d remove gsd planning
+9c0e53e ensure only one active OSCctrl module
+7faeeef clean out old commented code
+607547e comment out logs
+8ee2779 remove logs
+d83e030 restore renderPng (+ commented example)
+44d1035 fix nullptr access
+cee368f gsd-config
+bc6d938 add renderPixels expected/actual size warning logs
+f3581ff remove log
+e62671b render debug logging
+aaa6977 separate slider track/handle scale calculations
+4bb208a smol cleanup
+67330a9 docs(02-01): complete replace ordered containers with unordered plan
+432845b perf(lights): replace ordered containers with unordered for O(1) lookups
+b251705 docs(02): plan phase 2 - container and algorithm optimization
+bfc30b8 docs(02): create phase plan for container/algorithm optimization
+e28544a docs(01-01): complete LightState allocation elimination plan
+d9d5f9a perf(lights): eliminate hex string allocation in LightState hot path
+
+=== HIGH-CHURN FILES (last 90 days, top 20) ===
+  10 src/texture/Renderer.cpp
+  10 src/osc/OscReceiver.cpp
+   4 .planning/STATE.md
+   4 src/texture/Catalog.cpp
+   4 src/osc/Bundler/ModuleStructureBundler.cpp
+   4 src/texture/Catalog.hpp
+   3 .planning/config.json
+   3 .planning/phases/01-lightstate-allocation-elimination/01-01-PLAN.md
+   3 .planning/phases/02-container-algorithm-optimization/02-01-PLAN.md
+   3 src/texture/Renderer.hpp
+   3 src/osc/Bundler/ModuleLightsBundler.cpp
+   3 src/osc/Bundler/ModuleLightsBundler.hpp
+   2 .planning/PROJECT.md
+   2 .planning/REQUIREMENTS.md
+   2 .planning/ROADMAP.md
+   2 .planning/codebase/ARCHITECTURE.md
+   2 .planning/codebase/CONCERNS.md
+   2 .planning/codebase/CONVENTIONS.md
+   2 .planning/codebase/INTEGRATIONS.md
+   2 .planning/codebase/STACK.md
+
+=== MONOREPO SIGNALS ===
+No monorepo signals detected.
+
+=== CODE METRICS ===
+Total files scanned: 143
+Total lines of code: 10325
+
+Files by language:
+  Other: 96
+  C++: 31
+  C Header: 16
+
+Top 10 largest files:
+plugin.dll: 16252.3KB
+compile_commands.json: 22.7KB
+dependencies/oscpack/osc/OscReceivedElements.cpp: 21.1KB
+dependencies/rapidhash/rapidhash.h: 20.2KB
+src/texture/Renderer.cpp: 19.6KB
+build-msys/src/osc/OscReceiver.cpp.d: 18.8KB
+dependencies/stb_image_write.h: 18.2KB
+build-msys/src/OSCctrl.cpp.d: 17.9KB
+dependencies/qoi/qoi.h: 17.9KB
+build-msys/src/osc/ChunkedSend/ChunkedImage.cpp.d: 17.9KB
+
+=== CI/CD PIPELINES ===
+CI/CD: GitHub Actions
+
+=== CONTAINERS & ORCHESTRATION ===
+No containerization configs detected.
+
+=== SECURITY & COMPLIANCE ===
+No security configs detected.
+
+=== PERFORMANCE & TESTING ===
+No performance testing configs detected.
+
+=== SCAN COMPLETE ===
