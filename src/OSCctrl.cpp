@@ -34,6 +34,19 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
   setPanel(createPanel(asset::plugin(pluginInstance, "res/OSCctrl.svg")));
   if (!module) return;
 
+  // bail if OSCctrl is already in the patch
+  std::vector<int64_t> moduleIds = APP->engine->getModuleIds();
+  for (const auto& id : moduleIds) {
+    if (id == getModule()->getId()) {
+      continue;
+    }
+
+    rack::plugin::Model* model = APP->engine->getModule(id)->getModel();
+    if (model->plugin->slug == "gtnosft" && model->slug == "OSCctrl") {
+      return;
+    }
+  }
+
   osctx = new OscSender();
   chunkman = new ChunkedManager(this, osctx);
   subman = new SubscriptionManager(this, osctx, chunkman);
