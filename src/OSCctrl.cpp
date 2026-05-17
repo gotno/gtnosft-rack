@@ -18,6 +18,11 @@ struct OSCctrl : Module {
     OUTPUTS_LEN
   };
   enum LightId {
+    TX1_LIGHT,
+    TX2_LIGHT,
+    TX3_LIGHT,
+    HEARTBEAT_OUT_LIGHT,
+    HEATBEAT_IN_LIGHT,
     LIGHTS_LEN
   };
 
@@ -32,6 +37,13 @@ struct OSCctrl : Module {
 OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
   setModule(module);
   setPanel(createPanel(asset::plugin(pluginInstance, "res/OSCctrl.svg")));
+
+  addChild(createLight<SmallLight<RedLight>>(mm2px(Vec(10.74, 19.001)), module, OSCctrl::TX1_LIGHT));
+  addChild(createLight<SmallLight<RedLight>>(mm2px(Vec(13.99, 19.001)), module, OSCctrl::TX2_LIGHT));
+  addChild(createLight<SmallLight<RedLight>>(mm2px(Vec(17.24, 19.001)), module, OSCctrl::TX3_LIGHT));
+  addChild(createLight<SmallLight<RedLight>>(mm2px(Vec(10.74, 22.001)), module, OSCctrl::HEARTBEAT_OUT_LIGHT));
+  addChild(createLight<SmallLight<RedLight>>(mm2px(Vec(15.74, 22.001)), module, OSCctrl::HEATBEAT_IN_LIGHT));
+
   if (!module) return;
 
   // bail if OSCctrl is already in the patch
