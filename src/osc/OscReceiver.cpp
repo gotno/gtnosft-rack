@@ -18,6 +18,7 @@
 #include "Bundler/ModuleStateBundler.hpp"
 #include "Bundler/ModuleParamsBundler.hpp"
 #include "Bundler/CablesBundler.hpp"
+#include "Bundler/CableAckBundler.hpp"
 
 #include "../texture/Catalog.hpp"
 #include "../texture/Renderer.hpp"
@@ -363,31 +364,47 @@ void OscReceiver::generateRoutes() {
       } catch (const osc::WrongArgumentTypeException& e) {}
 
       ctrl->enqueueAction([=, this]() {
-        // TODO: history (see PortWidget::dragStart/dragEnd for example)
-        rack::app::ModuleWidget* inputModule =
-          APP->scene->rack->getModule(inputModuleId);
-        if (!inputModule) return;
-        rack::app::ModuleWidget* outputModule =
-          APP->scene->rack->getModule(outputModuleId);
-        if (!outputModule) return;
+        CableAckBundler* bundler = [&]() -> CableAckBundler* {
+          CableAckBundler* ack =
+            new CableAckBundler(CableAckType::Add, returnId);
 
-        rack::app::PortWidget* inputPort = inputModule->getInput(inputPortId);
-        if (!inputPort) return;
-        rack::app::PortWidget* outputPort = outputModule->getOutput(outputPortId);
-        if (!outputPort) return;
+          // ack success if cable already exists
+          std::vector<int64_t> cableIds = APP->engine->getCableIds();
+          for (int64_t cableId : cableIds) {
+            rack::engine::Cable* cable = APP->engine->getCable(cableId);
+            if (cable->inputModule->getId() != inputModuleId) continue;
+            if (cable->outputModule->getId() != outputModuleId) continue;
+            if (cable->inputId != inputPortId) continue;
+            if (cable->outputId != outputPortId) continue;
+            return ack->success(cableId);
+          }
 
-        rack::app::CableWidget* cableWidget = new rack::app::CableWidget;
-        cableWidget->inputPort = inputPort;
-        cableWidget->outputPort = outputPort;
-        cableWidget->color = rack::color::fromHexString(color);
+          // TODO: history (see PortWidget::dragStart/dragEnd for example)
+          rack::app::ModuleWidget* inputModule =
+            APP->scene->rack->getModule(inputModuleId);
+          if (!inputModule) return ack->fail();
+          rack::app::ModuleWidget* outputModule =
+            APP->scene->rack->getModule(outputModuleId);
+          if (!outputModule) return ack->fail();
 
-        // updateCable handles creating and adding the engine::Cable
-        cableWidget->updateCable();
-        APP->scene->rack->addCable(cableWidget);
+          rack::app::PortWidget* inputPort = inputModule->getInput(inputPortId);
+          if (!inputPort) return ack->fail();
+          rack::app::PortWidget* outputPort = outputModule->getOutput(outputPortId);
+          if (!outputPort) return ack->fail();
 
-        osctx->enqueueBundler(
-          new CablesBundler(cableWidget->getCable()->id, returnId)
-        );
+          rack::app::CableWidget* cableWidget = new rack::app::CableWidget;
+          cableWidget->inputPort = inputPort;
+          cableWidget->outputPort = outputPort;
+          cableWidget->color = rack::color::fromHexString(color);
+
+          // updateCable handles creating and adding the engine::Cable
+          cableWidget->updateCable();
+          APP->scene->rack->addCable(cableWidget);
+
+          return ack->success(cableWidget->getCable()->id);
+        }();
+
+        osctx->enqueueBundler(bundler);
       });
     }
   );
@@ -397,14 +414,22 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t cableId = (args++)->AsInt64();
 
-      ctrl->enqueueAction([cableId]() {
-        // TODO: history (see PortWidget::dragStart/dragEnd for example)
-        rack::app::CableWidget* cw =
-          APP->scene->rack->getCable(cableId);
-        if (!cw) return;
+      ctrl->enqueueAction([=, this]() {
+        CableAckBundler* bundler = [&]() -> CableAckBundler* {
+          CableAckBundler* ack =
+            new CableAckBundler(CableAckType::Remove);
 
-        APP->scene->rack->removeCable(cw);
-        delete cw;
+          // TODO: history (see PortWidget::dragStart/dragEnd for example)
+          rack::app::CableWidget* cw =
+            APP->scene->rack->getCable(cableId);
+          if (!cw) return ack->fail(cableId);
+
+          APP->scene->rack->removeCable(cw);
+          delete cw;
+          return ack->success(cableId);
+        }();
+
+        osctx->enqueueBundler(bundler);
       });
     }
   );

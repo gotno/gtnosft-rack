@@ -13,8 +13,6 @@ CablesBundler::CablesBundler(): Bundler("CablesBundler") {
   for (int64_t cableId : cableIds) {
     bundleCable(cableId);
   }
-
-  // TODO: send "finished" message with total sent count
 }
 
 void CablesBundler::bundleCable(int64_t cableId, int64_t returnId) {
