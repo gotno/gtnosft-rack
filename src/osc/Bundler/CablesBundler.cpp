@@ -1,12 +1,5 @@
 #include "CablesBundler.hpp"
 
-CablesBundler::CablesBundler(
-  int64_t cableId,
-  int64_t returnId
-) : Bundler("CablesBundler") {
-  bundleCable(cableId, returnId);
-}
-
 CablesBundler::CablesBundler(): Bundler("CablesBundler") {
   std::vector<int64_t> cableIds = APP->engine->getCableIds();
 
@@ -15,7 +8,7 @@ CablesBundler::CablesBundler(): Bundler("CablesBundler") {
   }
 }
 
-void CablesBundler::bundleCable(int64_t cableId, int64_t returnId) {
+void CablesBundler::bundleCable(int64_t cableId) {
   rack::engine::Cable* cable = APP->engine->getCable(cableId);
   rack::app::CableWidget* cableWidget = APP->scene->rack->getCable(cableId);
 
@@ -34,7 +27,6 @@ void CablesBundler::bundleCable(int64_t cableId, int64_t returnId) {
         << inputId
         << outputId
         << color.c_str()
-        << returnId
         ;
     }
   );
