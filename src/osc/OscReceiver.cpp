@@ -18,7 +18,9 @@
 #include "Bundler/ModuleStateBundler.hpp"
 #include "Bundler/ModuleParamsBundler.hpp"
 #include "Bundler/CablesBundler.hpp"
+
 #include "Bundler/CableAckBundler.hpp"
+#include "Bundler/ParamAckBundler.hpp"
 
 #include "../texture/Catalog.hpp"
 #include "../texture/Renderer.hpp"
@@ -334,16 +336,30 @@ void OscReceiver::generateRoutes() {
       int64_t moduleId = (args++)->AsInt64();
       int32_t paramId = (args++)->AsInt32();
       float value = (args++)->AsFloat();
+      bool needsAck = (args++)->AsBool();
 
-      ctrl->enqueueAction([moduleId, paramId, value]() {
-        rack::app::ModuleWidget* module =
-          APP->scene->rack->getModule(moduleId);
-        if (!module) return;
+      ctrl->enqueueAction([=, this]() {
+        ParamAckBundler* bundler = [&]() -> ParamAckBundler* {
+          ParamAckBundler* ack =
+            new ParamAckBundler(moduleId, paramId);
 
-        rack::app::ParamWidget* param = module->getParam(paramId);
-        if (!param) return;
+          rack::app::ModuleWidget* module =
+            APP->scene->rack->getModule(moduleId);
+          if (!module) return ack->fail();
 
-        param->getParamQuantity()->setValue(value);
+          rack::app::ParamWidget* param = module->getParam(paramId);
+          if (!param) return ack->fail();
+
+          rack::engine::ParamQuantity* pq = param->getParamQuantity();
+          pq->setValue(value);
+          return ack->success(pq->getValue());
+        }();
+
+        if (needsAck) {
+          osctx->enqueueBundler(bundler);
+        } else {
+          delete bundler;
+        }
       });
     }
   );
