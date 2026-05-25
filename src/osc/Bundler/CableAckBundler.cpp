@@ -5,26 +5,22 @@ CableAckBundler::CableAckBundler(
   int64_t _returnId
 ) : Bundler("CableAckBundler"), type(_type), returnId(_returnId) {
   assert(type != CableAckType::Unknown);
-  address = type == CableAckType::Add ? "/ack/cable/add" : "/ack/cable/remove";
 }
 
 CableAckBundler* CableAckBundler::success(int64_t cableId) {
-  assert(type != CableAckType::Unknown);
-
   if (type == CableAckType::Add) {
     messages.emplace_back(
-      address.c_str(),
-      [&](osc::OutboundPacketStream& pstream) {
+      "/ack/cable/add",
+      [=](osc::OutboundPacketStream& pstream) {
         pstream << returnId
           << cableId
           << true;
       }
     );
-  }
-  if (type == CableAckType::Remove) {
+  } else {
     messages.emplace_back(
-      address.c_str(),
-      [&](osc::OutboundPacketStream& pstream) {
+      "/ack/cable/remove",
+      [=](osc::OutboundPacketStream& pstream) {
         pstream << cableId
           << true;
       }
@@ -35,22 +31,19 @@ CableAckBundler* CableAckBundler::success(int64_t cableId) {
 }
 
 CableAckBundler* CableAckBundler::fail(int64_t cableId) {
-  assert(type != CableAckType::Unknown);
-
   if (type == CableAckType::Add) {
     messages.emplace_back(
-      address.c_str(),
-      [&](osc::OutboundPacketStream& pstream) {
+      "/ack/cable/add",
+      [=](osc::OutboundPacketStream& pstream) {
         pstream << returnId
           << cableId
           << false;
       }
     );
-  }
-  if (type == CableAckType::Remove) {
+  } else {
     messages.emplace_back(
-      address.c_str(),
-      [&](osc::OutboundPacketStream& pstream) {
+      "/ack/cable/remove",
+      [=](osc::OutboundPacketStream& pstream) {
         pstream << cableId
           << false;
       }
