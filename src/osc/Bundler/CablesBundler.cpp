@@ -6,6 +6,13 @@ CablesBundler::CablesBundler(): Bundler("CablesBundler") {
   for (int64_t cableId : cableIds) {
     bundleCable(cableId);
   }
+
+  messages.emplace_back(
+    "/report/cable/count",
+    [=](osc::OutboundPacketStream& pstream) {
+      pstream << (osc::int64)cableIds.size();
+    }
+  );
 }
 
 void CablesBundler::bundleCable(int64_t cableId) {

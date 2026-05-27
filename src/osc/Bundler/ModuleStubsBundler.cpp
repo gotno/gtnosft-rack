@@ -19,4 +19,11 @@ ModuleStubsBundler::ModuleStubsBundler(): Bundler("ModuleStubsBundler") {
       }
     );
   }
+
+  messages.emplace_back(
+    "/report/module/count",
+    [=](osc::OutboundPacketStream& pstream) {
+      pstream << (osc::int64)moduleIds.size();
+    }
+  );
 }
