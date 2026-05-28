@@ -25,7 +25,7 @@ struct SubscriptionManager {
   void reset();
   void tick();
 
-  void subscribeModuleLights(int64_t moduleId);
+  bool subscribeModuleLights(int64_t moduleId);
   // void unsubscribeModuleLights(int64_t moduleId);
 
 private:

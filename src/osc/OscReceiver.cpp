@@ -21,6 +21,7 @@
 
 #include "Bundler/CableAckBundler.hpp"
 #include "Bundler/ParamAckBundler.hpp"
+#include "Bundler/LightSubscriptionAckBundler.hpp"
 
 #include "../texture/Catalog.hpp"
 #include "../texture/Renderer.hpp"
@@ -325,7 +326,10 @@ void OscReceiver::generateRoutes() {
       int64_t moduleId = (args++)->AsInt64();
 
       ctrl->enqueueAction([this, moduleId]() {
-        subman->subscribeModuleLights(moduleId);
+        bool success = subman->subscribeModuleLights(moduleId);
+        LightSubscriptionAckBundler* bundler =
+          new LightSubscriptionAckBundler(moduleId, success);
+        osctx->enqueueBundler(bundler);
       });
     }
   );
