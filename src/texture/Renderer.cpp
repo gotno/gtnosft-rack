@@ -113,45 +113,63 @@ RenderResult Renderer::renderTexture(
     );
   DEFER({ delete moduleWidget; });
 
+  RenderResult result;
+
   switch (breadcrumbs.textureType) {
     case TextureType::Panel:
-      return renderPanel(moduleWidget, recipe);
+      result = renderPanel(moduleWidget, recipe);
+      break;
     case TextureType::Overlay:
       WARN("should not have entered `case TextureType::Overlay`");
       return RenderResult();
     case TextureType::Knob_bg:
     case TextureType::Knob_mg:
     case TextureType::Knob_fg:
-      return renderKnob(
+      result = renderKnob(
         moduleWidget->getParam(breadcrumbs.componentId),
         breadcrumbs,
         recipe
       );
+      break;
     case TextureType::Slider_track:
     case TextureType::Slider_handle:
-      return renderSlider(
+      result = renderSlider(
         moduleWidget->getParam(breadcrumbs.componentId),
         breadcrumbs,
         recipe
       );
+      break;
     case TextureType::Switch_frame:
-      return renderSwitch(
+      result = renderSwitch(
         moduleWidget->getParam(breadcrumbs.componentId),
         breadcrumbs,
         recipe
       );
+      break;
     case TextureType::Port_input:
     case TextureType::Port_output:
-      return renderPort(
+      result = renderPort(
         breadcrumbs.textureType == TextureType::Port_input
           ? moduleWidget->getInput(breadcrumbs.componentId)
           : moduleWidget->getOutput(breadcrumbs.componentId),
         breadcrumbs,
         recipe
       );
+      break;
     default:
       return UNKNOWN_TEXTURE_TYPE("renderTexture", breadcrumbs);
   }
+
+  // if (result.success()) {
+  //   renderPng(
+  //     result.pixels,
+  //     result.width,
+  //     result.height,
+  //     "render_test",
+  //     rack::string::f("%lld", breadcrumbs.textureId)
+  //   );
+  // }
+  return result;
 }
 
 RenderResult Renderer::renderPanel(
@@ -177,16 +195,6 @@ RenderResult Renderer::renderPanel(
 
   rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
   RenderResult result = Renderer(framebuffer).render(scale);
-
-  // if (result.success()) {
-  //   renderPng(
-  //     result.pixels,
-  //     result.width,
-  //     result.height,
-  //     "render_panel_square",
-  //     makeFilename(moduleWidget)
-  //   );
-  // }
 
   // if parent is not NULL, we have used wrapForRendering and need to clean up
   if (parent) {
