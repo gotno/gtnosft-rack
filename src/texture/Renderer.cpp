@@ -118,6 +118,15 @@ RenderResult Renderer::renderTexture(
   switch (breadcrumbs.textureType) {
     case TextureType::Panel:
       result = renderPanel(moduleWidget, recipe);
+      if (result.success()) {
+        renderPng(
+          result.pixels,
+          result.width,
+          result.height,
+          "render_panel_test",
+          rack::string::f("%lld", breadcrumbs.textureId)
+        );
+      }
       break;
     case TextureType::Overlay:
       WARN("should not have entered `case TextureType::Overlay`");
