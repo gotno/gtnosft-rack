@@ -22,6 +22,7 @@ int64_t Catalog::ingest(Breadcrumbs breadcrumbs) {
   if (!registry.contains(hash)) {
     int64_t textureId = makeId();
     registry.emplace(hash, textureId);
+    breadcrumbs.setTextureId(textureId);
     textureBreadcrumbs.emplace(textureId, breadcrumbs);
   }
 
@@ -58,10 +59,12 @@ int64_t Catalog::pullPanelId(rack::app::ModuleWidget* widget) {
 
   if (!panelTextureIds.at(pluginSlug).contains(moduleSlug)) {
     int64_t panelTextureId = makeId();
+
     textureBreadcrumbs.emplace(
       panelTextureId,
       Breadcrumbs(pluginSlug, moduleSlug)
     );
+    textureBreadcrumbs.at(panelTextureId).setTextureId(panelTextureId);
 
     panelTextureIds.at(pluginSlug).emplace(moduleSlug, panelTextureId);
   }

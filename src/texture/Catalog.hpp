@@ -35,6 +35,9 @@ struct Breadcrumbs {
 
   uint8_t frameIdx{0};
 
+  int64_t textureId;
+  void setTextureId(int64_t id) { textureId = id; }
+
   // panel
   Breadcrumbs(std::string _pluginSlug, std::string _moduleSlug):
     pluginSlug(_pluginSlug),
