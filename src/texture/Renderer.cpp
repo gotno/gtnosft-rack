@@ -6,8 +6,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-// rendering at 1x scale creates 2x box.size pixels
-#define MAGIC_SCALE_MULTIPLIER 2.f
 
 RenderResult Renderer::MODULE_NOT_FOUND(
   std::string caller,
@@ -448,7 +446,8 @@ float Renderer::getScaleFromVariant(
     return std::get<float>(scaleOrHeight);
   } else {
     int32_t height = std::get<int32_t>(scaleOrHeight);
-    return height / (framebuffer->box.size.y * 2.f);
+    float pixelRatio = std::fmax(1.f, std::floor(APP->window->pixelRatio));
+    return height / (framebuffer->box.size.y * pixelRatio);
   }
 }
 
@@ -460,12 +459,13 @@ rack::math::Vec Renderer::getScaleFromRecipe(
     case RenderType::Scaled:
       return rack::math::Vec(recipe.scale);
     case RenderType::Exact: {
+      float pixelRatio = std::fmax(1.f, std::floor(APP->window->pixelRatio));
       float yScale =
-        recipe.height / (framebuffer->box.size.y * MAGIC_SCALE_MULTIPLIER);
+        recipe.height / (framebuffer->box.size.y * pixelRatio);
       if (recipe.width == -1) return rack::math::Vec(yScale);
 
       float xScale =
-        recipe.width / (framebuffer->box.size.x * MAGIC_SCALE_MULTIPLIER);
+        recipe.width / (framebuffer->box.size.x * pixelRatio);
       return rack::math::Vec(xScale, yScale);
     }
     default:
@@ -486,10 +486,11 @@ uint8_t* Renderer::renderPixels(
   int actualWidth, actualHeight;
   nvgImageSize(APP->window->vg, fb->getImageHandle(), &actualWidth, &actualHeight);
 
+  float pixelRatio = std::fmax(1.f, std::floor(APP->window->pixelRatio));
   int expectedWidth =
-    (int)std::round(fb->box.size.x * MAGIC_SCALE_MULTIPLIER * scale.x);
+    (int)std::ceil(std::ceil(fb->box.size.x * scale.x) * pixelRatio);
   int expectedHeight =
-    (int)std::round(fb->box.size.y * MAGIC_SCALE_MULTIPLIER * scale.y);
+    (int)std::ceil(std::ceil(fb->box.size.y * scale.y) * pixelRatio);
 
   if (actualWidth != expectedWidth) {
     WARN(
