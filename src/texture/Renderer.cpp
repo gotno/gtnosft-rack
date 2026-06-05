@@ -483,31 +483,53 @@ uint8_t* Renderer::renderPixels(
 
   nvgluBindFramebuffer(fb->getFramebuffer());
 
-  nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
+  int actualWidth, actualHeight;
+  nvgImageSize(APP->window->vg, fb->getImageHandle(), &actualWidth, &actualHeight);
 
-  // int expectedWidth =
-  //   (int)std::round(fb->box.size.x * MAGIC_SCALE_MULTIPLIER * scale.x);
-  // int expectedHeight =
-  //   (int)std::round(fb->box.size.y * MAGIC_SCALE_MULTIPLIER * scale.y);
-  //
-  // if (width != expectedWidth) {
-  //   WARN(
-  //     "renderPixels rendered width %dpx differs from expected %dpx",
-  //     width, expectedWidth
-  //   );
-  //   width = expectedWidth;
-  // }
-  //
-  // if (height != expectedHeight) {
-  //   WARN(
-  //     "renderPixels rendered height %dpx differs from expected %dpx",
-  //     height, expectedHeight
-  //   );
-  //   height = expectedHeight;
-  // }
+  int expectedWidth =
+    (int)std::round(fb->box.size.x * MAGIC_SCALE_MULTIPLIER * scale.x);
+  int expectedHeight =
+    (int)std::round(fb->box.size.y * MAGIC_SCALE_MULTIPLIER * scale.y);
 
-  uint8_t* pixels = new uint8_t[height * width * 4];
-  glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  if (actualWidth != expectedWidth) {
+    // WARN(
+    //   "renderPixels rendered width %dpx differs from expected %dpx",
+    //   actualWidth, expectedWidth
+    // );
+  }
+
+  if (actualHeight != expectedHeight) {
+    // WARN(
+    //   "renderPixels rendered height %dpx differs from expected %dpx",
+    //   actualHeight, expectedHeight
+    // );
+  }
+
+  // read pixels from render at actual size
+  uint8_t* actualPixels = new uint8_t[actualHeight * actualWidth * 4];
+  glReadPixels(0, 0, actualWidth, actualHeight, GL_RGBA, GL_UNSIGNED_BYTE, actualPixels);
+
+  uint8_t* pixels;
+  if (actualWidth != expectedWidth || actualHeight != expectedHeight) {
+    // rewrite pixels to trim excess or zero pad missing
+    pixels = new uint8_t[expectedHeight * expectedWidth * 4]();
+    int copyRows = std::min(actualHeight, expectedHeight);
+    int copyCols = std::min(actualWidth, expectedWidth);
+    for (int row = 0; row < copyRows; row++) {
+      std::memcpy(
+        &pixels[row * expectedWidth * 4],
+        &actualPixels[row * actualWidth * 4],
+        copyCols * 4
+      );
+    }
+    delete[] actualPixels;
+  } else {
+    pixels = actualPixels;
+  }
+
+  width = expectedWidth;
+  height = expectedHeight;
+
   flipBitmap(pixels, width, height, 4);
 
   return pixels;
