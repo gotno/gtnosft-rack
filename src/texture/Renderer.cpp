@@ -202,6 +202,8 @@ RenderResult Renderer::renderPanel(
     framebuffer = wrapForRendering(panel);
   }
 
+  framebuffer->step();
+
   rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
   RenderResult result = Renderer(framebuffer).render(scale);
 
