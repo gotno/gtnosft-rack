@@ -492,17 +492,17 @@ uint8_t* Renderer::renderPixels(
     (int)std::round(fb->box.size.y * MAGIC_SCALE_MULTIPLIER * scale.y);
 
   if (actualWidth != expectedWidth) {
-    // WARN(
-    //   "renderPixels rendered width %dpx differs from expected %dpx",
-    //   actualWidth, expectedWidth
-    // );
+    WARN(
+      "renderPixels rendered width %dpx differs from expected %dpx",
+      actualWidth, expectedWidth
+    );
   }
 
   if (actualHeight != expectedHeight) {
-    // WARN(
-    //   "renderPixels rendered height %dpx differs from expected %dpx",
-    //   actualHeight, expectedHeight
-    // );
+    WARN(
+      "renderPixels rendered height %dpx differs from expected %dpx",
+      actualHeight, expectedHeight
+    );
   }
 
   // read pixels from render at actual size
