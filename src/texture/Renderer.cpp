@@ -477,14 +477,12 @@ uint8_t* Renderer::renderPixels(
   rack::widget::FramebufferWidget* fb,
   int& width,
   int& height,
-  rack::math::Vec scale
+  rack::math::Vec scale,
+  bool override
 ) {
   fb->render(scale);
-
   nvgluBindFramebuffer(fb->getFramebuffer());
-
-  int actualWidth, actualHeight;
-  nvgImageSize(APP->window->vg, fb->getImageHandle(), &actualWidth, &actualHeight);
+  nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
 
   float pixelRatio = std::fmax(1.f, std::floor(APP->window->pixelRatio));
   int expectedWidth =
@@ -492,45 +490,29 @@ uint8_t* Renderer::renderPixels(
   int expectedHeight =
     (int)std::ceil(std::ceil(fb->box.size.y * scale.y) * pixelRatio);
 
-  if (actualWidth != expectedWidth) {
-    WARN(
-      "renderPixels rendered width %dpx differs from expected %dpx",
-      actualWidth, expectedWidth
-    );
-  }
+  if (!override) {
+    if (width != expectedWidth || height != expectedHeight) {
+      WARN(
+        "renderPixels expected::actual %dx%d::%dx%d, adjusting scale and re-rendering",
+        expectedWidth, expectedHeight, width, height
+      );
 
-  if (actualHeight != expectedHeight) {
-    WARN(
-      "renderPixels rendered height %dpx differs from expected %dpx",
-      actualHeight, expectedHeight
-    );
-  }
+      rack::math::Vec scaleOverride = scale;
+      scaleOverride.x *= (float)expectedWidth / width;
+      scaleOverride.y *= (float)expectedHeight / height;
 
-  // read pixels from render at actual size
-  uint8_t* actualPixels = new uint8_t[actualHeight * actualWidth * 4];
-  glReadPixels(0, 0, actualWidth, actualHeight, GL_RGBA, GL_UNSIGNED_BYTE, actualPixels);
-
-  uint8_t* pixels;
-  if (actualWidth != expectedWidth || actualHeight != expectedHeight) {
-    // rewrite pixels to trim excess or zero pad missing
-    pixels = new uint8_t[expectedHeight * expectedWidth * 4]();
-    int copyRows = std::min(actualHeight, expectedHeight);
-    int copyCols = std::min(actualWidth, expectedWidth);
-    for (int row = 0; row < copyRows; row++) {
-      std::memcpy(
-        &pixels[row * expectedWidth * 4],
-        &actualPixels[row * actualWidth * 4],
-        copyCols * 4
+      return renderPixels(
+        fb,
+        width,
+        height,
+        scaleOverride,
+        true
       );
     }
-    delete[] actualPixels;
-  } else {
-    pixels = actualPixels;
   }
 
-  width = expectedWidth;
-  height = expectedHeight;
-
+  uint8_t* pixels = new uint8_t[height * width * 4];
+  glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
   flipBitmap(pixels, width, height, 4);
 
   return pixels;

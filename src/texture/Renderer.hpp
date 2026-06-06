@@ -159,7 +159,8 @@ struct Renderer {
     rack::widget::FramebufferWidget* fb,
     int& width,
     int& height,
-    rack::math::Vec scale
+    rack::math::Vec scale,
+    bool override = false
   );
 
   static void renderPng(
