@@ -31,8 +31,6 @@ struct SceneAction : rack::widget::Widget {
 };
 
 struct OSCctrlWidget : ModuleWidget {
-  std::map<std::string, rack::app::ModuleWidget*> moduleWidgets;
-  std::pair<int32_t, rack::app::ModuleWidget*> moduleWidgetToStream{0, NULL};
 
   OscSender* osctx = NULL;
   OscReceiver* oscrx = NULL;
