@@ -99,6 +99,7 @@ RenderResult Renderer::renderTexture(
   const Breadcrumbs& breadcrumbs,
   const Recipe& recipe
 ) {
+  // Overlays need special handling
   if (breadcrumbs.textureType == TextureType::Overlay)
     return renderOverlay(breadcrumbs.moduleId, recipe);
 
