@@ -12,6 +12,7 @@
 
 #include "OscConstants.hpp"
 
+class OSCctrlWidget;
 struct Bundler;
 class ChunkedImage;
 
@@ -21,8 +22,10 @@ enum class SendMode {
 };
 
 struct OscSender {
-  OscSender();
+  OscSender(OSCctrlWidget* _ctrl);
   ~OscSender();
+
+  OSCctrlWidget* ctrl;
 
   void enqueueBundler(Bundler* bundler);
   void sendHeartbeat();

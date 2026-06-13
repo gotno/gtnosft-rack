@@ -2,13 +2,14 @@
 
 #include "OscSender.hpp"
 
+#include "../OSCctrl.hpp"
 #include "Bundler/Bundler.hpp"
 #include "Bundler/BroadcastHeartbeatBundler.hpp"
 #include "Bundler/DirectHeartbeatBundler.hpp"
 
 #include "../util/Network.hpp"
 
-OscSender::OscSender():
+OscSender::OscSender(OSCctrlWidget* _ctrl): ctrl(_ctrl),
   msgBuffer(new char[MSG_BUFFER_SIZE]),
   pstream(osc::OutboundPacketStream(msgBuffer, MSG_BUFFER_SIZE)) {
 
