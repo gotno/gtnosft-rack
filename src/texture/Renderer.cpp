@@ -122,7 +122,7 @@ RenderResult Renderer::renderTexture(
           result.width,
           result.height,
           "render_panel_test",
-          rack::string::f("%lld", breadcrumbs.textureId)
+          breadcrumbs.moduleSlug
         );
       }
       break;
