@@ -183,34 +183,19 @@ RenderResult Renderer::renderPanel(
   rack::app::ModuleWidget* moduleWidget,
   const Recipe& recipe
 ) {
-  rack::widget::Widget* panel = moduleWidget->children.front();
-  if (!panel) {
-    std::string& pluginSlug = moduleWidget->getModel()->plugin->slug;
-    std::string& moduleSlug = moduleWidget->getModel()->slug;
-    return WIDGET_NOT_FOUND("renderPanel-panel", pluginSlug, moduleSlug);
-  }
+  // hide all children except the first, which should be the panel
+  auto it = std::next(moduleWidget->children.begin());
+  for (; it != moduleWidget->children.end(); ++it) (*it)->setVisible(false);
 
-  rack::widget::FramebufferWidget* framebuffer = findFramebuffer(panel);
+  rack::widget::FramebufferWidget* wrapper = wrapForRendering(moduleWidget);
 
-  rack::widget::Widget* parent = NULL;
-  if (!framebuffer) {
-    INFO("no framebuffer found for module panel, falling back to wrapped widget");
-    parent = panel->parent;
-    panel->parent = NULL;
-    framebuffer = wrapForRendering(panel);
-  }
+  wrapper->step();
 
-  framebuffer->step();
+  rack::math::Vec scale = getScaleFromRecipe(wrapper, recipe);
+  RenderResult result = Renderer(wrapper).render(scale);
 
-  rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
-  RenderResult result = Renderer(framebuffer).render(scale);
-
-  // if parent is not NULL, we have used wrapForRendering and need to clean up
-  if (parent) {
-    panel->parent = parent;
-    clearRenderWrapper(framebuffer);
-    delete framebuffer;
-  }
+  removeFromWrapper(wrapper, moduleWidget);
+  delete wrapper;
 
   return result;
 }
@@ -434,8 +419,11 @@ rack::widget::FramebufferWidget* Renderer::wrapForRendering(
   return fbcontainer;
 }
 
-void Renderer::clearRenderWrapper(rack::widget::FramebufferWidget* fb) {
-  fb->children.front()->children.clear();
+void Renderer::removeFromWrapper(
+  rack::widget::FramebufferWidget* fb,
+  rack::widget::Widget* widget
+) {
+  fb->children.front()->removeChild(widget);
 }
 
 float Renderer::getScaleFromVariant(
@@ -515,6 +503,7 @@ uint8_t* Renderer::renderPixels(
   glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
   flipBitmap(pixels, width, height, 4);
 
+  nvgluBindFramebuffer(NULL);
   return pixels;
 }
 

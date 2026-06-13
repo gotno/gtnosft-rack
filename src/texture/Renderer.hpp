@@ -151,8 +151,9 @@ struct Renderer {
     rack::widget::Widget* widget
   );
   // clear children from wrapper
-  static void clearRenderWrapper(
-    rack::widget::FramebufferWidget* fb
+  static void removeFromWrapper(
+    rack::widget::FramebufferWidget* fb,
+    rack::widget::Widget* widget
   );
 
   uint8_t* renderPixels(
