@@ -20,6 +20,19 @@ RenderResult Renderer::MODULE_NOT_FOUND(
   );
 }
 
+RenderResult Renderer::OVERLAY_BLOCKLISTED(
+  std::string caller,
+  int64_t moduleId
+) {
+  return RenderResult(
+    rack::string::f(
+      "Renderer::%s Overlay blocklisted %lld",
+      caller.c_str(),
+      moduleId
+    )
+  );
+}
+
 RenderResult Renderer::UNKNOWN_TEXTURE_TYPE(
   std::string caller,
   const Breadcrumbs& breadcrumbs
@@ -206,6 +219,9 @@ RenderResult Renderer::renderOverlay(
 ) {
   rack::app::ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
   if (!moduleWidget) return MODULE_NOT_FOUND("renderOverlay", moduleId);
+
+  if (moduleWidget->model->slug == "OSCctrl")
+    return OVERLAY_BLOCKLISTED("renderOverlay", moduleId);
 
   rack::app::ModuleWidget* surrogate =
     moduleWidget->getModel()->createModuleWidget(moduleWidget->getModule());

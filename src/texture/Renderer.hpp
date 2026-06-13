@@ -90,6 +90,8 @@ struct Renderer {
 
   static RenderResult MODULE_NOT_FOUND(std::string caller, int64_t moduleId);
 
+  static RenderResult OVERLAY_BLOCKLISTED(std::string caller, int64_t moduleId);
+
   static RenderResult MODULE_WIDGET_ERROR(
     std::string caller,
     const std::string& pluginSlug,
