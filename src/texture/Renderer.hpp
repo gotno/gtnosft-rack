@@ -152,12 +152,13 @@ struct Renderer {
   static rack::widget::FramebufferWidget* wrapForRendering(
     rack::widget::Widget* widget
   );
-  // clear children from wrapper
+  // call removeChild on inner container
   static void removeFromWrapper(
     rack::widget::FramebufferWidget* fb,
     rack::widget::Widget* widget
   );
 
+  // render framebuffer to pixel array
   uint8_t* renderPixels(
     rack::widget::FramebufferWidget* fb,
     int& width,
@@ -166,6 +167,7 @@ struct Renderer {
     bool override = false
   );
 
+  // render pixel array to png
   static void renderPng(
     uint8_t* pixels,
     int width,
@@ -185,49 +187,8 @@ struct Renderer {
     const Recipe& recipe
   );
 
-  // remove shadows/screws/params/ports/lights from widget
+  // hide shadows/screws/params/ports/lights widget children
   static void hideChildren(rack::widget::Widget* mw);
 
   void flipBitmap(uint8_t* pixels, int width, int height, int depth);
-//   rack::app::ModuleWidget* makeModuleWidget();
-
-//   // make a new ModuleWidget with no Module
-//   rack::app::ModuleWidget* makeDummyModuleWidget(rack::app::ModuleWidget* mw);
-
-//   // make a new ModuleWidget and give it the old ModuleWidget's Module
-//   rack::app::ModuleWidget* makeSurrogateModuleWidget(rack::app::ModuleWidget* mw);
-
-//   std::string makeFilename(rack::app::ModuleWidget* mw);
-
-//   // render FramebufferWidget to png
-//   void renderPng(std::string directory, std::string filename, rack::widget::FramebufferWidget* fb);
-
-//   // remove children->front() from ModuleWidget, which should be Internal->panel
-//   void abandonPanel(rack::app::ModuleWidget* mw);
-
-//   // render module without actual data, as in library preview, save
-//   void saveModulePreviewRender(rack::app::ModuleWidget* moduleWidget);
-
-//   // render only panel framebuffer, save
-//   void savePanelRender(rack::app::ModuleWidget* moduleWidget, float zoom = 3.f);
-
-//   // render only panel framebuffer, compress & send
-//   void sendPanelRender(rack::app::ModuleWidget* moduleWidget, float zoom = 3.f);
-
-//   // render only panel framebuffer, send
-//   void sendPanelRenderUncompressed(rack::app::ModuleWidget* moduleWidget, float zoom = 3.f);
-
-//   // render module without panel or params/ports/lights, compress & send
-//   // TODO: probably more efficient to hold on to the surrogate and update its module each time
-//   int32_t sendOverlayRender(rack::app::ModuleWidget* moduleWidget, float zoom = 1.f);
-
-//   void sendModuleInfo(rack::app::ModuleWidget* moduleWidget);
-
-//   rack::widget::FramebufferWidget* getPanelFramebuffer(
-//     rack::app::ModuleWidget* moduleWidget
-//   );
-
-//   void refreshModuleWidgets();
-
-//   void logChildren(std::string& name, rack::app::ModuleWidget* mw);
 };

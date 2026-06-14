@@ -542,7 +542,6 @@ std::string Renderer::makeFilename(rack::app::ModuleWidget* mw) {
   return f;
 }
 
-// render pixels to png
 void Renderer::renderPng(
   uint8_t* pixels,
   int width,
@@ -563,7 +562,6 @@ void Renderer::renderPng(
   );
 }
 
-// remove params/ports/lights/screws/shadows from children
 void Renderer::hideChildren(rack::widget::Widget* widget) {
   for (auto& child : widget->children) {
     if (
@@ -577,151 +575,3 @@ void Renderer::hideChildren(rack::widget::Widget* widget) {
     }
   }
 }
-
-// // remove children->front() from ModuleWidget, which should be Internal->panel
-// void Renderer::abandonPanel(rack::app::ModuleWidget* mw) {
-//   auto it = mw->children.begin();
-//   mw->children.erase(it);
-// }
-
-// // render module without actual data, as in library preview, save
-// void Renderer::saveModulePreviewRender(
-//   rack::app::ModuleWidget* moduleWidget
-// ) {
-//   widget::FramebufferWidget* fb =
-//     wrapForRendering(
-//       makeDummyModuleWidget(moduleWidget)
-//     );
-
-//   renderPng("render_module_preview", makeFilename(moduleWidget), fb);
-
-//   delete fb;
-// }
-
-// // render only panel framebuffer, save
-// void Renderer::savePanelRender(
-//   rack::app::ModuleWidget* moduleWidget,
-//   float zoom
-// ) {
-//   rack::widget::FramebufferWidget* fb = getPanelFramebuffer(moduleWidget);
-//   renderPng("render_panel_framebuffer", makeFilename(moduleWidget), fb);
-// }
-
-// // render only panel framebuffer, compress & send
-// void Renderer::sendPanelRender(
-//   rack::app::ModuleWidget* moduleWidget,
-//   float zoom
-// ) {
-//   rack::widget::FramebufferWidget* fb = getPanelFramebuffer(moduleWidget);
-
-//   int width, height;
-//   uint8_t* pixels = renderPixels(fb, width, height, zoom);
-// }
-
-// // render only panel framebuffer, send
-// void Renderer::sendPanelRenderUncompressed(
-//   rack::app::ModuleWidget* moduleWidget,
-//   float zoom
-// ) {
-//   rack::widget::FramebufferWidget* fb = getPanelFramebuffer(moduleWidget);
-
-//   int width, height;
-//   uint8_t* pixels = renderPixels(fb, width, height, zoom);
-// }
-
-// // render module without panel or params/ports/lights, compress & send
-// // TODO: probably more efficient to hold on to the surrogate and update its module each time
-// int32_t Renderer::sendOverlayRender(
-//   rack::app::ModuleWidget* moduleWidget,
-//   float zoom
-// ) {
-//   rack::app::ModuleWidget* surrogate = makeSurrogateModuleWidget(moduleWidget);
-//   widget::FramebufferWidget* fb = wrapForRendering(surrogate);
-//   abandonChildren(surrogate);
-//   abandonPanel(surrogate);
-
-//   int width, height;
-//   uint8_t* pixels = renderPixels(fb, width, height, zoom);
-
-//   surrogate->module = NULL;
-//   delete fb;
-// }
-
-// rack::widget::FramebufferWidget* Renderer::getPanelFramebuffer(
-//   rack::app::ModuleWidget* moduleWidget
-// ) {
-//   rack::widget::Widget* panel = moduleWidget->children.front();
-//   if (!panel) return NULL;
-
-//   rack::widget::FramebufferWidget* fb =
-//     dynamic_cast<rack::widget::FramebufferWidget*>(panel->children.front());
-//   if (!fb) return NULL;
-
-//   return fb;
-// }
-
-// // void Renderer::refreshModuleWidgets() {
-// //   moduleWidgets.clear();
-
-// //   for (int64_t& moduleId: APP->engine->getModuleIds()) {
-// //     rack::app::ModuleWidget* mw = APP->scene->rack->getModule(moduleId);
-
-// //     std::string key = "";
-// //     key.append(mw->getModule()->getModel()->plugin->slug.c_str());
-// //     key.append("-");
-// //     key.append(mw->getModule()->getModel()->name.c_str());
-
-// //     moduleWidgets.emplace(key, mw);
-// //   }
-// // }
-
-// void Renderer::logChildren(std::string& name, rack::app::ModuleWidget* mw) {
-//   DEBUG("\n\n%s", name.c_str());
-//   for (rack::widget::Widget* widget : mw->children) {
-//     DEBUG(
-//       "size %fx/%fy, pos %fx/%fy",
-//       widget->getSize().x,
-//       widget->getSize().y,
-//       widget->getPosition().x,
-//       widget->getPosition().y
-//     );
-
-//     if (dynamic_cast<rack::app::SvgButton*>(widget))
-//       DEBUG("  is SvgButton");
-//     if (dynamic_cast<rack::app::SvgKnob*>(widget))
-//       DEBUG("  is SvgKnob");
-//     if (dynamic_cast<rack::app::SvgPanel*>(widget))
-//       DEBUG("  is SvgPanel");
-//     if (dynamic_cast<rack::app::SvgPort*>(widget))
-//       DEBUG("  is SvgPort");
-//     if (dynamic_cast<rack::app::SvgScrew*>(widget))
-//       DEBUG("  is SvgScrew");
-//     if (dynamic_cast<rack::app::SvgSlider*>(widget))
-//       DEBUG("  is SvgSlider");
-//     if (dynamic_cast<rack::app::SvgSwitch*>(widget))
-//       DEBUG("  is SvgSwitch");
-
-//     if (dynamic_cast<rack::app::SliderKnob*>(widget))
-//       DEBUG("  is SliderKnob");
-//     if (dynamic_cast<rack::app::Knob*>(widget))
-//       DEBUG("  is Knob");
-
-//     if (dynamic_cast<rack::app::Switch*>(widget))
-//       DEBUG("  is Switch");
-
-//     if (dynamic_cast<rack::app::LedDisplay*>(widget))
-//       DEBUG("  is LedDisplay");
-
-//     if (dynamic_cast<rack::app::ModuleLightWidget*>(widget))
-//       DEBUG("  is ModuleLightWidget");
-//     if (dynamic_cast<rack::app::MultiLightWidget*>(widget))
-//       DEBUG("  is MultiLightWidget");
-//     if (dynamic_cast<rack::app::LightWidget*>(widget))
-//       DEBUG("  is LightWidget");
-
-//     if (dynamic_cast<rack::app::ParamWidget*>(widget))
-//       DEBUG("  is ParamWidget");
-//     if (dynamic_cast<rack::app::PortWidget*>(widget))
-//       DEBUG("  is PortWidget");
-//   }
-// }
