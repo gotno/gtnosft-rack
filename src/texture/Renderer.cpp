@@ -130,15 +130,15 @@ RenderResult Renderer::renderTexture(
   switch (breadcrumbs.textureType) {
     case TextureType::Panel:
       result = renderPanel(moduleWidget, recipe);
-      if (result.success()) {
-        renderPng(
-          result.pixels,
-          result.width,
-          result.height,
-          "render_panel_test",
-          breadcrumbs.moduleSlug
-        );
-      }
+      // if (result.success()) {
+      //   renderPng(
+      //     result.pixels,
+      //     result.width,
+      //     result.height,
+      //     "render_panel_test",
+      //     breadcrumbs.moduleSlug
+      //   );
+      // }
       break;
     case TextureType::Overlay:
       WARN("should not have entered `case TextureType::Overlay`");
