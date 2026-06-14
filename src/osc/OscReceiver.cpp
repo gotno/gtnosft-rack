@@ -142,7 +142,10 @@ void OscReceiver::generateRoutes() {
 
   routes.emplace(
     "/keepalive",
-    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+    [&, this](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+      module->hbInPulse.trigger();
+
       std::scoped_lock<std::mutex> lock(heartbeatMutex);
       missedHeartbeats = 0;
       lastHeartbeatRxTime = std::chrono::steady_clock::now();

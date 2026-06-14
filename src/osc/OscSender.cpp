@@ -41,6 +41,9 @@ void OscSender::endMessage(osc::OutboundPacketStream& message) {
 }
 
 void OscSender::setBroadcasting() {
+  OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+  module->broadcasting = true;
+
   sendMode = SendMode::Broadcast;
 }
 
@@ -49,15 +52,22 @@ bool OscSender::isBroadcasting() {
 }
 
 void OscSender::setDirect(char* ip) {
+  OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+  module->broadcasting = false;
+
   sendMode = SendMode::Direct;
   directEndpoint = IpEndpointName(ip, TX_PORT);
 }
 
 void OscSender::sendHeartbeat() {
+  OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+
   // TODO: immediate via deque
   if (isBroadcasting()) {
+    module->txPulse.trigger();
     enqueueBundler(new BroadcastHeartbeatBundler());
   } else {
+    module->hbOutPulse.trigger();
     enqueueBundler(new DirectHeartbeatBundler());
   }
 }
@@ -100,6 +110,11 @@ void OscSender::stopQueueWorker() {
 }
 
 void OscSender::enqueueBundler(Bundler* bundler) {
+  if (!isBroadcasting()) {
+    OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+    module->txPulse.trigger();
+  }
+
   std::unique_lock<std::mutex> locker(qmutex);
   bundlerQueue.push(bundler);
   locker.unlock();

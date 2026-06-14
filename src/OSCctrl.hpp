@@ -30,8 +30,38 @@ struct SceneAction : rack::widget::Widget {
   }
 };
 
-struct OSCctrlWidget : ModuleWidget {
+struct OSCctrl : Module {
+  enum ParamId {
+    PARAMS_LEN
+  };
+  enum InputId {
+    INPUTS_LEN
+  };
+  enum OutputId {
+    OUTPUTS_LEN
+  };
+  enum LightId {
+    TX_LIGHT,
+    HEARTBEAT_IN_LIGHT,
+    HEARTBEAT_OUT_LIGHT,
+    LIGHTS_LEN
+  };
 
+  bool broadcasting{true};
+
+  rack::dsp::PulseGenerator txPulse;
+  rack::dsp::PulseGenerator hbInPulse;
+  rack::dsp::PulseGenerator hbOutPulse;
+
+  rack::dsp::ClockDivider lightDivider;
+
+  rack::dsp::SchmittTrigger bcastEchoThreshold;
+
+  OSCctrl();
+  void process(const ProcessArgs &args) override;
+};
+
+struct OSCctrlWidget : ModuleWidget {
   OscSender* osctx = NULL;
   OscReceiver* oscrx = NULL;
   ChunkedManager* chunkman = NULL;

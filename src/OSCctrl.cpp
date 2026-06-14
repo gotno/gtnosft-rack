@@ -7,42 +7,99 @@
 
 #include "osc/ChunkedSend/ChunkedImage.hpp"
 
-struct OSCctrl : Module {
-  enum ParamId {
-    PARAMS_LEN
-  };
-  enum InputId {
-    INPUTS_LEN
-  };
-  enum OutputId {
-    OUTPUTS_LEN
-  };
-  enum LightId {
-    TX1_LIGHT,
-    TX2_LIGHT,
-    TX3_LIGHT,
-    HEARTBEAT_OUT_LIGHT,
-    HEATBEAT_IN_LIGHT,
-    LIGHTS_LEN
-  };
+OSCctrl::OSCctrl() {
+  config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-  OSCctrl() {
-    config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-  }
+  configLight(TX_LIGHT, "TX");
+  configLight(HEARTBEAT_OUT_LIGHT, "Heartbeat Out");
+  configLight(HEARTBEAT_IN_LIGHT, "Heartbeat In");
 
-  void process(const ProcessArgs& args) override {
+  lights[TX_LIGHT].setBrightness(0.f);
+  lights[HEARTBEAT_IN_LIGHT].setBrightness(0.f);
+  lights[HEARTBEAT_OUT_LIGHT].setBrightness(0.f);
+
+  lightDivider.setDivision(16);
+}
+
+void OSCctrl::process(const ProcessArgs& args) {
+  if (lightDivider.process()) {
+    if (broadcasting) {
+      lights[TX_LIGHT].setBrightnessSmooth(
+        txPulse.process(args.sampleTime),
+        args.sampleTime * lightDivider.getDivision(),
+        12.f
+      );
+
+      bool delayedPulse =
+        bcastEchoThreshold.process(
+          1.f - lights[TX_LIGHT].getBrightness(),
+          0.1f,
+          0.3f
+        );
+      if (delayedPulse) {
+        hbInPulse.trigger();
+        hbOutPulse.trigger();
+      }
+    } else {
+      lights[TX_LIGHT].setBrightnessSmooth(
+        txPulse.process(args.sampleTime),
+        args.sampleTime * lightDivider.getDivision()
+      );
+    }
+
+    lights[HEARTBEAT_IN_LIGHT].setBrightnessSmooth(
+      hbInPulse.process(args.sampleTime),
+      args.sampleTime * lightDivider.getDivision(),
+      8.f
+    );
+    lights[HEARTBEAT_OUT_LIGHT].setBrightnessSmooth(
+      hbOutPulse.process(args.sampleTime),
+      args.sampleTime * lightDivider.getDivision(),
+      8.f
+    );
   }
-};
+}
 
 OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
   setModule(module);
   setPanel(createPanel(asset::plugin(pluginInstance, "res/OSCctrl.svg")));
 
-  addChild(createLight<SmallLight<RedLight>>(mm2px(Vec(10.74, 19.001)), module, OSCctrl::TX1_LIGHT));
-  addChild(createLight<SmallLight<RedLight>>(mm2px(Vec(13.99, 19.001)), module, OSCctrl::TX2_LIGHT));
-  addChild(createLight<SmallLight<RedLight>>(mm2px(Vec(17.24, 19.001)), module, OSCctrl::TX3_LIGHT));
-  addChild(createLight<SmallLight<RedLight>>(mm2px(Vec(10.74, 22.001)), module, OSCctrl::HEARTBEAT_OUT_LIGHT));
-  addChild(createLight<SmallLight<RedLight>>(mm2px(Vec(15.74, 22.001)), module, OSCctrl::HEATBEAT_IN_LIGHT));
+  rack::math::Vec tx_light_size(2.f, 1.f);
+  rack::math::Vec hb_light_size(4.f, 1.f);
+  NVGcolor lightBgColor = rack::color::fromHexString("#eb7355");
+
+  RectangleLight<WhiteLight>* txLight =
+    createLight<RectangleLight<WhiteLight>>(
+      mm2px(Vec(14.220, 20.369)),
+      module,
+      OSCctrl::TX_LIGHT
+    );
+  txLight->box.size = mm2px(tx_light_size);
+  txLight->bgColor = lightBgColor;
+  // txLight->borderColor = lightBgColor;
+  addChild(txLight);
+
+  RectangleLight<WhiteLight>* hbInLight =
+    createLight<RectangleLight<WhiteLight>>(
+      mm2px(Vec(9.220, 20.369)),
+      module,
+      OSCctrl::HEARTBEAT_IN_LIGHT
+    );
+  hbInLight->box.size = mm2px(hb_light_size);
+  hbInLight->bgColor = lightBgColor;
+  // hbInLight->borderColor = lightBgColor;
+  addChild(hbInLight);
+
+  RectangleLight<WhiteLight>* hbOutLight =
+    createLight<RectangleLight<WhiteLight>>(
+      mm2px(Vec(17.220, 20.369)),
+      module,
+      OSCctrl::HEARTBEAT_OUT_LIGHT
+    );
+  hbOutLight->box.size = mm2px(hb_light_size);
+  hbOutLight->bgColor = lightBgColor;
+  // hbOutLight->borderColor = lightBgColor;
+  addChild(hbOutLight);
 
   if (!module) return;
 
@@ -59,17 +116,17 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
     }
   }
 
-  osctx = new OscSender();
+  osctx = new OscSender(this);
   chunkman = new ChunkedManager(this, osctx);
   subman = new SubscriptionManager(this, osctx, chunkman);
   oscrx = new OscReceiver(this, osctx, chunkman, subman);
 }
 
 OSCctrlWidget::~OSCctrlWidget() {
-  delete oscrx;
-  delete subman;
-  delete chunkman;
-  delete osctx;
+  if (oscrx) delete oscrx;
+  if (subman) delete subman;
+  if (chunkman) delete chunkman;
+  if (osctx) delete osctx;
 }
 
 void OSCctrlWidget::step() {
