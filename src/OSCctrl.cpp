@@ -5,8 +5,6 @@
 #include "osc/ChunkedManager.hpp"
 #include "osc/SubscriptionManager.hpp"
 
-#include "osc/ChunkedSend/ChunkedImage.hpp"
-
 OSCctrl::OSCctrl() {
   config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
