@@ -102,6 +102,8 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
   if (!module) return;
 
   // bail if OSCctrl is already in the patch
+  std::string thisPlugin = module->getModel()->plugin->slug;
+  std::string thisModule = module->getModel()->slug;
   std::vector<int64_t> moduleIds = APP->engine->getModuleIds();
   for (const auto& id : moduleIds) {
     if (id == getModule()->getId()) {
@@ -109,7 +111,7 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
     }
 
     rack::plugin::Model* model = APP->engine->getModule(id)->getModel();
-    if (model->plugin->slug == "gtnosft" && model->slug == "OSCctrl") {
+    if (model->plugin->slug == thisPlugin && model->slug == thisModule) {
       return;
     }
   }
