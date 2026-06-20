@@ -1,17 +1,13 @@
 #include "DirectHeartbeatBundler.hpp"
 
 DirectHeartbeatBundler::DirectHeartbeatBundler(): Bundler("DirectHeartbeatBundler") {
-  // TODO: these should be floats, 0-100
-  double meterAverage = APP->engine->getMeterAverage();
-  std::string avg = rack::string::f("%.1f%%",  meterAverage * 100);
-
-  double meterMax = APP->engine->getMeterMax();
-  std::string max = rack::string::f("%.1f%%", meterMax * 100);
+  float avg = (float)APP->engine->getMeterAverage() * 100;
+  float max = (float)APP->engine->getMeterMax() * 100;
 
   messages.emplace_back(
     "/heartbeat",
     [avg, max](osc::OutboundPacketStream& pstream) {
-      pstream << avg.c_str() << max.c_str();
+      pstream << avg << max;
     }
   );
 }
