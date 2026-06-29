@@ -238,11 +238,15 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 
     if (type == ParamType::Knob) {
       // some knobs do min/max angle some other way?
-      bool isVult = pluginSlug.find("Vult") != std::string::npos;
-      bool isSlimechild = pluginSlug.find("SlimeChild") != std::string::npos;
-      bool needsOverride = isVult || isSlimechild;
-      float minAngle = needsOverride ? -0.75f * M_PI : knobWidget->minAngle;
-      float maxAngle = needsOverride ? 0.75f * M_PI : knobWidget->maxAngle;
+      bool needsAngleOverride = false;
+      if (pq->isBounded()) { // NOT an infinite encoder
+        // BUT has default minAngle/maxAngle
+        needsAngleOverride =
+          knobWidget->minAngle == -float(M_PI) &&
+          knobWidget->maxAngle == float(M_PI);
+      }
+      float minAngle = needsAngleOverride ? -0.75f * M_PI : knobWidget->minAngle;
+      float maxAngle = needsAngleOverride ? 0.75f * M_PI : knobWidget->maxAngle;
 
       if (shouldLog) {
         INFO("    min/max angle %f/%f (actual)", knobWidget->minAngle, knobWidget->maxAngle);
