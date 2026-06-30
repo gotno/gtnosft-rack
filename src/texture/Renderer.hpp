@@ -189,6 +189,17 @@ struct Renderer {
 
   // hide shadows/screws/params/ports/lights widget children
   static void hideChildren(rack::widget::Widget* mw);
+  // hide shadows/screws/params/ports/lights widget children, version with overrides
+  static void hideChildren(
+    rack::widget::Widget* widget,
+    std::string pluginSlug,
+    std::string moduleSlug
+  );
+  // override hideChildren visibility when rendering the overlay
+  static std::map<
+    std::pair<std::string, std::string>,
+    std::function<bool(rack::widget::Widget*)>
+  > hideChildrenVisibilityOverride;
 
   void flipBitmap(uint8_t* pixels, int width, int height, int depth);
 };

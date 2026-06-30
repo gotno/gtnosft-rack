@@ -6,7 +6,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-
 RenderResult Renderer::MODULE_NOT_FOUND(
   std::string caller,
   int64_t moduleId
@@ -228,7 +227,11 @@ RenderResult Renderer::renderOverlay(
     moduleWidget->getModel()->createModuleWidget(moduleWidget->getModule());
 
   surrogate->children.front()->setVisible(false); // panel
-  hideChildren(surrogate);
+  hideChildren(
+    surrogate,
+    moduleWidget->model->plugin->slug,
+    moduleWidget->model->slug
+  );
 
   // TODO: for Fundamental:Scope, copy input cables to get proper colors
   rack::widget::FramebufferWidget* framebuffer = wrapForRendering(surrogate);
@@ -572,6 +575,44 @@ void Renderer::hideChildren(rack::widget::Widget* widget) {
         || dynamic_cast<rack::app::LightWidget*>(child)
     ) {
       child->visible = false;
+    }
+  }
+}
+
+std::map<
+  std::pair<std::string, std::string>,
+  std::function<bool(rack::widget::Widget*)>
+> Renderer::hideChildrenVisibilityOverride = {
+    {
+      {"Befaco", "NoisePlethora"},
+      [](rack::widget::Widget* w) {
+        if (!dynamic_cast<rack::app::LightWidget*>(w)) return false;
+
+        rack::math::Vec displayAPos =
+          rack::window::mm2px(rack::math::Vec(13.106f, 38.172f));
+        if (w->box.pos.equals(displayAPos)) return true;
+        rack::math::Vec displayBPos =
+          rack::window::mm2px(rack::math::Vec(13.106f, 50.712f));
+        if (w->box.pos.equals(displayBPos)) return true;
+        return false;
+      }
+    },
+};
+
+void Renderer::hideChildren(rack::widget::Widget* widget, std::string pluginSlug, std::string moduleSlug) {
+  for (auto& child : widget->children) {
+    if (
+      dynamic_cast<rack::app::CircularShadow*>(child)
+        || dynamic_cast<rack::app::SvgScrew*>(child)
+        || dynamic_cast<rack::app::ParamWidget*>(child)
+        || dynamic_cast<rack::app::PortWidget*>(child)
+        || dynamic_cast<rack::app::LightWidget*>(child)
+    ) {
+      std::pair<std::string, std::string> slugPair(pluginSlug, moduleSlug);
+      child->visible =
+        hideChildrenVisibilityOverride.count(slugPair)
+          ? hideChildrenVisibilityOverride.at(slugPair)(child)
+          : false;
     }
   }
 }
