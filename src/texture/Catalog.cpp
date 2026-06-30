@@ -133,14 +133,14 @@ std::vector<int64_t> Catalog::pullIds(ParamType type, rack::app::ParamWidget* wi
     case ParamType::Switch:
       {
         rack::engine::ParamQuantity* pq = widget->getParamQuantity();
-        for (int i = 0; i <= pq->getMaxValue(); ++i) {
+        for (int frameIdx = 0; frameIdx <= pq->getMaxValue(); ++frameIdx) {
           textureIds.push_back(Catalog::ingest(
             Breadcrumbs(
               widget->module->model->plugin->slug,
               widget->module->model->slug,
               widget->paramId,
               TextureType::Switch_frame,
-              i
+              frameIdx
             )
           ));
         }
