@@ -150,32 +150,43 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
 
     if (needsParamTypeOverride(paramId)) {
       type = getParamTypeOverride(paramId);
-    } else if ((sliderWidget = dynamic_cast<rack::app::SvgSlider*>(paramWidget))) {
-      // deal with: dynamic_cast<bogaudio::VUSlider*>(sliderWidget)
-      // (SliderKnob)
-      type = ParamType::Slider;
-
-    } else if ((knobWidget = dynamic_cast<rack::app::Knob*>(paramWidget))) {
-      type = ParamType::Knob;
-
-      // sometimes a knob is not a knob (looking at you, Surge),
-      // but functionally, that's the best way to represent it.
-      // if x and y aren't equal, use the smaller of the two.
-      size = size.x > size.y ? rack::math::Vec(size.y) : rack::math::Vec(size.x);
-
-    } else if ((switchWidget = dynamic_cast<rack::app::Switch*>(paramWidget))) {
-      // deal with: dynamic_cast<bogaudio::StatefulButton*>(paramWidget);
-      rack::app::SvgSwitch* svgSwitchWidget =
-        dynamic_cast<rack::app::SvgSwitch*>(paramWidget);
-      bool latch = svgSwitchWidget && svgSwitchWidget->latch;
-
-      if (switchWidget->momentary || latch) {
-        type = ParamType::Button;
-      } else {
-        type = ParamType::Switch;
+      if (type == ParamType::Switch || type == ParamType::Button) {
+        switchWidget = dynamic_cast<rack::app::Switch*>(paramWidget);
+      } else if (type == ParamType::Knob) {
+        knobWidget = dynamic_cast<rack::app::Knob*>(paramWidget);
+      } else if (type == ParamType::Slider) {
+        sliderWidget = dynamic_cast<rack::app::SvgSlider*>(paramWidget);
       }
-    } else {
-      type = ParamType::Unknown;
+    }
+
+    if (!needsParamTypeOverride(paramId)) {
+      if ((sliderWidget = dynamic_cast<rack::app::SvgSlider*>(paramWidget))) {
+        // deal with: dynamic_cast<bogaudio::VUSlider*>(sliderWidget)
+        // (SliderKnob)
+        type = ParamType::Slider;
+
+      } else if ((knobWidget = dynamic_cast<rack::app::Knob*>(paramWidget))) {
+        type = ParamType::Knob;
+
+        // sometimes a knob is not a knob (looking at you, Surge),
+        // but functionally, that's the best way to represent it.
+        // if x and y aren't equal, use the smaller of the two.
+        size = size.x > size.y ? rack::math::Vec(size.y) : rack::math::Vec(size.x);
+
+      } else if ((switchWidget = dynamic_cast<rack::app::Switch*>(paramWidget))) {
+        // deal with: dynamic_cast<bogaudio::StatefulButton*>(paramWidget);
+        rack::app::SvgSwitch* svgSwitchWidget =
+          dynamic_cast<rack::app::SvgSwitch*>(paramWidget);
+        bool latch = svgSwitchWidget && svgSwitchWidget->latch;
+
+        if (switchWidget->momentary || latch) {
+          type = ParamType::Button;
+        } else {
+          type = ParamType::Switch;
+        }
+      } else {
+        type = ParamType::Unknown;
+      }
     }
 
     if (type == ParamType::Unknown) {
@@ -236,7 +247,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
     );
     ++numParams;
 
-    if (type == ParamType::Knob) {
+    if (type == ParamType::Knob && knobWidget) {
       // some knobs do min/max angle some other way?
       bool needsAngleOverride = false;
       if (pq->isBounded()) { // NOT an infinite encoder
@@ -270,7 +281,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       );
     }
 
-    if (type == ParamType::Slider) {
+    if (type == ParamType::Slider && sliderWidget) {
       rack::math::Vec handleSize =
         gtnosft::util::vec2cm(sliderWidget->handle->getBox().size);
       rack::math::Vec minHandlePos =
@@ -305,7 +316,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       );
     }
 
-    if (type == ParamType::Button) {
+    if (type == ParamType::Button && switchWidget) {
       bool momentary = switchWidget->momentary;
 
       if (shouldLog) {
@@ -330,7 +341,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       );
     }
 
-    if (type == ParamType::Switch) {
+    if (type == ParamType::Switch && switchWidget) {
       bool horizontal = size.x > size.y;
       int numFrames = maxValue + 1;
 
