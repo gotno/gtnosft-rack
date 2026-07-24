@@ -8,7 +8,6 @@
 #define RX_PORT 7225 // RACK
 
 #define MAX_MISSED_HEARTBEATS 5
-// TODO: rename HEARTBEAT_INTERVAL
-#define HEARTBEAT_DELAY 1000 // ms between heartbeats
+#define HEARTBEAT_INTERVAL_MS 1000 // ms between heartbeats
 
 #define SUBSCRIPTION_SEND_DELAY 30 // ms between subscription sends

@@ -732,7 +732,7 @@ TX_PORT = 7746              // Server transmit port
 MSG_BUFFER_SIZE = 1452      // Max UDP packet size
 
 // Timing
-HEARTBEAT_DELAY = 1000      // Milliseconds between heartbeats
+HEARTBEAT_INTERVAL_MS = 1000      // Milliseconds between heartbeats
 MAX_MISSED_HEARTBEATS = 5   // Missed before switching to broadcast
 SUBSCRIPTION_SEND_DELAY = 30 // Milliseconds between subscription updates
 
