@@ -31,7 +31,7 @@ void SubscriptionManager::tick() {
     inFlight[SubscriptionType::LIGHTS].store(true);
 
     ctrl->enqueueAction([this]() {
-      // TODO: osctx deque
+      // TODO: osctx deque for priority messages?
       // osctx->enqueueBundlerPriority(
       osctx->enqueueBundler(
         new ModuleLightsBundler(
