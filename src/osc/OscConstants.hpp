@@ -9,5 +9,3 @@
 
 #define MAX_MISSED_HEARTBEATS 5
 #define HEARTBEAT_INTERVAL_MS 1000 // ms between heartbeats
-
-#define SUBSCRIPTION_SEND_DELAY 30 // ms between subscription sends

@@ -133,6 +133,7 @@ void OSCctrlWidget::step() {
   ModuleWidget::step();
   if (!module) return;
 
+  subman->tick();
   processActionQueue();
 }
 

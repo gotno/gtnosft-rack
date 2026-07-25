@@ -3,8 +3,6 @@
 #include <map>
 #include <set>
 
-#include "../util/Timer.hpp"
-
 class OSCctrlWidget;
 class OscSender;
 class ChunkedManager;
@@ -37,6 +35,4 @@ private:
 
   std::map<SubscriptionType, std::atomic<bool>> inFlight;
   std::set<int64_t> moduleLightSubs;
-
-  Interval sendInterval;
 };
