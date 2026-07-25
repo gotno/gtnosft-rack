@@ -500,10 +500,10 @@ uint8_t* Renderer::renderPixels(
 
   if (!override) {
     if (width != expectedWidth || height != expectedHeight) {
-      WARN(
-        "renderPixels expected::actual %dx%d::%dx%d, adjusting scale and re-rendering",
-        expectedWidth, expectedHeight, width, height
-      );
+      // WARN(
+      //   "renderPixels expected::actual %dx%d::%dx%d, adjusting scale and re-rendering",
+      //   expectedWidth, expectedHeight, width, height
+      // );
 
       rack::math::Vec scaleOverride = scale;
       scaleOverride.x *= (float)expectedWidth / width;

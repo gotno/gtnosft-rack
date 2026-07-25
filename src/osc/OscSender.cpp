@@ -35,11 +35,6 @@ osc::OutboundPacketStream OscSender::makeMessage(const std::string& address) {
   return message;
 }
 
-void OscSender::endMessage(osc::OutboundPacketStream& message) {
-  message << osc::EndMessage
-    << osc::EndBundle;
-}
-
 void OscSender::setBroadcasting() {
   OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
   module->broadcasting = true;
