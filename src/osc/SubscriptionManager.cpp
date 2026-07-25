@@ -15,31 +15,24 @@ SubscriptionManager::~SubscriptionManager() {}
 
 void SubscriptionManager::start() {
   running = true;
-  inFlight.emplace(SubscriptionType::LIGHTS, false);
 }
 
 void SubscriptionManager::tick() {
   if (!running) return;
+  if (moduleLightSubs.empty()) return;
 
-  if (!moduleLightSubs.empty() && !inFlight[SubscriptionType::LIGHTS].load()) {
-    inFlight[SubscriptionType::LIGHTS].store(true);
-
-    // TODO: osctx deque for priority messages?
-    // osctx->enqueueBundlerPriority(
-    osctx->enqueueBundler(
-      new ModuleLightsBundler(
-        std::vector(moduleLightSubs.begin(), moduleLightSubs.end()),
-        [this]() { inFlight[SubscriptionType::LIGHTS].store(false); }
-      )
-    );
-  }
+  osctx->submitLights(
+    new ModuleLightsBundler(
+      std::vector(moduleLightSubs.begin(), moduleLightSubs.end())
+    )
+  );
 }
 
 void SubscriptionManager::reset() {
   moduleLightSubs.clear();
-  inFlight.clear();
-
   running = false;
+
+  osctx->drainMailboxes();
 
   // clear cache after any other enqueued items
   ctrl->enqueueAction([]() {

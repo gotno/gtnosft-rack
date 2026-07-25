@@ -3,10 +3,8 @@
 #include <unordered_set>
 
 ModuleLightsBundler::ModuleLightsBundler(
-  const std::vector<int64_t>& subscribedModuleIds,
-  std::function<void()> callback
+  const std::vector<int64_t>& subscribedModuleIds
 ): Bundler("ModuleLightsBundler") {
-  beforeDestroy = callback;
 
   // filter subscriptions to loaded modules
   std::vector<int64_t> rackModuleIds = APP->engine->getModuleIds();

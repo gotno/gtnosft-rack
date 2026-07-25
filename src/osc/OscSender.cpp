@@ -131,23 +131,51 @@ void OscSender::enqueueBundler(Bundler* bundler) {
   queueLockCondition.notify_one();
 }
 
+void OscSender::submitLights(Bundler* bundler) {
+  Bundler* old = lightsMailbox.exchange(bundler);
+  if (old) {
+    old->done();
+    delete old;
+    return;
+  }
+
+  // mailbox was empty, kick worker
+  std::unique_lock<std::mutex> locker(qmutex);
+  queueLockCondition.notify_one();
+}
+
+void OscSender::drainMailboxes() {
+  if (Bundler* old = lightsMailbox.exchange(nullptr)) {
+    old->done();
+    delete old;
+  }
+}
+
 void OscSender::processQueue() {
   queueWorkerRunning = true;
 
   while (queueWorkerRunning) {
     std::unique_lock<std::mutex> locker(qmutex);
-    queueLockCondition.wait(locker, [this](){ return !bundlerQueue.empty(); });
+    queueLockCondition.wait(locker, [this](){
+      return !bundlerQueue.empty() || lightsMailbox.load() != nullptr;
+    });
 
-    Bundler* bundler = bundlerQueue.front();
-    bundlerQueue.pop();
+    // always process lights mailbox first
+    Bundler* bundler = lightsMailbox.exchange(nullptr);
+    if (!bundler && !bundlerQueue.empty()) {
+      bundler = bundlerQueue.front();
+      bundlerQueue.pop();
+    }
 
     bool dirty = socketDirty.exchange(false);
-    SendMode mode = sendMode;
-    IpEndpointName endpoint = (sendMode == SendMode::Broadcast) ? broadcastEndpoint : directEndpoint;
+    IpEndpointName endpoint =
+      (sendMode == SendMode::Broadcast) ? broadcastEndpoint : directEndpoint;
 
     locker.unlock();
 
-    if (dirty || !socket) rebuildSocket(mode, endpoint);
+    if (dirty || !socket) rebuildSocket(sendMode, endpoint);
+
+    if (!bundler) return;
 
     if (!bundler->isNoop()) {
       while (bundler->hasRemainingMessages()) {

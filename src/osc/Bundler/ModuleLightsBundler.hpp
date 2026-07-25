@@ -43,10 +43,7 @@ struct ModuleLightsBundler : Bundler {
   typedef std::list<std::pair<rack::app::LightWidget*, LightState>> LightList;
   inline static std::unordered_map<int64_t, LightList> lights;
 
-  ModuleLightsBundler(
-    const std::vector<int64_t>& moduleIds,
-    std::function<void()> callback
-  );
+  ModuleLightsBundler(const std::vector<int64_t>& moduleIds);
 
 private:
   using LightEntry = std::pair<int64_t, LightState>;

@@ -29,6 +29,8 @@ struct OscSender {
   OSCctrlWidget* ctrl;
 
   void enqueueBundler(Bundler* bundler);
+  void submitLights(Bundler* bundler);
+  void drainMailboxes();
   void sendHeartbeat();
 
   bool isBroadcasting();
@@ -48,6 +50,9 @@ private:
   void sendBundle(osc::OutboundPacketStream& pstream);
 
   osc::OutboundPacketStream makeMessage(const std::string& address);
+
+  // mailboxes: latest-wins single slot, processed ahead of rest of queue
+  std::atomic<Bundler*> lightsMailbox{nullptr};
 
   // persistent socket — rebuilt when socketDirty is set
   std::unique_ptr<UdpSocket> socket;

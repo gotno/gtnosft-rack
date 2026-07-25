@@ -1,15 +1,10 @@
 #include "rack.hpp"
 
-#include <map>
 #include <set>
 
 class OSCctrlWidget;
 class OscSender;
 class ChunkedManager;
-
-enum SubscriptionType {
-  LIGHTS,
-};
 
 struct SubscriptionManager {
   SubscriptionManager(
@@ -33,6 +28,5 @@ private:
 
   bool running{false};
 
-  std::map<SubscriptionType, std::atomic<bool>> inFlight;
   std::set<int64_t> moduleLightSubs;
 };
