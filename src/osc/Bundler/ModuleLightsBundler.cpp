@@ -1,22 +1,13 @@
 #include "ModuleLightsBundler.hpp"
 
-#include <unordered_set>
-
 ModuleLightsBundler::ModuleLightsBundler(
   const std::vector<int64_t>& subscribedModuleIds
 ): Bundler("ModuleLightsBundler") {
 
-  // filter subscriptions to loaded modules
-  std::vector<int64_t> rackModuleIds = APP->engine->getModuleIds();
-  std::unordered_set<int64_t> rackModuleSet(
-    rackModuleIds.begin(),
-    rackModuleIds.end()
-  );
-
   std::vector<LightEntry> updates;
 
   for (const auto& moduleId : subscribedModuleIds) {
-    if (!rackModuleSet.contains(moduleId)) continue;
+    if (!APP->scene->rack->getModule(moduleId)) continue;
 
     if (lights.count(moduleId) == 0) {
       collectLights(moduleId, updates);
