@@ -40,7 +40,7 @@ static constexpr size_t oscPadded(size_t len) { return (len + 4) & ~3; }
 
 // TODO: rename ModuleLightsStateBundler
 struct ModuleLightsBundler : Bundler {
-  typedef std::list<std::pair<rack::app::LightWidget*, LightState>> LightList;
+  typedef std::vector<std::pair<rack::app::LightWidget*, LightState>> LightList;
   inline static std::unordered_map<int64_t, LightList> lights;
 
   ModuleLightsBundler(const std::vector<int64_t>& moduleIds);
