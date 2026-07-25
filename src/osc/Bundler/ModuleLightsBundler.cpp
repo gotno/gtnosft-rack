@@ -15,26 +15,32 @@ ModuleLightsBundler::ModuleLightsBundler(
     rackModuleIds.end()
   );
 
+  std::vector<LightEntry> updates;
+
   for (const auto& moduleId : subscribedModuleIds) {
     if (!rackModuleSet.contains(moduleId)) continue;
 
     if (lights.count(moduleId) == 0) {
-      collectLights(moduleId);
+      collectLights(moduleId, updates);
       continue;
     }
 
     auto& lightList = lights.at(moduleId);
 
-    for (auto it = lightList.begin(); it != lightList.end(); ++it) {
-      rack::app::LightWidget* widget = it->first;
-      auto& state = it->second;
+    for (auto& [widget, state] : lightList)
+      if (state.update(widget)) updates.emplace_back(moduleId, state);
+  }
 
-      if (state.update(widget)) addMessage(moduleId, state);
-    }
+  for (size_t i = 0; i < updates.size(); i += MAX_ENTRIES) {
+    size_t end = std::min(i + MAX_ENTRIES, updates.size());
+    addMessage({updates.begin() + i, updates.begin() + end});
   }
 }
 
-void ModuleLightsBundler::collectLights(int64_t moduleId) {
+void ModuleLightsBundler::collectLights(
+  int64_t moduleId,
+  std::vector<LightEntry>& updates
+) {
   using namespace rack::app;
   using namespace rack::widget;
 
@@ -47,7 +53,7 @@ void ModuleLightsBundler::collectLights(int64_t moduleId) {
   for (Widget* widget : moduleWidget->children) {
     if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget)) {
       lightList.emplace_back(lightWidget, LightState(lightId, lightWidget));
-      addMessage(moduleId, lightList.back().second);
+      updates.emplace_back(moduleId, lightList.back().second);
       ++lightId;
     }
   }
@@ -57,25 +63,24 @@ void ModuleLightsBundler::collectLights(int64_t moduleId) {
     for (Widget* & widget : paramWidget->children) {
       if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget)) {
         lightList.emplace_back(lightWidget, LightState(lightId, lightWidget));
-        addMessage(moduleId, lightList.back().second);
+        updates.emplace_back(moduleId, lightList.back().second);
         ++lightId;
       }
     }
   }
 }
 
-void ModuleLightsBundler::addMessage(
-  int64_t moduleId,
-  const LightState& state
-) {
+void ModuleLightsBundler::addMessage(const std::vector<LightEntry>& batch) {
   messages.emplace_back(
     "/set/s/l",
-    [moduleId, state](osc::OutboundPacketStream& pstream) {
-      pstream << moduleId
-        << state.id
-        << state.visible
-        << rack::color::toHexString(state.color).c_str()
-        ;
+    [batch](osc::OutboundPacketStream& pstream) {
+      for (const auto& [moduleId, state] : batch) {
+        pstream << moduleId
+          << state.id
+          << state.visible
+          << state.color
+          ;
+      }
     }
   );
 }
