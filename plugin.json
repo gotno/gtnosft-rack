@@ -1,16 +1,16 @@
 {
-  "slug": "gtnosft",
-  "name": "gtnosft",
+  "slug": "gotnosoft",
+  "name": "gotnosoft",
   "version": "2.0.0",
-  "brand": "gtnosft",
   "license": "GPL-3.0-or-later",
+  "brand": "gotnosoft",
   "author": "gotno",
   "authorEmail": "floyd.will@gmail.com",
   "authorUrl": "https://gotno.net",
   "pluginUrl": "https://github.com/gotno/gtnosft-rack",
   "manualUrl": "https://github.com/gotno/gtnosft-rack",
   "sourceUrl": "https://github.com/gotno/gtnosft-rack",
-  "donateUrl": "https://gotno.net/money_plz",
+  "donateUrl": "https://www.paypal.com/donate/?hosted_button_id=JNYYXZRD7DVRA",
   "changelogUrl": "",
   "modules": [
     {
