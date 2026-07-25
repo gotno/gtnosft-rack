@@ -39,7 +39,9 @@ void OscSender::setBroadcasting() {
   OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
   module->broadcasting = true;
 
+  std::unique_lock<std::mutex> locker(qmutex);
   sendMode = SendMode::Broadcast;
+  socketDirty.store(true);
 }
 
 bool OscSender::isBroadcasting() {
@@ -50,8 +52,10 @@ void OscSender::setDirect(char* ip) {
   OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
   module->broadcasting = false;
 
+  std::unique_lock<std::mutex> locker(qmutex);
   sendMode = SendMode::Direct;
   directEndpoint = IpEndpointName(ip, TX_PORT);
+  socketDirty.store(true);
 }
 
 void OscSender::sendHeartbeat() {
@@ -67,12 +71,22 @@ void OscSender::sendHeartbeat() {
   }
 }
 
-void OscSender::sendBundle(osc::OutboundPacketStream& pstream) {
+void OscSender::rebuildSocket(SendMode mode, IpEndpointName endpoint) {
   try {
-    UdpSocket socket;
-    socket.SetEnableBroadcast(isBroadcasting());
-    socket.Connect(isBroadcasting() ? broadcastEndpoint : directEndpoint);
-    socket.Send(pstream.Data(), pstream.Size());
+    socket = std::make_unique<UdpSocket>();
+    socket->SetEnableBroadcast(mode == SendMode::Broadcast);
+    socket->Connect(endpoint);
+  } catch(std::exception& e) {
+    WARN("error creating OSC socket: %s", e.what());
+    socket.reset();
+    socketDirty.store(true);
+  }
+}
+
+void OscSender::sendBundle(osc::OutboundPacketStream& pstream) {
+  if (!socket) return;
+  try {
+    socket->Send(pstream.Data(), pstream.Size());
   } catch(std::exception& e) {
     char* ip = (char*)malloc(IpEndpointName::ADDRESS_STRING_LENGTH + 1);
 
@@ -90,6 +104,7 @@ void OscSender::sendBundle(osc::OutboundPacketStream& pstream) {
     );
 
     free(ip);
+    socketDirty.store(true);
   }
 }
 
@@ -125,6 +140,14 @@ void OscSender::processQueue() {
 
     Bundler* bundler = bundlerQueue.front();
     bundlerQueue.pop();
+
+    bool dirty = socketDirty.exchange(false);
+    SendMode mode = sendMode;
+    IpEndpointName endpoint = (sendMode == SendMode::Broadcast) ? broadcastEndpoint : directEndpoint;
+
+    locker.unlock();
+
+    if (dirty || !socket) rebuildSocket(mode, endpoint);
 
     if (!bundler->isNoop()) {
       while (bundler->hasRemainingMessages()) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <memory>
 #include <thread>
 #include <queue>
 #include <mutex>
@@ -47,6 +48,11 @@ private:
   void sendBundle(osc::OutboundPacketStream& pstream);
 
   osc::OutboundPacketStream makeMessage(const std::string& address);
+
+  // persistent socket — rebuilt when socketDirty is set
+  std::unique_ptr<UdpSocket> socket;
+  std::atomic<bool> socketDirty{true};
+  void rebuildSocket(SendMode mode, IpEndpointName endpoint);
 
   // message queue
   std::thread queueWorker;
