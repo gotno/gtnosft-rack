@@ -21,11 +21,7 @@ void SubscriptionManager::tick() {
   if (!running) return;
   if (moduleLightSubs.empty()) return;
 
-  osctx->submitLights(
-    new ModuleLightsBundler(
-      std::vector(moduleLightSubs.begin(), moduleLightSubs.end())
-    )
-  );
+  osctx->submitLights(new ModuleLightsBundler(moduleLightSubs));
 }
 
 void SubscriptionManager::reset() {
@@ -43,7 +39,9 @@ void SubscriptionManager::reset() {
 
 bool SubscriptionManager::subscribeModuleLights(int64_t moduleId) {
   if (!APP->scene->rack->getModule(moduleId)) return false;
-  moduleLightSubs.insert(moduleId);
+
+  auto sub = std::find(moduleLightSubs.begin(), moduleLightSubs.end(), moduleId);
+  if (sub == moduleLightSubs.end()) moduleLightSubs.push_back(moduleId);
   return true;
 }
 // void unsubscribeModuleLights(int64_t moduleId);

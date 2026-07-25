@@ -1,6 +1,7 @@
 #include "rack.hpp"
 
-#include <set>
+#include <algorithm>
+#include <vector>
 
 class OSCctrlWidget;
 class OscSender;
@@ -28,5 +29,5 @@ private:
 
   bool running{false};
 
-  std::set<int64_t> moduleLightSubs;
+  std::vector<int64_t> moduleLightSubs;
 };
