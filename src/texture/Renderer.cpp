@@ -242,7 +242,17 @@ RenderResult Renderer::renderOverlay(
   });
 
   rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
-  return Renderer(framebuffer).render(scale);
+  RenderResult result = Renderer(framebuffer).render(scale);
+  // if (result.success()) {
+  //   renderPng(
+  //     result.pixels,
+  //     result.width,
+  //     result.height,
+  //     "render_panel_test",
+  //     "overlay" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count())
+  //   );
+  // }
+  return result;
 }
 
 RenderResult Renderer::renderSwitch(
