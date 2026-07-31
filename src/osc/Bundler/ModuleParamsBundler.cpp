@@ -32,18 +32,22 @@ void ModuleParamsBundler::process(const std::vector<int64_t>& moduleIds) {
   moduleIdsToProcess.resize(it - moduleIdsToProcess.begin());
 
   for (const auto& moduleId : moduleIdsToProcess) {
+    // first time through, all params are sent as they are collected
     if (params.count(moduleId) == 0) {
       collectParams(moduleId);
       continue;
     }
 
     auto& paramList = params.at(moduleId);
-
     for (auto it = paramList.begin(); it != paramList.end(); ++it) {
       rack::app::ParamWidget* widget = it->first;
       auto& state = it->second;
 
-      if (state.update(widget)) addMessage(moduleId, state);
+      // always send at least one param as an ack
+      bool isFirstParam = it == paramList.begin();
+      // send params whose state has changed since last update
+      bool wasUpdated = state.update(widget);
+      if (isFirstParam || wasUpdated) addMessage(moduleId, state);
     }
   }
 }
