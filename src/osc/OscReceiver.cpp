@@ -281,7 +281,7 @@ void OscReceiver::generateRoutes() {
         RenderResult render = Catalog::pullTexture(textureId, recipe);
 
         if (render.failure()) {
-          INFO("failed to render texture %lld", textureId);
+          INFO("/get/texture %ld failed to render", textureId);
           INFO("  %s", render.statusMessage.c_str());
           return;
         }
