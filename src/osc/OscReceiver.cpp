@@ -100,6 +100,7 @@ void OscReceiver::startHeartbeat() {
       osctx->setBroadcasting();
 
       subman->reset();
+      ModuleParamsBundler::params.clear();
     }
   });
 
