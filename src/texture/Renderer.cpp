@@ -135,7 +135,7 @@ RenderResult Renderer::renderTexture(
       //     result.width,
       //     result.height,
       //     "render_panel_test",
-      //     breadcrumbs.moduleSlug
+      //     breadcrumbs.moduleSlug + std::to_string(result.height)
       //   );
       // }
       break;
