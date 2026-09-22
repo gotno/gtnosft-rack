@@ -138,6 +138,10 @@ void OscReceiver::generateRoutes() {
       free(ip);
 
       subman->start();
+
+      ctrl->enqueueAction([this]() {
+        osctx->sendHeartbeat();
+      });
     }
   );
 
