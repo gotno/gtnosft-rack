@@ -243,7 +243,7 @@ void OscReceiver::generateRoutes() {
       int32_t height{-1}, width{-1};
       bool ensureEnqueue{false};
 
-      // 1. float or int32 (height)
+      // 1. float (scale) or int32 (height)
       if (args->IsFloat()) {
         scale = args->AsFloat();
       } else if (args->IsInt32()) {
@@ -257,7 +257,7 @@ void OscReceiver::generateRoutes() {
       }
       ++args;
 
-      // 2. bool or int32 (width)
+      // 2. bool (ensureEnqueue) or int32 (width)
       try {
         if (args->IsBool()) {
           ensureEnqueue = args->AsBool();
@@ -267,7 +267,7 @@ void OscReceiver::generateRoutes() {
         ++args;
       } catch (const osc::WrongArgumentTypeException& e) {}
 
-      // 3. bool
+      // 3. bool (ensureEnqueue)
       try {
         ensureEnqueue = args->AsBool();
       } catch (const osc::WrongArgumentTypeException& e) {}
