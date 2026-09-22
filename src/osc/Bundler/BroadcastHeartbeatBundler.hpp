@@ -3,5 +3,5 @@
 #include "Bundler.hpp"
 
 struct BroadcastHeartbeatBundler : Bundler {
-  BroadcastHeartbeatBundler();
+  BroadcastHeartbeatBundler(int64_t ctrlId);
 };

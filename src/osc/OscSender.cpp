@@ -64,7 +64,7 @@ void OscSender::sendHeartbeat() {
   // TODO: immediate via deque
   if (isBroadcasting()) {
     module->txPulse.trigger();
-    enqueueBundler(new BroadcastHeartbeatBundler());
+    enqueueBundler(new BroadcastHeartbeatBundler(ctrl->module->id));
   } else {
     module->hbOutPulse.trigger();
     enqueueBundler(new DirectHeartbeatBundler());
