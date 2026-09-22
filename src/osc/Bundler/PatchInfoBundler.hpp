@@ -3,5 +3,5 @@
 #include "Bundler.hpp"
 
 struct PatchInfoBundler : Bundler {
-  PatchInfoBundler();
+  PatchInfoBundler(int64_t ctrlId);
 };

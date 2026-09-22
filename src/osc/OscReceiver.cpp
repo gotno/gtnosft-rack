@@ -171,8 +171,9 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       (void)args;
 
-      ctrl->enqueueAction([&]() {
-        osctx->enqueueBundler(new PatchInfoBundler());
+      int64_t ctrlId = ctrl->module->id;
+      ctrl->enqueueAction([=]() {
+        osctx->enqueueBundler(new PatchInfoBundler(ctrlId));
       });
     }
   );
