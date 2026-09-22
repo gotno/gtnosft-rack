@@ -37,10 +37,6 @@ void ChunkedManager::ack(int64_t id, int32_t chunkNum) {
   if (chunkedExists(id)) getChunked(id)->ack(chunkNum);
 }
 
-bool ChunkedManager::isProcessing(int64_t id) {
-  return chunkedExists(id);
-}
-
 ChunkedSend* ChunkedManager::findChunked(int64_t id) {
   if (!chunkedExists(id)) return NULL;
   return chunkedSends.at(id).get();

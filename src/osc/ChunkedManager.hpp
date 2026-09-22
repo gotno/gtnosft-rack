@@ -14,7 +14,6 @@ struct ChunkedManager {
   void add(ChunkedSend* chunked, bool deferIfAlreadyQueued = false);
   void ack(int64_t id, int32_t chunkNum);
 
-  bool isProcessing(int64_t id);
   void processChunked(int64_t id);
 
   // used by bundlers. returns null if not found.
