@@ -32,7 +32,7 @@ struct ParamState {
 // TODO: rename ModuleParamsStateBundler
 struct ModuleParamsBundler : Bundler {
   typedef std::list<std::pair<rack::app::ParamWidget*, ParamState>> ParamList;
-  inline static std::map<int64_t, ParamList> params;
+  inline static std::map<int64_t /* moduleId */, ParamList> params;
 
   ModuleParamsBundler(const std::vector<int64_t>& moduleIds);
 
