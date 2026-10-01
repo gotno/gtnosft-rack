@@ -8,6 +8,7 @@
 ChunkedSendBundler::ChunkedSendBundler(
   std::string _address,
   int64_t _chunkedSendId,
+  int32_t _sequenceId,
   int32_t _chunkNum,
   int32_t _numChunks,
   int32_t _chunkSize,
@@ -17,6 +18,7 @@ ChunkedSendBundler::ChunkedSendBundler(
 ): Bundler("ChunkedSendBundler"),
   address(_address),
   chunkedSendId(_chunkedSendId),
+  sequenceId(_sequenceId),
   chunkNum(_chunkNum),
   numChunks(_numChunks),
   chunkSize(_chunkSize),
@@ -52,6 +54,7 @@ size_t ChunkedSendBundler::getAvailableBundleSpace() {
 
 void ChunkedSendBundler::bundleMetadata(osc::OutboundPacketStream& pstream) {
   pstream << chunkedSendId
+    << sequenceId
     << chunkNum
     << numChunks
     << chunkSize

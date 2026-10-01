@@ -56,6 +56,7 @@ ChunkedSendBundler* ChunkedImage::getBundlerForChunk(int32_t chunkNum) {
 
   return new ChunkedImageBundler(
     id,
+    sequenceId,
     chunkNum,
     numChunks,
     chunkSize,

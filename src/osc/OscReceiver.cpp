@@ -161,6 +161,7 @@ void OscReceiver::generateRoutes() {
     "/ack_chunk",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t chunkedId = (args++)->AsInt64();
+      int32_t sequenceId = (args++)->AsInt32();
       int32_t chunkNum = (args++)->AsInt32();
       chunkman->ack(chunkedId, chunkNum);
     }
@@ -224,6 +225,7 @@ void OscReceiver::generateRoutes() {
         return;
       }
 
+      int32_t sequenceId = (args++)->AsInt32();
       // five possible argument combinations:
       //
       // 1st: float scale
@@ -294,6 +296,7 @@ void OscReceiver::generateRoutes() {
 
         ChunkedImage* chunkedImage = new ChunkedImage(render);
         chunkedImage->id = textureId;
+        chunkedImage->sequenceId = sequenceId;
         chunkman->add(chunkedImage, ensureEnqueue);
       });
     }

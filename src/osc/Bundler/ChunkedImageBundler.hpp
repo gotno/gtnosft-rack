@@ -8,6 +8,7 @@ class ChunkedManager;
 struct ChunkedImageBundler : ChunkedSendBundler {
   ChunkedImageBundler(
     int64_t chunkedSendId,
+    int32_t sequenceId,
     int32_t chunkNum,
     int32_t numChunks,
     int32_t chunkSize,

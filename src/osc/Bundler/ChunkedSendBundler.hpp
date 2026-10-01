@@ -9,6 +9,7 @@ struct ChunkedSendBundler : virtual Bundler {
   ChunkedSendBundler(
     std::string address,
     int64_t chunkedSendId,
+    int32_t sequenceId,
     int32_t chunkNum,
     int32_t numChunks,
     int32_t chunkSize,
@@ -19,6 +20,7 @@ struct ChunkedSendBundler : virtual Bundler {
 
   std::string address;
   int64_t chunkedSendId;
+  int32_t sequenceId;
   int32_t chunkNum;
   int32_t numChunks;
   int32_t chunkSize;

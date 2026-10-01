@@ -31,6 +31,7 @@ struct ChunkedSend {
   bool sendSucceeded();
 
   int64_t id;
+  int32_t sequenceId{-1};
   uint8_t* data;
   int64_t size;
   int32_t numChunks{0};

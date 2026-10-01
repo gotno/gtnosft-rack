@@ -3,6 +3,7 @@
 
 ChunkedImageBundler::ChunkedImageBundler(
   int64_t chunkedSendId,
+  int32_t sequenceId,
   int32_t chunkNum,
   int32_t numChunks,
   int32_t chunkSize,
@@ -15,6 +16,7 @@ ChunkedImageBundler::ChunkedImageBundler(
   ChunkedSendBundler(
     "/set/texture",
     chunkedSendId,
+    sequenceId,
     chunkNum,
     numChunks,
     chunkSize,
