@@ -163,7 +163,7 @@ void OscReceiver::generateRoutes() {
       int64_t chunkedId = (args++)->AsInt64();
       int32_t sequenceId = (args++)->AsInt32();
       int32_t chunkNum = (args++)->AsInt32();
-      chunkman->ack(chunkedId, chunkNum);
+      chunkman->ack(chunkedId, sequenceId, chunkNum);
     }
   );
 

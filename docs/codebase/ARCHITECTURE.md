@@ -60,7 +60,7 @@ Render thread: /get/texture handler
 | `OscSender` | UDP send socket, broadcast/direct mode, background queue worker | Data collection, routing | `src/osc/OscSender.cpp` |
 | `Bundler` subclasses | Collecting Rack state and encoding OSC messages | Sending, routing, subscriptions | `src/osc/Bundler/` |
 | `SubscriptionManager` | Managing light subscriptions, firing periodic sends | Rendering, chunking, routing | `src/osc/SubscriptionManager.cpp` |
-| `ChunkedManager` | Reliable multi-chunk send lifecycle (ack tracking, defer, retry) | OSC encoding, Rack API | `src/osc/ChunkedManager.cpp` |
+| `ChunkedManager` | Reliable multi-chunk send lifecycle (ack tracking, retry) | OSC encoding, Rack API | `src/osc/ChunkedManager.cpp` |
 | `Catalog` | Assigning and caching texture IDs via rapidhash | Rendering, networking | `src/texture/Catalog.cpp` |
 | `Renderer` | Off-screen framebuffer rendering, pixel readback, scale calculation | Networking, ID assignment | `src/texture/Renderer.cpp` |
 | `util/` | Timer/Interval, network adapter enumeration, Rack helper functions | Domain logic | `src/util/` |
