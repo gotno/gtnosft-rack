@@ -226,27 +226,15 @@ void OscReceiver::generateRoutes() {
       }
 
       int32_t sequenceId = (args++)->AsInt32();
-      // five possible argument combinations:
-      //
-      // 1st: float scale
-      //
-      // 1st: int32 height
-      //
-      // 1st: float scale
-      // 2nd: bool ensureEnqueue
 
-      // 1st: int32 height
-      // 2nd: bool ensureEnqueue
-
-      // 1st: int32 height
-      // 2nd: int32 width
-      // 3rd: bool ensureEnqueue
-
+      // three possible argument combinations:
+      // 1. float scale
+      // 2. int32 height
+      // 3. int32 height, int32 width
       float scale{-1.f};
       int32_t height{-1}, width{-1};
-      bool ensureEnqueue{false};
 
-      // 1. float (scale) or int32 (height)
+      // float (scale) or int32 (height)
       if (args->IsFloat()) {
         scale = args->AsFloat();
       } else if (args->IsInt32()) {
@@ -260,21 +248,8 @@ void OscReceiver::generateRoutes() {
       }
       ++args;
 
-      // 2. bool (ensureEnqueue) or int32 (width)
-      try {
-        if (args->IsBool()) {
-          ensureEnqueue = args->AsBool();
-        } else if (args->IsInt32()) {
-          width = args->AsInt32();
-        }
-        ++args;
-      } catch (const osc::WrongArgumentTypeException& e) {}
-
-      // 3. bool (ensureEnqueue)
-      try {
-        ensureEnqueue = args->AsBool();
-      } catch (const osc::WrongArgumentTypeException& e) {}
-      ++args;
+      // optional int32 (width)
+      if (args->IsInt32()) width = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
         Recipe recipe;
@@ -297,7 +272,7 @@ void OscReceiver::generateRoutes() {
         ChunkedImage* chunkedImage = new ChunkedImage(render);
         chunkedImage->id = textureId;
         chunkedImage->sequenceId = sequenceId;
-        chunkman->add(chunkedImage, ensureEnqueue);
+        chunkman->add(chunkedImage);
       });
     }
   );
