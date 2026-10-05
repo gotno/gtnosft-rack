@@ -101,7 +101,7 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
 
   if (!module) return;
 
-  // bail if OSCctrl is already in the patch
+  // cancel init if OSCctrl is already in the patch
   std::string thisPlugin = module->getModel()->plugin->slug;
   std::string thisModule = module->getModel()->slug;
   std::vector<int64_t> moduleIds = APP->engine->getModuleIds();
@@ -133,7 +133,7 @@ void OSCctrlWidget::step() {
   ModuleWidget::step();
   if (!module) return;
 
-  subman->tick();
+  if (subman) subman->tick();
   processActionQueue();
 }
 
