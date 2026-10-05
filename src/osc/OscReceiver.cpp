@@ -107,6 +107,23 @@ void OscReceiver::startHeartbeat() {
   heartbeatInterval.start();
 }
 
+// anything thrown here would escape the listener thread and terminate Rack
+void OscReceiver::ProcessPacket(
+  const char* data,
+  int size,
+  const IpEndpointName& remoteEndpoint
+) {
+  try {
+    osc::OscPacketListener::ProcessPacket(data, size, remoteEndpoint);
+  } catch (const osc::Exception& e) {
+    WARN("dropping malformed OSC packet (%d bytes): %s", size, e.what());
+  } catch (const std::exception& e) {
+    WARN("error processing OSC packet: %s", e.what());
+  } catch (...) {
+    WARN("unknown error processing OSC packet");
+  }
+}
+
 void OscReceiver::ProcessMessage(
   const osc::ReceivedMessage& message,
   const IpEndpointName& remoteEndpoint

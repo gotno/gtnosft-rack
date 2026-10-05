@@ -42,6 +42,11 @@ private:
 
   void startListener();
   void endListener();
+  void ProcessPacket(
+    const char* data,
+    int size,
+    const IpEndpointName& remoteEndpoint
+  ) override;
   void ProcessMessage(
     const osc::ReceivedMessage& message,
     const IpEndpointName& remoteEndpoint
