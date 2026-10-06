@@ -1,4 +1,5 @@
 #include "ModuleParamsBundler.hpp"
+#include "ModuleCacheGuard.hpp"
 
 #include <algorithm>
 
@@ -57,8 +58,10 @@ void ModuleParamsBundler::collectParams(int64_t moduleId) {
   using namespace rack::widget;
 
   ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
+  if (!moduleWidget) return;
   int paramId = 0;
   params.emplace(moduleId, ParamList());
+  ModuleCacheGuard::ensure(moduleWidget, moduleId);
   auto& paramList = params.at(moduleId);
 
   for (ParamWidget* paramWidget : moduleWidget->getParams()) {

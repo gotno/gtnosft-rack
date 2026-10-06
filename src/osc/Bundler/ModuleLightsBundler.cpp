@@ -1,4 +1,5 @@
 #include "ModuleLightsBundler.hpp"
+#include "ModuleCacheGuard.hpp"
 
 ModuleLightsBundler::ModuleLightsBundler(
   const std::vector<int64_t>& subscribedModuleIds
@@ -36,6 +37,7 @@ void ModuleLightsBundler::collectLights(
   ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
   int lightId = 0;
   lights.emplace(moduleId, LightList());
+  ModuleCacheGuard::ensure(moduleWidget, moduleId);
   auto& lightList = lights.at(moduleId);
 
   // panel lights

@@ -4,6 +4,7 @@
 #include "osc/OscReceiver.hpp"
 #include "osc/ChunkedManager.hpp"
 #include "osc/SubscriptionManager.hpp"
+#include "osc/Bundler/ModuleCacheGuard.hpp"
 
 OSCctrl::OSCctrl() {
   config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -123,10 +124,15 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
 }
 
 OSCctrlWidget::~OSCctrlWidget() {
+  bool isPrimaryOSCctrl = osctx != NULL;
+
   if (oscrx) delete oscrx;
   if (subman) delete subman;
   if (chunkman) delete chunkman;
   if (osctx) delete osctx;
+
+  // clear static caches so a future OSCctrl instance starts with fresh state
+  if (isPrimaryOSCctrl) ModuleCacheGuard::clearAll();
 }
 
 void OSCctrlWidget::step() {
