@@ -126,10 +126,14 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
 OSCctrlWidget::~OSCctrlWidget() {
   bool isPrimaryOSCctrl = osctx != NULL;
 
+  // order is important:
+  // * stop inbound traffic and heartbeat
+  // * stop send worker
+  // * delete managers that queued bundlers call back into
   if (oscrx) delete oscrx;
+  if (osctx) delete osctx;
   if (subman) delete subman;
   if (chunkman) delete chunkman;
-  if (osctx) delete osctx;
 
   // clear static caches so a future OSCctrl instance starts with fresh state
   if (isPrimaryOSCctrl) ModuleCacheGuard::clearAll();

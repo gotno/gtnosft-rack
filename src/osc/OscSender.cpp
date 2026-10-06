@@ -25,6 +25,16 @@ OscSender::OscSender(OSCctrlWidget* _ctrl): ctrl(_ctrl),
 
 OscSender::~OscSender() {
   stopQueueWorker();
+
+  // free anything the worker didn't get to
+  drainMailboxes();
+  while (!bundlerQueue.empty()) {
+    Bundler* bundler = bundlerQueue.front();
+    bundlerQueue.pop();
+    bundler->done();
+    delete bundler;
+  }
+
   delete[] msgBuffer;
 }
 
@@ -109,6 +119,7 @@ void OscSender::sendBundle(osc::OutboundPacketStream& pstream) {
 }
 
 void OscSender::startQueueWorker() {
+  queueWorkerRunning = true;
   queueWorker = std::thread(&OscSender::processQueue, this);
 }
 
@@ -152,8 +163,6 @@ void OscSender::drainMailboxes() {
 }
 
 void OscSender::processQueue() {
-  queueWorkerRunning = true;
-
   while (queueWorkerRunning) {
     std::unique_lock<std::mutex> locker(qmutex);
     queueLockCondition.wait(locker, [this](){
