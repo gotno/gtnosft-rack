@@ -347,7 +347,7 @@ void OscReceiver::generateRoutes() {
       bool needsAck = (args++)->AsBool();
 
       ctrl->enqueueAction([=, this]() {
-        ParamAckBundler* bundler = [&]() -> ParamAckBundler* {
+        ParamAckBundler* bundler = [=]() -> ParamAckBundler* {
           ParamAckBundler* ack =
             new ParamAckBundler(moduleId, paramId);
 
