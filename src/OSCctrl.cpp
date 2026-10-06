@@ -118,7 +118,7 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
   }
 
   osctx = new OscSender(this);
-  chunkman = new ChunkedManager(this, osctx);
+  chunkman = new ChunkedManager(osctx);
   subman = new SubscriptionManager(this, osctx, chunkman);
   oscrx = new OscReceiver(this, osctx, chunkman, subman);
 }
@@ -144,6 +144,8 @@ void OSCctrlWidget::step() {
   if (!module) return;
 
   if (subman) subman->tick();
+  if (chunkman) chunkman->tick();
+
   processActionQueue();
 }
 

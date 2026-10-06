@@ -1,92 +1,94 @@
 #include "ChunkedManager.hpp"
 
-#include "../OSCctrl.hpp"
 #include "OscSender.hpp"
 #include "ChunkedSend/ChunkedSend.hpp"
 #include "Bundler/ChunkedSendBundler.hpp"
 
-#include <thread>
-#include <chrono>
+#include <vector>
 
-ChunkedManager::ChunkedManager(OSCctrlWidget* _ctrl, OscSender* sender)
-  : ctrl(_ctrl), osctx(sender) {}
+ChunkedManager::ChunkedManager(OscSender* sender) : osctx(sender) {}
 
 ChunkedManager::~ChunkedManager() {}
 
 void ChunkedManager::add(ChunkedSend* chunked) {
-  if (chunkedExists(chunked->id, chunked->sequenceId)) {
-    delete chunked;
-    return;
-  }
+  std::shared_ptr<ChunkedSend> chunkedSend(chunked);
+  ChunkedKey key(chunkedSend->id, chunkedSend->sequenceId);
 
-  chunked->init();
-  chunkedSends.emplace(
-    ChunkedKey(chunked->id, chunked->sequenceId),
-    std::unique_ptr<ChunkedSend>(chunked)
-  );
-  processChunked(chunked->id, chunked->sequenceId);
+  std::lock_guard<std::mutex> locker(chunkedSendsMutex);
+  if (chunkedSends.count(key) != 0) return;
+
+  chunkedSend->init();
+  chunkedSends.emplace(key, chunkedSend);
+
+  // send immediately rather than waiting for the next tick
+  bool validSend = processChunked(chunkedSend);
+  if (!validSend) chunkedSends.erase(key);
 }
 
 void ChunkedManager::ack(int64_t id, int32_t sequenceId, int32_t chunkNum) {
-  if (chunkedExists(id, sequenceId)) getChunked(id, sequenceId)->ack(chunkNum);
+  std::shared_ptr<ChunkedSend> chunkedSend;
+  {
+    std::lock_guard<std::mutex> locker(chunkedSendsMutex);
+    auto it = chunkedSends.find(ChunkedKey(id, sequenceId));
+    if (it == chunkedSends.end()) return;
+    chunkedSend = it->second;
+  }
+  chunkedSend->ack(chunkNum);
 }
 
-ChunkedSend* ChunkedManager::findChunked(int64_t id, int32_t sequenceId) {
-  if (!chunkedExists(id, sequenceId)) return NULL;
-  return chunkedSends.at(ChunkedKey(id, sequenceId)).get();
+void ChunkedManager::tick() {
+  std::lock_guard<std::mutex> locker(chunkedSendsMutex);
+
+  for (auto it = chunkedSends.begin(); it != chunkedSends.end();) {
+    if (processChunked(it->second)) {
+      ++it;
+    } else {
+      it = chunkedSends.erase(it);
+    }
+  }
 }
 
-bool ChunkedManager::chunkedExists(int64_t id, int32_t sequenceId) {
-  return chunkedSends.count(ChunkedKey(id, sequenceId)) != 0;
-}
+bool ChunkedManager::processChunked(
+  const std::shared_ptr<ChunkedSend>& chunkedSend
+) {
+  if (chunkedSend->sendFailed() || chunkedSend->sendSucceeded()) return false;
 
-ChunkedSend* ChunkedManager::getChunked(int64_t id, int32_t sequenceId) {
-  assert(chunkedExists(id, sequenceId));
-  return chunkedSends.at(ChunkedKey(id, sequenceId)).get();
-}
+  std::vector<int32_t> dueChunkNums;
+  chunkedSend->takeChunksDue(dueChunkNums);
 
-void ChunkedManager::processChunked(int64_t id, int32_t sequenceId) {
-  if (!chunkedExists(id, sequenceId)) return;
-  ChunkedSend* chunkedSend = getChunked(id, sequenceId);
-
-  bool sendFailed = chunkedSend->sendFailed();
-  // if (sendFailed) WARN("processing chunked send %d: send failed", id);
-
-  bool sendSucceeded = chunkedSend->sendSucceeded();
-  // if (sendSucceeded) INFO("processing chunked send %d: finished", id);
-
-  if (sendFailed || sendSucceeded) {
-    chunkedSends.erase(ChunkedKey(id, sequenceId));
-    return;
+  if (chunkedSend->sendFailed()) {
+    WARN(
+      "chunked send %lld (sequence %d) failed: chunk exceeded %d retries",
+      (long long)chunkedSend->id,
+      chunkedSend->sequenceId,
+      (int)ChunkedSend::MAX_RETRIES
+    );
+    return false;
   }
 
-  std::vector<int32_t> unackedChunkNums;
-  chunkedSend->getUnackedChunkNums(unackedChunkNums);
+  for (int32_t chunkNum : dueChunkNums) enqueueChunk(chunkedSend, chunkNum);
 
-  for (int32_t chunkNum : unackedChunkNums) {
-    ChunkedSendBundler* bundler =
-      chunkedSend->getBundlerForChunk(chunkNum);
+  return true;
+}
 
-    bundler->noopCheck = [this, id, sequenceId, chunkNum](){
-      if (!chunkedExists(id, sequenceId)) return true;
-      if (getChunked(id, sequenceId)->sendFailed()) return true;
-      if (getChunked(id, sequenceId)->acked(chunkNum)) return true;
-      return false;
-    };
+void ChunkedManager::enqueueChunk(
+  const std::shared_ptr<ChunkedSend>& chunkedSend,
+  int32_t chunkNum
+) {
+  ChunkedSendBundler* bundler = chunkedSend->getBundlerForChunk(chunkNum);
 
-    bundler->onBundleSent = [this, id, sequenceId, chunkNum](){
-      if (!chunkedExists(id, sequenceId)) return;
-      getChunked(id, sequenceId)->registerChunkSent(chunkNum);
-    };
+  // bundler callbacks run on the sender thread and must not touch the map
+  bundler->noopCheck = [chunkedSend, chunkNum]() {
+    return chunkedSend->sendFailed() || chunkedSend->acked(chunkNum);
+  };
 
-    osctx->enqueueBundler(bundler);
-  }
+  bundler->onBundleSent = [chunkedSend, chunkNum]() {
+    chunkedSend->registerChunkSent(chunkNum);
+  };
 
-  std::thread([this, id, sequenceId]() {
-    // TODO: dynamic wait time? const?
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    ctrl->enqueueAction([this, id, sequenceId]() {
-      processChunked(id, sequenceId);
-    });
-  }).detach();
+  bundler->beforeDestroy = [chunkedSend, chunkNum]() {
+    chunkedSend->registerChunkDropped(chunkNum);
+  };
+
+  osctx->enqueueBundler(bundler);
 }

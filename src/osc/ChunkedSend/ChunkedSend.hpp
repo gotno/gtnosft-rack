@@ -4,7 +4,7 @@
 
 #include "../OscSender.hpp"
 
-#include <map>
+#include <atomic>
 #include <mutex>
 #include <vector>
 #include <chrono>
@@ -20,12 +20,27 @@ struct ChunkedSend {
 
   virtual void init();
 
-  using time_point = std::chrono::steady_clock::time_point;
-  std::map<int32_t, time_point> chunkAckTimes;
-  std::map<int32_t, time_point> chunkSendTimes;
-  std::map<int32_t, uint8_t> chunkSendCounts;
+  using clock = std::chrono::steady_clock;
+  using time_point = clock::time_point;
 
-  static const uint8_t MAX_SENDS = 5;
+  static constexpr std::chrono::milliseconds RETRY_TIMEOUT{200};
+  static const uint8_t MAX_RETRIES = 5;
+
+  enum class ChunkState : uint8_t {
+    Pending, // waiting to be enqueued
+    Queued, // bundler is in the queue
+    Sent, // in flight, awaiting ack or timeout
+    Acked,
+  };
+
+  struct ChunkStatus {
+    ChunkState state{ChunkState::Pending};
+    uint8_t sendCount{0};
+    time_point firstSentAt{};
+    time_point lastSentAt{};
+    time_point ackedAt{};
+  };
+
   std::atomic<bool> failed{false};
   bool sendFailed();
   bool sendSucceeded();
@@ -37,15 +52,25 @@ struct ChunkedSend {
   int32_t numChunks{0};
   int32_t chunkSize{0};
 
-  std::mutex statusMutex;
-
   void ack(int32_t chunkNum);
   bool acked(int32_t chunkNum);
-  void getUnackedChunkNums(std::vector<int32_t>& chunkNums);
+
+  // marks pending and timed-out chunks as queued and returns their numbers.
+  // flags the send as failed if a chunk has exhausted its retries.
+  void takeChunksDue(std::vector<int32_t>& chunkNums);
   void registerChunkSent(int32_t chunkNum);
+  // safeguard to prevent chunks getting stuck
+  void registerChunkDropped(int32_t chunkNum);
 
   virtual ChunkedSendBundler* getBundlerForChunk(int32_t chunkNum) = 0;
 
   void logCompletionDuration(int32_t chunkNum);
   void logCompletionDuration();
+
+private:
+  std::mutex statusMutex;
+  std::vector<ChunkStatus> chunks;
+  int32_t numAcked{0};
+
+  bool validChunk(int32_t chunkNum);
 };
