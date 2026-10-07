@@ -58,7 +58,7 @@ bool ChunkedManager::processChunked(
 
   if (chunkedSend->sendFailed()) {
     WARN(
-      "chunked send %lld (sequence %d) failed: chunk exceeded %d retries",
+      "chunked send %lld-%d failed: chunk exceeded %d retries",
       (long long)chunkedSend->id,
       chunkedSend->sequenceId,
       (int)ChunkedSend::MAX_RETRIES
