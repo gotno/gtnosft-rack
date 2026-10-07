@@ -233,13 +233,32 @@ RenderResult Renderer::renderOverlay(
     moduleWidget->model->slug
   );
 
-  // TODO: for Fundamental:Scope, copy input cables to get proper colors
   rack::widget::FramebufferWidget* framebuffer = wrapForRendering(surrogate);
-  framebuffer->step();
   DEFER({
     surrogate->module = NULL;
     delete framebuffer;
   });
+
+  // Some overlays (e.g. Fundamental:Scope) rely on the attached cables for some
+  // aspect of the overlay render. We'll temporarily point the real input cables
+  // at the surrogate's ports for the duration of the render.
+  std::vector<std::pair<rack::app::CableWidget*, rack::app::PortWidget*>>
+    retargetedCables;
+  for (rack::app::PortWidget* surrogatePort : surrogate->getInputs()) {
+    rack::app::PortWidget* realPort =
+      moduleWidget->getInput(surrogatePort->portId);
+    if (!realPort) continue;
+    for (rack::app::CableWidget* cw : APP->scene->rack->getCablesOnPort(realPort)) {
+      retargetedCables.emplace_back(cw, cw->inputPort);
+      cw->inputPort = surrogatePort;
+    }
+  }
+  DEFER({
+    for (auto& [cw, originalPort] : retargetedCables)
+      cw->inputPort = originalPort;
+  });
+
+  framebuffer->step();
 
   rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
   RenderResult result = Renderer(framebuffer).render(scale);
