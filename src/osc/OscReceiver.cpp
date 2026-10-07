@@ -149,6 +149,8 @@ void OscReceiver::generateRoutes() {
   routes.emplace(
     "/register",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName& remoteEndpoint) {
+      if (!osctx->isBroadcasting()) return;
+
       char* ip = (char*)malloc(IpEndpointName::ADDRESS_STRING_LENGTH + 1);
       remoteEndpoint.AddressAsString(ip);
       osctx->setDirect(ip);
