@@ -1,6 +1,8 @@
 #pragma once
 
 #include "rack.hpp"
+#include <chrono>
+#include <unordered_map>
 #include <variant>
 
 struct WidgetContainer : rack::widget::Widget {
@@ -119,6 +121,21 @@ struct Renderer {
     int64_t moduleId,
     const Recipe& recipe
   );
+
+  // overlay surrogates (and their GL framebuffers) are reused across renders
+  // so streamed overlay frames don't rebuild the widget tree every time
+  struct OverlayCacheEntry {
+    rack::app::ModuleWidget* moduleWidget;
+    rack::app::ModuleWidget* surrogate;
+    rack::widget::FramebufferWidget* framebuffer;
+    std::chrono::steady_clock::time_point lastUsed;
+  };
+  static constexpr std::chrono::seconds OVERLAY_CACHE_IDLE_TIMEOUT{5};
+  static inline std::unordered_map<int64_t, OverlayCacheEntry> overlayCache;
+
+  static void evictOverlay(int64_t moduleId);
+  static void evictIdleOverlays();
+  static void clearOverlayCache();
 
   static RenderResult renderKnob(
 		rack::app::ParamWidget* knobWidget,

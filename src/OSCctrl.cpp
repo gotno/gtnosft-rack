@@ -5,6 +5,7 @@
 #include "osc/ChunkedManager.hpp"
 #include "osc/SubscriptionManager.hpp"
 #include "osc/Bundler/ModuleCacheGuard.hpp"
+#include "texture/Renderer.hpp"
 
 OSCctrl::OSCctrl() {
   config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -147,6 +148,8 @@ void OSCctrlWidget::step() {
   if (chunkman) chunkman->tick();
 
   processActionQueue();
+
+  if (chunkman) Renderer::evictIdleOverlays();
 }
 
 void OSCctrlWidget::enqueueAction(Action action) {

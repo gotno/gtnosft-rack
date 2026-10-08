@@ -2,6 +2,7 @@
 
 #include "ModuleLightsBundler.hpp"
 #include "ModuleParamsBundler.hpp"
+#include "../../texture/Renderer.hpp"
 
 ModuleCacheGuard::ModuleCacheGuard(int64_t _moduleId): moduleId(_moduleId) {
   visible = false;
@@ -10,6 +11,7 @@ ModuleCacheGuard::ModuleCacheGuard(int64_t _moduleId): moduleId(_moduleId) {
 ModuleCacheGuard::~ModuleCacheGuard() {
   ModuleLightsBundler::lights.erase(moduleId);
   ModuleParamsBundler::params.erase(moduleId);
+  Renderer::evictOverlay(moduleId);
 }
 
 void ModuleCacheGuard::ensure(
@@ -25,4 +27,5 @@ void ModuleCacheGuard::ensure(
 void ModuleCacheGuard::clearAll() {
   ModuleLightsBundler::lights.clear();
   ModuleParamsBundler::params.clear();
+  Renderer::clearOverlayCache();
 }

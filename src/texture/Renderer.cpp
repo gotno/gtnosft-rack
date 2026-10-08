@@ -1,6 +1,7 @@
 #include "Renderer.hpp"
 #include "Catalog.hpp"
 #include "../util/Util.hpp"
+#include "../osc/Bundler/ModuleCacheGuard.hpp"
 #include "math.hpp"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -223,8 +224,38 @@ RenderResult Renderer::renderOverlay(
   if (moduleWidget->model->slug == "OSCctrl")
     return OVERLAY_BLOCKLISTED("renderOverlay", moduleId);
 
-  rack::app::ModuleWidget* surrogate =
-    moduleWidget->getModel()->createModuleWidget(moduleWidget->getModule());
+  auto cached = overlayCache.find(moduleId);
+  if (
+    cached != overlayCache.end()
+      && (
+        cached->second.moduleWidget != moduleWidget
+          || cached->second.surrogate->module != moduleWidget->module
+      )
+  ) {
+    evictOverlay(moduleId);
+    cached = overlayCache.end();
+  }
+
+  if (cached == overlayCache.end()) {
+    rack::app::ModuleWidget* surrogate =
+      moduleWidget->getModel()->createModuleWidget(moduleWidget->getModule());
+    // evicts this entry when the real ModuleWidget is destroyed
+    ModuleCacheGuard::ensure(moduleWidget, moduleId);
+    cached = overlayCache.emplace(
+      moduleId,
+      OverlayCacheEntry{
+        moduleWidget,
+        surrogate,
+        wrapForRendering(surrogate),
+        std::chrono::steady_clock::now()
+      }
+    ).first;
+  }
+
+  OverlayCacheEntry& entry = cached->second;
+  entry.lastUsed = std::chrono::steady_clock::now();
+  rack::app::ModuleWidget* surrogate = entry.surrogate;
+  rack::widget::FramebufferWidget* framebuffer = entry.framebuffer;
 
   surrogate->children.front()->setVisible(false); // panel
   hideChildren(
@@ -232,12 +263,6 @@ RenderResult Renderer::renderOverlay(
     moduleWidget->model->plugin->slug,
     moduleWidget->model->slug
   );
-
-  rack::widget::FramebufferWidget* framebuffer = wrapForRendering(surrogate);
-  DEFER({
-    surrogate->module = NULL;
-    delete framebuffer;
-  });
 
   // Some overlays (e.g. Fundamental:Scope) rely on the attached cables for some
   // aspect of the overlay render. We'll temporarily point the real input cables
@@ -272,6 +297,39 @@ RenderResult Renderer::renderOverlay(
   //   );
   // }
   return result;
+}
+
+static void destroyOverlayCacheEntry(Renderer::OverlayCacheEntry& entry) {
+  // the surrogate shares the real Module; don't let its destructor delete it
+  entry.surrogate->module = NULL;
+  delete entry.framebuffer;
+}
+
+void Renderer::evictOverlay(int64_t moduleId) {
+  auto it = overlayCache.find(moduleId);
+  if (it == overlayCache.end()) return;
+
+  destroyOverlayCacheEntry(it->second);
+  overlayCache.erase(it);
+}
+
+void Renderer::evictIdleOverlays() {
+  if (overlayCache.empty()) return;
+
+  auto now = std::chrono::steady_clock::now();
+  for (auto it = overlayCache.begin(); it != overlayCache.end();) {
+    if (now - it->second.lastUsed < OVERLAY_CACHE_IDLE_TIMEOUT) {
+      ++it;
+      continue;
+    }
+    destroyOverlayCacheEntry(it->second);
+    it = overlayCache.erase(it);
+  }
+}
+
+void Renderer::clearOverlayCache() {
+  for (auto& [moduleId, entry] : overlayCache) destroyOverlayCacheEntry(entry);
+  overlayCache.clear();
 }
 
 RenderResult Renderer::renderSwitch(
