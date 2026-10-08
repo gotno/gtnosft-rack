@@ -31,11 +31,16 @@ LFO with the Scope's inputs cabled. Open it in Rack and add an OSCctrl module.
 ## 4. Run
 
 ```sh
-.venv/bin/python overlay_bench.py run --label baseline --json before.json
-# ...make changes, rebuild, reload Rack...
+.venv/bin/python overlay_bench.py run --no-overlay-cache --label baseline --json before.json
 .venv/bin/python overlay_bench.py run --label cache --json after.json
 .venv/bin/python overlay_bench.py compare before.json after.json [--all]
 ```
+
+`--no-overlay-cache` turns off the overlay surrogate cache for that run, so
+every frame rebuilds its surrogate as it did before the cache existed. The
+client sets the cache state at the start of every run and turns the cache back
+on when a no-cache run finishes. Both runs can therefore use the same
+`BENCH=1` build.
 
 A run goes through these steps:
 

@@ -73,4 +73,15 @@ BenchResetAckBundler::BenchResetAckBundler(
   );
 }
 
+BenchOverlayCacheAckBundler::BenchOverlayCacheAckBundler(
+  bool enabled
+): Bundler("BenchOverlayCacheAckBundler") {
+  messages.emplace_back(
+    "/bench/overlay_cache/ack",
+    [=](osc::OutboundPacketStream& pstream) {
+      pstream << (int32_t)enabled;
+    }
+  );
+}
+
 #endif

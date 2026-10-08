@@ -16,4 +16,9 @@ struct BenchResetAckBundler : Bundler {
   BenchResetAckBundler(uint64_t generation);
 };
 
+// replies to /bench/overlay_cache with the resulting cache state
+struct BenchOverlayCacheAckBundler : Bundler {
+  BenchOverlayCacheAckBundler(bool enabled);
+};
+
 #endif

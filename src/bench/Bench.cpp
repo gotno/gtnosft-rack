@@ -7,6 +7,7 @@
 #include <cmath>
 #include <map>
 #include <mutex>
+#include <vector>
 
 namespace bench {
 
@@ -91,26 +92,32 @@ void submit(const Trace& trace) {
   counters[kind + ".retries"] += trace.retries;
   counters[kind + ".rerenders"] += trace.rerenders;
 
-  addSpan(kind, "queue_wait", trace, Stage::Received, Stage::Dequeued);
-  addSpan(kind, "prepare", trace, Stage::RenderStart, Stage::Prepared);
-  addSpan(kind, "draw", trace, Stage::Prepared, Stage::Drawn);
-  addSpan(kind, "readback", trace, Stage::Drawn, Stage::ReadBack);
-  addSpan(kind, "flip", trace, Stage::ReadBack, Stage::Flipped);
-  addSpan(kind, "handoff", trace, Stage::Flipped, Stage::CompressStart);
-  addSpan(kind, "compress", trace, Stage::CompressStart, Stage::Compressed);
-  addSpan(kind, "send_queue", trace, Stage::Compressed, Stage::FirstChunkSent);
-  addSpan(kind, "send_all", trace, Stage::FirstChunkSent, Stage::LastChunkSent);
-  addSpan(kind, "ack_all", trace, Stage::FirstChunkSent, Stage::AllAcked);
-  addSpan(kind, "render_total", trace, Stage::RenderStart, Stage::Flipped);
-  addSpan(kind, "request_to_first_send", trace, Stage::Received, Stage::FirstChunkSent);
-  addSpan(kind, "request_to_all_acked", trace, Stage::Received, Stage::AllAcked);
+  // overlays are recorded both by cache outcome and combined, so runs with
+  // the cache on (all hits) and off (all misses) can be compared directly
+  std::vector<std::string> spanKinds{kind};
+  if (trace.overlay) spanKinds.push_back("overlay");
+  for (const std::string& spanKind : spanKinds) {
+    addSpan(spanKind, "queue_wait", trace, Stage::Received, Stage::Dequeued);
+    addSpan(spanKind, "prepare", trace, Stage::RenderStart, Stage::Prepared);
+    addSpan(spanKind, "draw", trace, Stage::Prepared, Stage::Drawn);
+    addSpan(spanKind, "readback", trace, Stage::Drawn, Stage::ReadBack);
+    addSpan(spanKind, "flip", trace, Stage::ReadBack, Stage::Flipped);
+    addSpan(spanKind, "handoff", trace, Stage::Flipped, Stage::CompressStart);
+    addSpan(spanKind, "compress", trace, Stage::CompressStart, Stage::Compressed);
+    addSpan(spanKind, "send_queue", trace, Stage::Compressed, Stage::FirstChunkSent);
+    addSpan(spanKind, "send_all", trace, Stage::FirstChunkSent, Stage::LastChunkSent);
+    addSpan(spanKind, "ack_all", trace, Stage::FirstChunkSent, Stage::AllAcked);
+    addSpan(spanKind, "render_total", trace, Stage::RenderStart, Stage::Flipped);
+    addSpan(spanKind, "request_to_first_send", trace, Stage::Received, Stage::FirstChunkSent);
+    addSpan(spanKind, "request_to_all_acked", trace, Stage::Received, Stage::AllAcked);
 
-  if (trace.rawBytes > 0)
-    samples[kind + ".raw_kb"].push_back(trace.rawBytes / 1024.f);
-  if (trace.compressedBytes > 0)
-    samples[kind + ".compressed_kb"].push_back(trace.compressedBytes / 1024.f);
-  if (trace.numChunks > 0)
-    samples[kind + ".chunks"].push_back((float)trace.numChunks);
+    if (trace.rawBytes > 0)
+      samples[spanKind + ".raw_kb"].push_back(trace.rawBytes / 1024.f);
+    if (trace.compressedBytes > 0)
+      samples[spanKind + ".compressed_kb"].push_back(trace.compressedBytes / 1024.f);
+    if (trace.numChunks > 0)
+      samples[spanKind + ".chunks"].push_back((float)trace.numChunks);
+  }
 
   TextureTally& tally = textures[trace.textureId];
   tally.kind = trace.overlay ? "overlay" : "texture";

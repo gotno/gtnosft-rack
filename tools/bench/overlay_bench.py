@@ -41,15 +41,16 @@ STAGES = [
     "compressed_kb",
     "chunks",
 ]
-KINDS = ["overlay_hit", "overlay_miss", "texture"]
+KINDS = ["overlay", "overlay_hit", "overlay_miss", "texture"]
 HEADLINE = [
-    "overlay_hit.request_to_first_send",
-    "overlay_hit.render_total",
-    "overlay_hit.draw",
-    "overlay_hit.readback",
-    "overlay_hit.compress",
-    "overlay_hit.request_to_all_acked",
-    "overlay_miss.request_to_first_send",
+    "overlay.request_to_first_send",
+    "overlay.queue_wait",
+    "overlay.render_total",
+    "overlay.prepare",
+    "overlay.draw",
+    "overlay.readback",
+    "overlay.compress",
+    "overlay.request_to_all_acked",
     "frame.interval",
     "frame.ctrl_step",
     "client.request_to_first_chunk",
@@ -112,6 +113,7 @@ class Client:
         self.module_count = None
         self.module_state = {}
         self.reset_ack = None
+        self.overlay_cache_ack = None
         self.report = None
         self.report_building = None
         self.frames = {}  # (textureId, seq) -> Frame
@@ -177,6 +179,8 @@ class Client:
             self.module_state[p[0]] = {"texture_id": p[3]}
         elif a == "/bench/reset/ack":
             self.reset_ack = p[0]
+        elif a == "/bench/overlay_cache/ack":
+            self.overlay_cache_ack = bool(p[0])
         elif a == "/bench/report/begin":
             self.report_building = {
                 "generation": p[0],
@@ -272,6 +276,14 @@ class Client:
                 "no /bench/reset/ack. is the plugin built with BENCH=1? "
                 "(Rack's log will show 'no route for address /bench/reset')"
             )
+
+    def set_overlay_cache(self, enabled):
+        self.overlay_cache_ack = None
+        self.send("/bench/overlay_cache", ("i", int(enabled)))
+        if not self.wait_for(lambda: self.overlay_cache_ack is not None, 3):
+            raise BenchError("no /bench/overlay_cache/ack")
+        if self.overlay_cache_ack != enabled:
+            raise BenchError("overlay cache state not applied")
 
     def bench_report(self):
         self.report = None
@@ -431,6 +443,7 @@ def cmd_run(args):
             size_args.append(("i", args.width))
 
     client = Client(verbose=args.verbose)
+    cache_disabled = False
     try:
         if args.host:
             host, port = args.host, args.port
@@ -447,6 +460,9 @@ def cmd_run(args):
         client.register(host, port)
         print(f"registered with {host}:{port}")
         client.bench_reset()
+        cache_disabled = not args.overlay_cache
+        client.set_overlay_cache(args.overlay_cache)
+        print(f"overlay cache: {'on' if args.overlay_cache else 'OFF'}")
 
         target = client.find_module(args.plugin, args.module, args.index, args.module_id)
         print(
@@ -470,6 +486,11 @@ def cmd_run(args):
         frames = stream(client, texture_id, size_args, args.rate, args.duration, args.timeout)
         streamed = client.bench_report()
     finally:
+        if cache_disabled:
+            try:
+                client.set_overlay_cache(True)
+            except Exception:
+                print("  ! could not re-enable the overlay cache", file=sys.stderr)
         client.close()
 
     result = {
@@ -534,9 +555,17 @@ def print_result(r):
 
     print(f"\n== server pipeline (ms unless noted), {s['window_sec']:.1f}s window ==")
     print(STAT_HEADER)
-    for name in ordered_stat_names(s["stats"]):
-        if not name.startswith("frame."):
-            print(stat_row(name, s["stats"][name]))
+    stats = s["stats"]
+    # with only hits or only misses, the split rows duplicate overlay.*
+    mixed = any(n.startswith("overlay_hit.") for n in stats) and any(
+        n.startswith("overlay_miss.") for n in stats
+    )
+    for name in ordered_stat_names(stats):
+        if name.startswith("frame."):
+            continue
+        if not mixed and name.startswith(("overlay_hit.", "overlay_miss.")):
+            continue
+        print(stat_row(name, stats[name]))
 
     print("\n== client (ms) ==")
     print(STAT_HEADER)
@@ -572,6 +601,16 @@ def flatten(result):
     for name, stat in result["baseline"]["stats"].items():
         stats[f"idle {name}"] = stat
     stats["client.fps"] = {"p50": result["client"]["fps"], "p95": None}
+
+    # results from before the combined overlay.* stats existed: derive them
+    # when the run was all hits or all misses
+    if not any(n.startswith("overlay.") for n in stats):
+        hit = any(n.startswith("overlay_hit.") for n in stats)
+        miss = any(n.startswith("overlay_miss.") for n in stats)
+        if hit != miss:
+            prefix = "overlay_hit." if hit else "overlay_miss."
+            for name in [n for n in stats if n.startswith(prefix)]:
+                stats["overlay." + name[len(prefix):]] = stats[name]
     return stats
 
 
@@ -583,8 +622,14 @@ def cmd_compare(args):
     a, b = flatten(before), flatten(after)
 
     names = HEADLINE + ["client.fps"] if not args.all else ordered_stat_names({**a, **b})
-    label_a = before.get("label") or args.before
-    label_b = after.get("label") or args.after
+    def describe(result, path):
+        label = result.get("label") or path
+        if result.get("args", {}).get("overlay_cache") is False:
+            label += " (overlay cache off)"
+        return label
+
+    label_a = describe(before, args.before)
+    label_b = describe(after, args.after)
     print(f"before: {label_a}\nafter:  {label_b}\n")
     print(
         f"  {'':40} {'p50 before':>11} {'p50 after':>10} {'Δ':>8}   "
@@ -633,6 +678,10 @@ def main():
     run.add_argument("--idle", type=float, default=3, help="idle baseline seconds")
     run.add_argument("--warmup", type=float, default=1, help="unmeasured stream seconds")
     run.add_argument("--timeout", type=float, default=2, help="per-frame/drain timeout")
+    run.add_argument(
+        "--no-overlay-cache", dest="overlay_cache", action="store_false",
+        help="disable the overlay surrogate cache for this run (baseline)",
+    )
     run.add_argument("--label", default="", help="label stored in the JSON result")
     run.add_argument("--json", help="write results to this file")
     run.add_argument("-v", "--verbose", action="store_true")

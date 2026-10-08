@@ -167,6 +167,19 @@ void OscReceiver::generateRoutes() {
         });
       }
     );
+
+    // i enabled (0/1)
+    routes.emplace(
+      "/bench/overlay_cache",
+      [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+        bool enabled = (args++)->AsInt32() != 0;
+        ctrl->enqueueAction([this, enabled]() {
+          Renderer::overlayCacheEnabled = enabled;
+          if (!enabled) Renderer::clearOverlayCache();
+          osctx->enqueueBundler(new BenchOverlayCacheAckBundler(enabled));
+        });
+      }
+    );
   )
 
   routes.emplace(

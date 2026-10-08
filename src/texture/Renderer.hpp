@@ -132,6 +132,9 @@ struct Renderer {
   };
   static constexpr std::chrono::seconds OVERLAY_CACHE_IDLE_TIMEOUT{5};
   static inline std::unordered_map<int64_t, OverlayCacheEntry> overlayCache;
+  // when false, each overlay render builds and destroys its own surrogate
+  // (pre-cache behavior; used for baseline benchmarks)
+  static inline bool overlayCacheEnabled = true;
 
   static void evictOverlay(int64_t moduleId);
   static void evictIdleOverlays();

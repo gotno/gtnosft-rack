@@ -296,6 +296,7 @@ RenderResult Renderer::renderOverlay(
   DEFER({
     for (auto& [cw, originalPort] : retargetedCables)
       cw->inputPort = originalPort;
+    if (!overlayCacheEnabled) evictOverlay(moduleId);
   });
 
   framebuffer->step();
