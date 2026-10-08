@@ -6,6 +6,12 @@ FLAGS += -I./dependencies
 CFLAGS +=
 CXXFLAGS += -std=c++20
 
+# `make BENCH=1` compiles in benchmark instrumentation (src/bench/Bench.hpp)
+BENCH ?= 0
+ifneq ($(BENCH),0)
+	FLAGS += -DGTNOSFT_BENCH
+endif
+
 # Careful about linking to shared libraries, since you can't assume much about the user's environment and library search path.
 # Static libraries are fine, but they should be added to this plugin's build system.
 
@@ -30,6 +36,7 @@ endif
 
 # Add .cpp files to the build
 SOURCES += $(wildcard src/*.cpp)
+SOURCES += $(wildcard src/bench/*.cpp)
 SOURCES += $(wildcard src/texture/*.cpp)
 SOURCES += $(wildcard src/util/*.cpp)
 SOURCES += $(wildcard src/osc/*.cpp)
@@ -51,3 +58,11 @@ DISTRIBUTABLES += $(wildcard presets)
 include $(RACK_DIR)/plugin.mk
 
 CXXFLAGS := $(filter-out -std=c++11,$(CXXFLAGS))
+
+# rebuild everything when BENCH changes, since make doesn't track flags
+BENCH_STAMP := build/bench-$(BENCH).stamp
+$(OBJECTS): $(BENCH_STAMP)
+$(BENCH_STAMP):
+	@mkdir -p build
+	@rm -f build/bench-*.stamp
+	@touch $@

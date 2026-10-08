@@ -22,6 +22,7 @@
 #include "Bundler/CableAckBundler.hpp"
 #include "Bundler/ParamAckBundler.hpp"
 #include "Bundler/LightSubscriptionAckBundler.hpp"
+#include "Bundler/BenchReportBundler.hpp"
 
 #include "../texture/Catalog.hpp"
 #include "../texture/Renderer.hpp"
@@ -146,6 +147,28 @@ void OscReceiver::ProcessMessage(
 }
 
 void OscReceiver::generateRoutes() {
+  BENCH(
+    routes.emplace(
+      "/bench/reset",
+      [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+        (void)args;
+        ctrl->enqueueAction([this]() {
+          osctx->enqueueBundler(new BenchResetAckBundler(bench::reset()));
+        });
+      }
+    );
+
+    routes.emplace(
+      "/bench/report",
+      [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+        (void)args;
+        ctrl->enqueueAction([this]() {
+          osctx->enqueueBundler(new BenchReportBundler());
+        });
+      }
+    );
+  )
+
   routes.emplace(
     "/register",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName& remoteEndpoint) {
@@ -270,7 +293,15 @@ void OscReceiver::generateRoutes() {
       // optional int32 (width)
       if (args->IsInt32()) width = (args++)->AsInt32();
 
+      BENCH(bench::TracePtr trace = bench::begin(textureId, sequenceId);)
+
       ctrl->enqueueAction([=, this]() {
+        BENCH(
+          trace->stamp(bench::Stage::Dequeued);
+          bench::setCurrent(trace);
+          DEFER({ bench::setCurrent(nullptr); });
+        )
+
         Recipe recipe;
         if (scale > 0.f) {
           recipe = Recipe(scale);
@@ -285,12 +316,14 @@ void OscReceiver::generateRoutes() {
         if (render.failure()) {
           INFO("/get/texture %ld failed to render", textureId);
           INFO("  %s", render.statusMessage.c_str());
+          BENCH(trace->failed = true; bench::submit(*trace);)
           return;
         }
 
         ChunkedImage* chunkedImage = new ChunkedImage(render);
         chunkedImage->id = textureId;
         chunkedImage->sequenceId = sequenceId;
+        BENCH(chunkedImage->trace = trace;)
         chunkman->add(chunkedImage);
       });
     }

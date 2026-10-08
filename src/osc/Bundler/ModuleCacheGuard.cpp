@@ -3,6 +3,7 @@
 #include "ModuleLightsBundler.hpp"
 #include "ModuleParamsBundler.hpp"
 #include "../../texture/Renderer.hpp"
+#include "../../bench/Bench.hpp"
 
 ModuleCacheGuard::ModuleCacheGuard(int64_t _moduleId): moduleId(_moduleId) {
   visible = false;
@@ -11,6 +12,10 @@ ModuleCacheGuard::ModuleCacheGuard(int64_t _moduleId): moduleId(_moduleId) {
 ModuleCacheGuard::~ModuleCacheGuard() {
   ModuleLightsBundler::lights.erase(moduleId);
   ModuleParamsBundler::params.erase(moduleId);
+  BENCH(
+    if (Renderer::overlayCache.contains(moduleId))
+      bench::count("overlay_cache.evict_destroyed");
+  )
   Renderer::evictOverlay(moduleId);
 }
 

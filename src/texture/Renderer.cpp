@@ -2,6 +2,7 @@
 #include "Catalog.hpp"
 #include "../util/Util.hpp"
 #include "../osc/Bundler/ModuleCacheGuard.hpp"
+#include "../bench/Bench.hpp"
 #include "math.hpp"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -99,6 +100,8 @@ RenderResult Renderer::renderTexture(
   const Breadcrumbs& breadcrumbs,
   const Recipe& recipe
 ) {
+  BENCH(bench::stamp(bench::Stage::RenderStart);)
+
   // Overlays need special handling
   if (breadcrumbs.textureType == TextureType::Overlay)
     return renderOverlay(breadcrumbs.moduleId, recipe);
@@ -124,6 +127,7 @@ RenderResult Renderer::renderTexture(
       breadcrumbs.moduleSlug
     );
   DEFER({ delete moduleWidget; });
+  BENCH(bench::stamp(bench::Stage::Prepared);)
 
   RenderResult result;
 
@@ -232,9 +236,19 @@ RenderResult Renderer::renderOverlay(
           || cached->second.surrogate->module != moduleWidget->module
       )
   ) {
+    BENCH(bench::count("overlay_cache.evict_invalid");)
     evictOverlay(moduleId);
     cached = overlayCache.end();
   }
+
+  BENCH(
+    bool cacheHit = cached != overlayCache.end();
+    bench::count(cacheHit ? "overlay_cache.hit" : "overlay_cache.miss");
+    if (bench::Trace* trace = bench::current()) {
+      trace->overlay = true;
+      trace->cacheHit = cacheHit;
+    }
+  )
 
   if (cached == overlayCache.end()) {
     rack::app::ModuleWidget* surrogate =
@@ -263,6 +277,7 @@ RenderResult Renderer::renderOverlay(
     moduleWidget->model->plugin->slug,
     moduleWidget->model->slug
   );
+  BENCH(bench::stamp(bench::Stage::Prepared);)
 
   // Some overlays (e.g. Fundamental:Scope) rely on the attached cables for some
   // aspect of the overlay render. We'll temporarily point the real input cables
@@ -322,6 +337,7 @@ void Renderer::evictIdleOverlays() {
       ++it;
       continue;
     }
+    BENCH(bench::count("overlay_cache.evict_idle");)
     destroyOverlayCacheEntry(it->second);
     it = overlayCache.erase(it);
   }
@@ -576,6 +592,8 @@ uint8_t* Renderer::renderPixels(
   bool override
 ) {
   fb->render(scale);
+  // GL calls are async; finish here so draw and readback time separately
+  BENCH(glFinish(); bench::stamp(bench::Stage::Drawn);)
   nvgluBindFramebuffer(fb->getFramebuffer());
   nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
 
@@ -596,6 +614,7 @@ uint8_t* Renderer::renderPixels(
       scaleOverride.x *= (float)expectedWidth / width;
       scaleOverride.y *= (float)expectedHeight / height;
 
+      BENCH(if (bench::Trace* trace = bench::current()) ++trace->rerenders;)
       return renderPixels(
         fb,
         width,
@@ -608,7 +627,9 @@ uint8_t* Renderer::renderPixels(
 
   uint8_t* pixels = new uint8_t[height * width * 4];
   glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  BENCH(bench::stamp(bench::Stage::ReadBack);)
   flipBitmap(pixels, width, height, 4);
+  BENCH(bench::stamp(bench::Stage::Flipped);)
 
   nvgluBindFramebuffer(NULL);
   return pixels;

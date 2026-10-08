@@ -6,6 +6,7 @@
 #include "osc/SubscriptionManager.hpp"
 #include "osc/Bundler/ModuleCacheGuard.hpp"
 #include "texture/Renderer.hpp"
+#include "bench/Bench.hpp"
 
 OSCctrl::OSCctrl() {
   config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -141,6 +142,7 @@ OSCctrlWidget::~OSCctrlWidget() {
 }
 
 void OSCctrlWidget::step() {
+  BENCH(auto stepStart = bench::clock::now();)
   ModuleWidget::step();
   if (!module) return;
 
@@ -150,6 +152,21 @@ void OSCctrlWidget::step() {
   processActionQueue();
 
   if (chunkman) Renderer::evictIdleOverlays();
+
+  BENCH(
+    if (chunkman) {
+      int64_t cacheBytes = 0;
+      for (auto& [moduleId, entry] : Renderer::overlayCache)
+        cacheBytes += entry.framebuffer->getFramebufferSize().area() * 4;
+      bench::gauge("overlay_cache.entries", Renderer::overlayCache.size());
+      bench::gauge("overlay_cache.bytes", cacheBytes);
+
+      bench::recordFrame(
+        APP->window->getLastFrameDuration(),
+        std::chrono::duration<double>(bench::clock::now() - stepStart).count()
+      );
+    }
+  )
 }
 
 void OSCctrlWidget::enqueueAction(Action action) {

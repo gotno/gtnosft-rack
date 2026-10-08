@@ -22,6 +22,13 @@ void ChunkedImage::init() {
 }
 
 bool ChunkedImage::compressData() {
+  BENCH(
+    if (trace) {
+      trace->stamp(bench::Stage::CompressStart);
+      trace->rawBytes = size;
+    }
+  )
+
   qoi_desc desc;
   desc.width = width;
   desc.height = height;
@@ -44,6 +51,13 @@ bool ChunkedImage::compressData() {
   size = compressedLength;
   memcpy(data, compressedData, size);
   free(compressedData);
+
+  BENCH(
+    if (trace) {
+      trace->stamp(bench::Stage::Compressed);
+      trace->compressedBytes = size;
+    }
+  )
 
   return true;
 }

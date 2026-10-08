@@ -7,3 +7,6 @@
 /*.dylib
 /*.dll
 .DS_Store
+/tools/bench/.venv
+/tools/bench/*.json
+__pycache__/

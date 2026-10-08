@@ -3,6 +3,7 @@
 #include "rack.hpp"
 
 #include "../OscSender.hpp"
+#include "../../bench/Bench.hpp"
 
 #include <atomic>
 #include <mutex>
@@ -51,6 +52,9 @@ struct ChunkedSend {
   int64_t size;
   int32_t numChunks{0};
   int32_t chunkSize{0};
+
+  // written under statusMutex once the send is in flight
+  BENCH(bench::TracePtr trace;)
 
   void ack(int32_t chunkNum);
   bool acked(int32_t chunkNum);

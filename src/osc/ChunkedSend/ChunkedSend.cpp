@@ -18,10 +18,17 @@ void ChunkedSend::init() {
   std::lock_guard<std::mutex> locker(statusMutex);
   chunks.assign(numChunks, ChunkStatus());
   numAcked = 0;
+  BENCH(if (trace) trace->numChunks = numChunks;)
 }
 
 ChunkedSend::~ChunkedSend() {
   // logCompletionDuration();
+  BENCH(
+    if (trace) {
+      if (!sendSucceeded()) trace->failed = true;
+      bench::submit(*trace);
+    }
+  )
   delete[] data;
 }
 
@@ -39,6 +46,9 @@ void ChunkedSend::ack(int32_t chunkNum) {
   chunk.state = ChunkState::Acked;
   chunk.ackedAt = clock::now();
   ++numAcked;
+  BENCH(
+    if (trace && numAcked == numChunks) trace->stamp(bench::Stage::AllAcked);
+  )
 }
 
 bool ChunkedSend::acked(int32_t chunkNum) {
@@ -75,6 +85,17 @@ void ChunkedSend::registerChunkSent(int32_t chunkNum) {
   auto now = clock::now();
   if (chunk.sendCount == 0) chunk.firstSentAt = now;
   chunk.lastSentAt = now;
+  BENCH(
+    if (trace) {
+      if (chunk.sendCount == 0) {
+        if (trace->chunksSent == 0) trace->stamp(bench::Stage::FirstChunkSent);
+        if (++trace->chunksSent == numChunks)
+          trace->stamp(bench::Stage::LastChunkSent);
+      } else {
+        ++trace->retries;
+      }
+    }
+  )
   if (chunk.sendCount < UINT8_MAX) ++chunk.sendCount;
 
   // an ack for an earlier send may have arrived while this one was queued
