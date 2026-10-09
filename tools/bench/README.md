@@ -150,6 +150,11 @@ Other metrics:
 - Counters:
   - `overlay_cache.hit/miss/evict_*`
   - per-kind `requests/completed/failed/retries/rerenders`
+  - `texture_requests.coalesced` (server): requests merged into an
+    already-queued request for the same texture id and size. Only the newest
+    sequence id is rendered and sent; older ones get no reply.
+  - `client.superseded`: requests that got no reply because the server
+    coalesced them (a later frame of the same overlay arrived instead).
   - `client.incomplete` (frames that timed out)
   - `client.duplicate_chunks` (chunks received more than once, i.e. resent
     after a lost ack or a slow client)

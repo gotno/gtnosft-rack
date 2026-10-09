@@ -168,7 +168,6 @@ void OscReceiver::generateRoutes() {
       }
     );
 
-    // i enabled (0/1)
     routes.emplace(
       "/bench/overlay_cache",
       [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
@@ -306,9 +305,35 @@ void OscReceiver::generateRoutes() {
       // optional int32 (width)
       if (args->IsInt32()) width = (args++)->AsInt32();
 
-      BENCH(bench::TracePtr trace = bench::begin(textureId, sequenceId);)
+      PendingTextureKey key{textureId, scale, height, width};
+      std::shared_ptr<PendingTexture> pending;
+      {
+        std::lock_guard<std::mutex> lock(pendingTexturesMutex);
+        auto it = pendingTextures.find(key);
+        if (it != pendingTextures.end()) {
+          it->second->sequenceId = sequenceId;
+          BENCH(
+            it->second->trace = bench::begin(textureId, sequenceId);
+            bench::count("texture_requests.coalesced");
+          )
+          return;
+        }
+        pending = std::make_shared<PendingTexture>();
+        pending->sequenceId = sequenceId;
+        pendingTextures.emplace(key, pending);
+        BENCH(pending->trace = bench::begin(textureId, sequenceId);)
+      }
 
       ctrl->enqueueAction([=, this]() {
+        int32_t sequenceId;
+        BENCH(bench::TracePtr trace;)
+        {
+          std::lock_guard<std::mutex> lock(pendingTexturesMutex);
+          pendingTextures.erase(key);
+          sequenceId = pending->sequenceId;
+          BENCH(trace = pending->trace;)
+        }
+
         BENCH(
           trace->stamp(bench::Stage::Dequeued);
           bench::setCurrent(trace);

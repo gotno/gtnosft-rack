@@ -2,6 +2,8 @@
 #include <map>
 #include <functional>
 #include <mutex>
+#include <memory>
+#include <tuple>
 
 #include <chrono>
 #include "../util/Timer.hpp"
@@ -12,6 +14,7 @@
 #include "oscpack/osc/OscReceivedElements.h"
 
 #include "OscConstants.hpp"
+#include "../bench/Bench.hpp"
 
 class OSCctrlWidget;
 class OscSender;
@@ -69,4 +72,16 @@ private:
   Interval heartbeatInterval;
   uint8_t missedHeartbeats{0}, maxMissedHeartbeats{MAX_MISSED_HEARTBEATS};
   std::mutex heartbeatMutex;
+
+  // prevent same-frame renders of the same texture at the same size.
+  // tracks /get/texture requests waiting in the action queue. newer requests
+  // replace the existing request's sequence id only, and are then dropped.
+  struct PendingTexture {
+    int32_t sequenceId;
+    BENCH(bench::TracePtr trace;)
+  };
+  // textureId, scale, height, width
+  using PendingTextureKey = std::tuple<int64_t, float, int32_t, int32_t>;
+  std::map<PendingTextureKey, std::shared_ptr<PendingTexture>> pendingTextures;
+  std::mutex pendingTexturesMutex;
 };

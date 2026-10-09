@@ -137,6 +137,7 @@ class Frame:
     chunks: dict = field(default_factory=dict)
     duplicate_chunks: int = 0
     valid: bool = None
+    superseded: bool = False
 
 
 class Client:
@@ -468,16 +469,35 @@ def stream(client, texture_ids, size_args, rate, duration, timeout):
                 seqs[tid] += 1
             time.sleep(0.0005)
 
-    # drain in-flight frames
-    keys = [(tid, s) for tid in texture_ids for s in range(first_seqs[tid], seqs[tid])]
-    client.wait_for(
-        lambda: all(client.frames[k].completed_at is not None for k in keys), timeout
-    )
-    with client.cond:
-        return {
-            tid: [client.frames[(tid, s)] for s in range(first_seqs[tid], seqs[tid])]
+    def frames_of(tid):
+        return [client.frames[(tid, s)] for s in range(first_seqs[tid], seqs[tid])]
+
+    def settled():
+        mark_superseded([frames_of(tid) for tid in texture_ids])
+        return all(
+            f.completed_at is not None or f.superseded
             for tid in texture_ids
-        }
+            for f in frames_of(tid)
+        )
+
+    # drain in-flight frames
+    client.wait_for(settled, timeout)
+    with client.cond:
+        settled()
+        return {tid: frames_of(tid) for tid in texture_ids}
+
+
+def mark_superseded(frame_lists):
+    """The server coalesces queued requests for the same texture and size into
+    the newest one and never answers the older sequence ids. A frame that got
+    nothing while a later frame of the same texture did was superseded."""
+    for frames in frame_lists:
+        answered = False
+        for frame in reversed(frames):  # ascending seq order
+            if frame.first_chunk_at is not None:
+                answered = True
+            elif answered:
+                frame.superseded = True
 
 
 def summarize(values):
@@ -542,7 +562,10 @@ def client_stats(frames_by_texture, duration):
         "counters": {
             "client.requested": len(frames),
             "client.completed": len(done),
-            "client.incomplete": len(frames) - len(done),
+            "client.superseded": sum(1 for f in frames if f.superseded),
+            "client.incomplete": sum(
+                1 for f in frames if f.completed_at is None and not f.superseded
+            ),
             "client.invalid": sum(1 for f in done if not f.valid),
             "client.duplicate_chunks": sum(f.duplicate_chunks for f in frames),
         },
