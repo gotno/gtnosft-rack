@@ -7,7 +7,7 @@ records Rack's frame time, per-texture stream fps, and overlay cache stats.
 ## 1. Build OSCctrl with instrumentation
 
 ```sh
-./build-msys.sh BENCH=1     # Windows Rack
+./build-msys.sh BENCH=1     # Windows build
 ./build-wsl.sh BENCH=1      # Linux build
 ```
 
@@ -15,13 +15,35 @@ Instrumentation only exists in a `BENCH=1` build. A normal build leaves it out
 entirely (the `BENCH(...)` macro expands to nothing) and ignores the `/bench/*`
 routes. Switching `BENCH` between builds forces a full rebuild.
 
-## 2. Set up the client (WSL)
+## 2. Set up the client
+
+Run the client natively on the same OS as Rack (PowerShell for Windows Rack).
+Under WSL2, the UDP receive buffer is capped (about 208 KB by default) and the
+NAT adds overhead. Large frames then lose chunks, and the slowest frames take
+hundreds of ms because of the server's 200 ms chunk retries. That measures the
+client, not the plugin.
+
+Windows (PowerShell):
+
+```powershell
+cd tools\bench
+python -m venv .venv-win
+.venv-win\Scripts\activate # to enter the python venv shell (deactivate to exit)
+pip install -r requirements.txt
+python overlay_bench.py list
+```
+
+Linux / WSL:
 
 ```sh
 cd tools/bench
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+sudo sysctl -w net.core.rmem_max=8388608   # if the client warns about the buffer cap
 ```
+
+The examples below use `.venv/bin/python`; on Windows use
+`.venv-win\Scripts\python`.
 
 ## 3. Prepare a patch
 
@@ -46,7 +68,7 @@ A run goes through these steps:
 
 1. Register.
 2. Reset the server stats.
-3. Find the target module (`--plugin/--module/--index` or `--module-id`;
+3. Find the target modules (`--plugin/--module/--index` or `--module-id`;
    default `Fundamental:Scope`).
 4. Record an idle baseline (`--idle`, 3 s).
 5. Warm up (`--warmup`, 1 s).
@@ -54,6 +76,25 @@ A run goes through these steps:
 7. Stream overlay requests (`--rate` fps open loop, default 60, or `--rate 0`
    for closed loop; `--duration` 10 s).
 8. Drain, then print and save the report.
+
+### Several overlays at once
+
+```sh
+.venv/bin/python overlay_bench.py run --module-id 12 34 56 --label three
+```
+
+`--module-id` takes one or more ids and can be repeated. `overlay_bench.py
+list` prints the patch's modules and their ids. Every listed
+overlay streams at the same time:
+
+- `--rate` is per overlay. Open loop requests all the overlays together on
+  each tick.
+- With `--rate 0`, each overlay requests its next frame as soon as its own
+  previous frame finishes.
+
+The run prints a per-overlay table of fps and latency. `client.fps` is the
+average per overlay, so you can compare runs with different overlay counts, and
+`compare` shows the overlay count next to each label.
 
 Size is set with `--height` (default 512), optionally with `--width`, or with
 `--scale`.
@@ -69,6 +110,10 @@ Size is set with `--height` (default 512), optionally with `--width`, or with
   (`--port`).
 - The Windows firewall must allow inbound UDP to the WSL client. To include real
   network cost, run the client from another machine.
+- On Linux, the client reports `client.socket_drops`: datagrams the kernel
+  dropped because the receive buffer was full during the measured stream. If
+  it's nonzero, the tail latencies and chunk retries are partly the client's
+  fault.
 
 ## Metrics
 
@@ -106,5 +151,7 @@ Other metrics:
   - `overlay_cache.hit/miss/evict_*`
   - per-kind `requests/completed/failed/retries/rerenders`
   - `client.incomplete` (frames that timed out)
+  - `client.duplicate_chunks` (chunks received more than once, i.e. resent
+    after a lost ack or a slow client)
 - Gauges: `overlay_cache.entries/bytes`, each with a `.peak`.
 - Per-texture fps: completed sends over the report window.

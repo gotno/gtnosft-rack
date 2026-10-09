@@ -10,10 +10,10 @@ import json
 import math
 import random
 import socket
+import struct
 import sys
 import threading
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
 
 from pythonosc.osc_message_builder import OscMessageBuilder
@@ -62,6 +62,56 @@ class BenchError(Exception):
     pass
 
 
+RCVBUF_REQUEST = 8 * 1024 * 1024
+
+# fast path for the hot /set/texture chunks; python-osc is too slow to keep up
+# with large frames arriving in a burst
+_TEXTURE_PREFIX = b"/set/texture\0\0\0\0,hiiiihiib\0\0"
+_TEXTURE_ARGS = struct.Struct(">qiiiiqiii")  # ...width, height, blob size
+_ACK_PREFIX = b"/ack_chunk\0\0,hii\0\0\0\0"
+_ACK_ARGS = struct.Struct(">qii")
+
+
+def parse_texture_chunks(data):
+    """Returns the /set/texture chunk params in a packet (bundle or message),
+    or None if the packet contains anything else."""
+    if data.startswith(b"#bundle\0"):
+        elements, offset = [], 16
+        while offset < len(data):
+            (size,) = struct.unpack_from(">i", data, offset)
+            elements.append((offset + 4, offset + 4 + size))
+            offset += 4 + size
+    else:
+        elements = [(0, len(data))]
+
+    chunks = []
+    prefix_len = len(_TEXTURE_PREFIX)
+    for start, end in elements:
+        if data[start:start + prefix_len] != _TEXTURE_PREFIX:
+            return None
+        args_at = start + prefix_len
+        *params, blob_size = _TEXTURE_ARGS.unpack_from(data, args_at)
+        blob_at = args_at + _TEXTURE_ARGS.size
+        if blob_at + blob_size > end:
+            return None
+        chunks.append((*params, data[blob_at:blob_at + blob_size]))
+    return chunks
+
+
+def udp_socket_drops(port):
+    """Kernel receive drops for our UDP socket (Linux), or None."""
+    try:
+        with open("/proc/net/udp") as f:
+            next(f)
+            for line in f:
+                fields = line.split()
+                if int(fields[1].split(":")[1], 16) == port:
+                    return int(fields[-1])
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
 # --------------------------------------------------------------------------
 # transport
 
@@ -94,7 +144,7 @@ class Client:
         self.verbose = verbose
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, RCVBUF_REQUEST)
         try:
             self.sock.bind(("0.0.0.0", CLIENT_PORT))
         except OSError as e:
@@ -102,6 +152,16 @@ class Client:
                 f"can't bind UDP {CLIENT_PORT} ({e}). is another OSCctrl client running?"
             )
         self.sock.settimeout(0.2)
+        # Linux reports double the usable size
+        rcvbuf = self.sock.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+        if sys.platform.startswith("linux") and rcvbuf < RCVBUF_REQUEST * 2:
+            print(
+                f"warning: UDP receive buffer capped at {rcvbuf // 2048} KB "
+                f"(asked for {RCVBUF_REQUEST // 1024} KB). large frames will overflow it\n"
+                f"  and show up as chunk retries. raise the cap with:\n"
+                f"    sudo sysctl -w net.core.rmem_max={RCVBUF_REQUEST}",
+                file=sys.stderr,
+            )
         self.server = None
 
         self.cond = threading.Condition()
@@ -153,6 +213,16 @@ class Client:
             except OSError:
                 return
             received_at = time.perf_counter()
+            try:
+                chunks = parse_texture_chunks(data)
+            except struct.error:
+                chunks = None
+            if chunks is not None:
+                with self.cond:
+                    for chunk in chunks:
+                        self._on_chunk(chunk, received_at)
+                    self.cond.notify_all()
+                continue
             try:
                 packet = OscPacket(data)
             except ParseError as e:
@@ -212,10 +282,13 @@ class Client:
     def _on_chunk(self, p, received_at):
         texture_id, seq, chunk_num, num_chunks, chunk_size, total_size, width, height, blob = p
         # always ack, including duplicates from retries
-        self.send("/ack_chunk", ("h", texture_id), ("i", seq), ("i", chunk_num))
+        self.sock.sendto(_ACK_PREFIX + _ACK_ARGS.pack(texture_id, seq, chunk_num), self.server)
 
         frame = self.frames.get((texture_id, seq))
-        if frame is None or frame.completed_at is not None:
+        if frame is None:
+            return
+        if frame.completed_at is not None:
+            frame.duplicate_chunks += 1
             return
         if frame.first_chunk_at is None:
             frame.first_chunk_at = received_at
@@ -294,30 +367,42 @@ class Client:
             print("  ! some report packets were dropped; results are partial", file=sys.stderr)
         return self.report
 
-    def find_module(self, plugin, module, index, module_id):
+    def find_targets(self, plugin, module, index, module_ids):
         self.module_stubs, self.module_count = [], None
         self.send("/get/module_stubs")
         if not self.wait_for(lambda: self.module_count is not None, 5):
             raise BenchError("no module stubs received")
-        if module_id is not None:
-            matches = [m for m in self.module_stubs if m["id"] == module_id]
+        stubs = {m["id"]: m for m in self.module_stubs}
+
+        if module_ids:
+            missing = [i for i in module_ids if i not in stubs]
+            if missing:
+                raise BenchError(
+                    f"module ids not in patch: {', '.join(map(str, missing))}. patch has:\n"
+                    + "\n".join(
+                        f"  {m['id']}  {m['plugin']}:{m['module']}" for m in self.module_stubs
+                    )
+                )
+            targets = [dict(stubs[i]) for i in dict.fromkeys(module_ids)]
         else:
             matches = [
                 m for m in self.module_stubs if m["plugin"] == plugin and m["module"] == module
             ]
-        if len(matches) <= index:
-            available = sorted({f"{m['plugin']}:{m['module']}" for m in self.module_stubs})
-            raise BenchError(
-                f"module not found (wanted {module_id or f'{plugin}:{module}'} #{index}). "
-                f"patch has: {', '.join(available)}"
-            )
-        target = matches[index]
+            if len(matches) <= index:
+                available = sorted({f"{m['plugin']}:{m['module']}" for m in self.module_stubs})
+                raise BenchError(
+                    f"module not found (wanted {plugin}:{module} #{index}). "
+                    f"patch has: {', '.join(available)}"
+                )
+            targets = [dict(matches[index])]
 
-        self.send("/get/module_state", ("h", target["id"]))
-        if not self.wait_for(lambda: target["id"] in self.module_state, 5):
-            raise BenchError(f"no module state for {target['id']}")
-        target["texture_id"] = self.module_state[target["id"]]["texture_id"]
-        return target
+        for target in targets:
+            self.send("/get/module_state", ("h", target["id"]))
+        if not self.wait_for(lambda: all(t["id"] in self.module_state for t in targets), 5):
+            raise BenchError("no module state received for some targets")
+        for target in targets:
+            target["texture_id"] = self.module_state[target["id"]]["texture_id"]
+        return targets
 
     def request_texture(self, texture_id, seq, size_args):
         with self.cond:
@@ -344,11 +429,14 @@ def wsl_default_gateway():
     return None
 
 
-def stream(client, texture_id, size_args, rate, duration, timeout):
-    """Request frames for `duration` seconds. rate=0 is closed loop: request the
-    next frame as soon as the previous one completes (or times out)."""
-    seq = random.randint(1, 1_000_000_000)
-    first_seq = seq
+def stream(client, texture_ids, size_args, rate, duration, timeout):
+    """Request frames of every texture for `duration` seconds. `rate` is per
+    texture; open loop requests all textures together on each tick. rate=0 is
+    closed loop: each texture requests its next frame as soon as its previous
+    one completes (or times out), independently of the others.
+    Returns {texture_id: [Frame, ...]}."""
+    seqs = {tid: random.randint(1, 1_000_000_000) for tid in texture_ids}
+    first_seqs = dict(seqs)
     end = time.perf_counter() + duration
 
     if rate > 0:
@@ -358,25 +446,38 @@ def stream(client, texture_id, size_args, rate, duration, timeout):
             if now < next_at:
                 time.sleep(min(next_at - now, 0.002))
                 continue
-            client.request_texture(texture_id, seq, size_args)
-            seq += 1
+            for tid in texture_ids:
+                client.request_texture(tid, seqs[tid], size_args)
+                seqs[tid] += 1
             next_at += interval
             if next_at < now - interval:  # fell behind, don't burst to catch up
                 next_at = now
     else:
-        while time.perf_counter() < end:
-            key = (texture_id, seq)
-            client.request_texture(texture_id, seq, size_args)
-            client.wait_for(lambda: client.frames[key].completed_at is not None, timeout)
-            seq += 1
+        in_flight = {}  # texture_id -> (key, requested_at)
+        while (now := time.perf_counter()) < end:
+            for tid in texture_ids:
+                current = in_flight.get(tid)
+                if current is not None:
+                    key, requested_at = current
+                    with client.cond:
+                        done = client.frames[key].completed_at is not None
+                    if not done and now - requested_at < timeout:
+                        continue
+                client.request_texture(tid, seqs[tid], size_args)
+                in_flight[tid] = ((tid, seqs[tid]), now)
+                seqs[tid] += 1
+            time.sleep(0.0005)
 
     # drain in-flight frames
-    keys = [(texture_id, s) for s in range(first_seq, seq)]
+    keys = [(tid, s) for tid in texture_ids for s in range(first_seqs[tid], seqs[tid])]
     client.wait_for(
         lambda: all(client.frames[k].completed_at is not None for k in keys), timeout
     )
     with client.cond:
-        return [client.frames[k] for k in keys]
+        return {
+            tid: [client.frames[(tid, s)] for s in range(first_seqs[tid], seqs[tid])]
+            for tid in texture_ids
+        }
 
 
 def summarize(values):
@@ -398,7 +499,14 @@ def summarize(values):
     }
 
 
-def client_stats(frames, duration):
+def completed_fps(done):
+    completions = sorted(f.completed_at for f in done)
+    if len(completions) >= 2 and completions[-1] > completions[0]:
+        return (len(completions) - 1) / (completions[-1] - completions[0])
+    return 0.0
+
+
+def latency_stats(frames):
     done = [f for f in frames if f.completed_at is not None]
     stats = {}
     for name, values in {
@@ -411,13 +519,23 @@ def client_stats(frames, duration):
         summary = summarize(values)
         if summary:
             stats[name] = summary
+    return stats, done
 
-    completions = sorted(f.completed_at for f in done)
-    fps = (
-        (len(completions) - 1) / (completions[-1] - completions[0])
-        if len(completions) >= 2 and completions[-1] > completions[0]
-        else 0.0
-    )
+
+def client_stats(frames_by_texture, duration):
+    frames = [f for fs in frames_by_texture.values() for f in fs]
+    stats, done = latency_stats(frames)
+
+    per_texture = {}
+    for tid, fs in frames_by_texture.items():
+        t_stats, t_done = latency_stats(fs)
+        per_texture[str(tid)] = {
+            "stats": t_stats,
+            "requested": len(fs),
+            "completed": len(t_done),
+            "fps": completed_fps(t_done),
+        }
+
     sizes = {(f.width, f.height) for f in done}
     return {
         "stats": stats,
@@ -428,10 +546,49 @@ def client_stats(frames, duration):
             "client.invalid": sum(1 for f in done if not f.valid),
             "client.duplicate_chunks": sum(f.duplicate_chunks for f in frames),
         },
-        "fps": fps,
-        "requested_fps": len(frames) / duration if duration else 0.0,
+        # per texture, averaged, so runs with different overlay counts compare
+        "fps": (
+            sum(t["fps"] for t in per_texture.values()) / len(per_texture)
+            if per_texture else 0.0
+        ),
+        "total_fps": completed_fps(done),
+        "requested_fps": len(frames) / duration / max(1, len(frames_by_texture))
+        if duration else 0.0,
+        "per_texture": per_texture,
         "sizes": sorted(f"{w}x{h}" for w, h in sizes),
     }
+
+
+def connect(client, args):
+    if args.host:
+        host, port = args.host, args.port
+    else:
+        found = client.discover(args.discover_timeout)
+        if found:
+            host, port = found
+        else:
+            host, port = wsl_default_gateway(), args.port
+            if not host:
+                raise BenchError("no /announce received; pass --host")
+            print(f"  no /announce (normal under WSL NAT); trying Windows host {host}:{port}")
+
+    client.register(host, port)
+    print(f"registered with {host}:{port}")
+
+
+def cmd_list(args):
+    client = Client(verbose=args.verbose)
+    try:
+        connect(client, args)
+        client.module_stubs, client.module_count = [], None
+        client.send("/get/module_stubs")
+        if not client.wait_for(lambda: client.module_count is not None, 5):
+            raise BenchError("no module stubs received")
+        for m in client.module_stubs:
+            print(f"  {m['id']:>20}  {m['plugin']}:{m['module']}")
+    finally:
+        client.close()
+    return 0
 
 
 def cmd_run(args):
@@ -445,31 +602,19 @@ def cmd_run(args):
     client = Client(verbose=args.verbose)
     cache_disabled = False
     try:
-        if args.host:
-            host, port = args.host, args.port
-        else:
-            found = client.discover(args.discover_timeout)
-            if found:
-                host, port = found
-            else:
-                host, port = wsl_default_gateway(), args.port
-                if not host:
-                    raise BenchError("no /announce received; pass --host")
-                print(f"  no /announce (normal under WSL NAT); trying Windows host {host}:{port}")
-
-        client.register(host, port)
-        print(f"registered with {host}:{port}")
+        connect(client, args)
         client.bench_reset()
         cache_disabled = not args.overlay_cache
         client.set_overlay_cache(args.overlay_cache)
         print(f"overlay cache: {'on' if args.overlay_cache else 'OFF'}")
 
-        target = client.find_module(args.plugin, args.module, args.index, args.module_id)
-        print(
-            f"target: {target['plugin']}:{target['module']} "
-            f"module {target['id']} overlay texture {target['texture_id']}"
-        )
-        texture_id = target["texture_id"]
+        targets = client.find_targets(args.plugin, args.module, args.index, args.module_id)
+        for target in targets:
+            print(
+                f"target: {target['plugin']}:{target['module']} "
+                f"module {target['id']} overlay texture {target['texture_id']}"
+            )
+        texture_ids = [t["texture_id"] for t in targets]
 
         print(f"baseline: idle for {args.idle:.1f}s...")
         client.bench_reset()
@@ -478,12 +623,15 @@ def cmd_run(args):
 
         if args.warmup > 0:
             print(f"warmup: streaming for {args.warmup:.1f}s...")
-            stream(client, texture_id, size_args, args.rate, args.warmup, args.timeout)
+            stream(client, texture_ids, size_args, args.rate, args.warmup, args.timeout)
 
         mode = f"{args.rate:g} fps open loop" if args.rate > 0 else "closed loop"
-        print(f"stream: {mode} for {args.duration:.1f}s...")
+        count = f"{len(targets)} overlays, " if len(targets) > 1 else ""
+        print(f"stream: {count}{mode} for {args.duration:.1f}s...")
         client.bench_reset()
-        frames = stream(client, texture_id, size_args, args.rate, args.duration, args.timeout)
+        drops_before = udp_socket_drops(CLIENT_PORT)
+        frames = stream(client, texture_ids, size_args, args.rate, args.duration, args.timeout)
+        drops_after = udp_socket_drops(CLIENT_PORT)
         streamed = client.bench_report()
     finally:
         if cache_disabled:
@@ -497,11 +645,13 @@ def cmd_run(args):
         "label": args.label,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "args": {k: v for k, v in vars(args).items() if k != "func"},
-        "target": target,
+        "targets": targets,
         "baseline": baseline,
         "stream": streamed,
         "client": client_stats(frames, args.duration),
     }
+    if drops_before is not None and drops_after is not None:
+        result["client"]["counters"]["client.socket_drops"] = drops_after - drops_before
 
     print_result(result)
 
@@ -572,9 +722,29 @@ def print_result(r):
     for name, stat in c["stats"].items():
         print(stat_row(name, stat))
 
+    per_texture = c.get("per_texture", {})
+    if len(per_texture) > 1:
+        names = {str(t["texture_id"]): f"{t['plugin']}:{t['module']} {t['id']}" for t in r["targets"]}
+        print("\n== per overlay (client) ==")
+        print(
+            f"  {'':40} {'fps':>6} {'done':>6} {'first p50':>10} {'first p95':>10} "
+            f"{'done p50':>9} {'done p95':>9}"
+        )
+        for tid, t in per_texture.items():
+            first = t["stats"].get("client.request_to_first_chunk", {})
+            whole = t["stats"].get("client.request_to_complete", {})
+            print(
+                f"  {names.get(tid, tid):40} {t['fps']:>6.1f} "
+                f"{t['completed']:>3}/{t['requested']:<3}"
+                f"{fmt(first.get('p50')):>10} {fmt(first.get('p95')):>10} "
+                f"{fmt(whole.get('p50')):>9} {fmt(whole.get('p95')):>9}"
+            )
+
     print("\n== throughput ==")
-    print(f"  requested           {c['requested_fps']:.1f} fps")
-    print(f"  client completed    {c['fps']:.1f} fps")
+    print(f"  requested           {c['requested_fps']:.1f} fps per overlay")
+    print(f"  client completed    {c['fps']:.1f} fps per overlay (avg)")
+    if len(per_texture) > 1:
+        print(f"  client total        {c['total_fps']:.1f} fps")
     for t in s["textures"]:
         print(
             f"  server {t['kind']} {t['texture_id']}: {t['fps']:.1f} fps "
@@ -624,9 +794,13 @@ def cmd_compare(args):
     names = HEADLINE + ["client.fps"] if not args.all else ordered_stat_names({**a, **b})
     def describe(result, path):
         label = result.get("label") or path
+        notes = []
+        n = len(result.get("targets", [result.get("target")]))
+        if n > 1:
+            notes.append(f"{n} overlays")
         if result.get("args", {}).get("overlay_cache") is False:
-            label += " (overlay cache off)"
-        return label
+            notes.append("overlay cache off")
+        return label + (f" ({', '.join(notes)})" if notes else "")
 
     label_a = describe(before, args.before)
     label_b = describe(after, args.after)
@@ -661,14 +835,25 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(required=True)
 
+    def add_connection_args(p):
+        p.add_argument("--host", help="OSCctrl host (default: discover, then WSL Windows host)")
+        p.add_argument("--port", type=int, default=DEFAULT_SERVER_PORT, help="OSCctrl listen port")
+        p.add_argument("--discover-timeout", type=float, default=3.0)
+        p.add_argument("-v", "--verbose", action="store_true")
+
+    listing = sub.add_parser("list", help="list the patch's modules and their ids")
+    add_connection_args(listing)
+    listing.set_defaults(func=cmd_list)
+
     run = sub.add_parser("run", help="benchmark streaming overlay renders")
-    run.add_argument("--host", help="OSCctrl host (default: discover, then WSL Windows host)")
-    run.add_argument("--port", type=int, default=DEFAULT_SERVER_PORT, help="OSCctrl listen port")
-    run.add_argument("--discover-timeout", type=float, default=3.0)
+    add_connection_args(run)
     run.add_argument("--plugin", default="Fundamental", help="target module plugin slug")
     run.add_argument("--module", default="Scope", help="target module slug")
     run.add_argument("--index", type=int, default=0, help="which match, if several")
-    run.add_argument("--module-id", type=int, help="target module id (overrides slugs)")
+    run.add_argument(
+        "--module-id", type=int, nargs="+", action="extend", metavar="ID",
+        help="target module id(s); streams every listed overlay at once (overrides slugs)",
+    )
     size = run.add_mutually_exclusive_group()
     size.add_argument("--height", type=int, default=512, help="render height in px")
     size.add_argument("--scale", type=float, help="render scale instead of height")
@@ -684,7 +869,6 @@ def main():
     )
     run.add_argument("--label", default="", help="label stored in the JSON result")
     run.add_argument("--json", help="write results to this file")
-    run.add_argument("-v", "--verbose", action="store_true")
     run.set_defaults(func=cmd_run)
 
     compare = sub.add_parser("compare", help="compare two JSON results")
