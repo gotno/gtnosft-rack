@@ -175,11 +175,15 @@ void OSCctrlWidget::enqueueAction(Action action) {
 }
 
 void OSCctrlWidget::processActionQueue() {
-  std::lock_guard<std::mutex> locker(actionMutex);
-  while (!actionQueue.empty()) {
-    auto action = actionQueue.front();
-    action();
-    actionQueue.pop();
+  std::queue<Action> actions;
+  {
+    std::lock_guard<std::mutex> locker(actionMutex);
+    std::swap(actions, actionQueue);
+  }
+
+  while (!actions.empty()) {
+    actions.front()();
+    actions.pop();
   }
 }
 
