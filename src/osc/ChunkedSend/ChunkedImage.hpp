@@ -14,7 +14,9 @@ struct ChunkedImage : ChunkedSend {
 
   ChunkedSendBundler* getBundlerForChunk(int32_t chunkNum) override;
 
+  // flip/compress
   void init() override;
 private:
+  void flipRows();
   bool compressData();
 };

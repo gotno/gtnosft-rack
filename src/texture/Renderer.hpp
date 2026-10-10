@@ -43,6 +43,7 @@ struct Recipe {
 };
 
 struct RenderResult {
+  // RGBA, rows bottom-up as read back from GL
   uint8_t* pixels;
   int width;
   int height;
@@ -220,6 +221,4 @@ struct Renderer {
     std::pair<std::string, std::string>,
     std::function<bool(rack::widget::Widget*)>
   > hideChildrenVisibilityOverride;
-
-  void flipBitmap(uint8_t* pixels, int width, int height, int depth);
 };

@@ -130,9 +130,11 @@ OSCctrlWidget::~OSCctrlWidget() {
 
   // order is important:
   // * stop inbound traffic and heartbeat
+  // * stop chunked prep worker, which enqueues to the sender
   // * stop send worker
   // * delete managers that queued bundlers call back into
   if (oscrx) delete oscrx;
+  if (chunkman) chunkman->stopWorker();
   if (osctx) delete osctx;
   if (subman) delete subman;
   if (chunkman) delete chunkman;

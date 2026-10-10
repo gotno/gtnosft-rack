@@ -6,6 +6,9 @@
 #define QOI_IMPLEMENTATION
 #include "qoi/qoi.h"
 
+#include <cstring>
+#include <vector>
+
 ChunkedImage::ChunkedImage(uint8_t* _pixels, int32_t _width, int32_t _height):
   ChunkedSend(_pixels, _width * _height * ChunkedImage::DEPTH),
   width(_width), height(_height) {}
@@ -14,11 +17,26 @@ ChunkedImage::ChunkedImage(const RenderResult& result):
   ChunkedImage(result.pixels, result.width, result.height) {}
 
 void ChunkedImage::init() {
+  flipRows();
+
   // TODO?: throw on compression failure, catch in caller and dispose
   bool compressionFailure = !compressData();
   if (compressionFailure) WARN("failed to compress image data");
 
   ChunkedSend::init();
+}
+
+// rendered pixels arrive bottom-up from GL; clients expect top-down
+void ChunkedImage::flipRows() {
+  const size_t rowBytes = (size_t)width * DEPTH;
+  std::vector<uint8_t> tmp(rowBytes);
+  for (int32_t y = 0; y < height / 2; y++) {
+    uint8_t* top = data + (size_t)y * rowBytes;
+    uint8_t* bottom = data + (size_t)(height - y - 1) * rowBytes;
+    std::memcpy(tmp.data(), top, rowBytes);
+    std::memcpy(top, bottom, rowBytes);
+    std::memcpy(bottom, tmp.data(), rowBytes);
+  }
 }
 
 bool ChunkedImage::compressData() {

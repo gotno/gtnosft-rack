@@ -629,21 +629,9 @@ uint8_t* Renderer::renderPixels(
   uint8_t* pixels = new uint8_t[height * width * 4];
   glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
   BENCH(bench::stamp(bench::Stage::ReadBack);)
-  flipBitmap(pixels, width, height, 4);
-  BENCH(bench::stamp(bench::Stage::Flipped);)
 
   nvgluBindFramebuffer(NULL);
   return pixels;
-}
-
-void Renderer::flipBitmap(uint8_t* pixels, int width, int height, int depth) {
-  for (int y = 0; y < height / 2; y++) {
-    int flipY = height - y - 1;
-    uint8_t tmp[width * depth];
-    std::memcpy(tmp, &pixels[y * width * depth], width * depth);
-    std::memcpy(&pixels[y * width * depth], &pixels[flipY * width * depth], width * depth);
-    std::memcpy(&pixels[flipY * width * depth], tmp, width * depth);
-  }
 }
 
 std::string Renderer::makeFilename(rack::app::ModuleWidget* mw) {
@@ -664,13 +652,14 @@ void Renderer::renderPng(
   std::string renderPath = rack::asset::user(directory);
   rack::system::createDirectory(renderPath);
   std::string filepath = rack::system::join(renderPath, filename + ".png");
+  // pixels are bottom-up; use a negative stride to write them top-down
   stbi_write_png(
     filepath.c_str(),
     width,
     height,
     4,
-    pixels,
-    width * 4
+    pixels + (height - 1) * width * 4,
+    -width * 4
   );
 }
 

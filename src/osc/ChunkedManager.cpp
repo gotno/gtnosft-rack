@@ -6,21 +6,71 @@
 
 #include <vector>
 
-ChunkedManager::ChunkedManager(OscSender* sender) : osctx(sender) {}
+ChunkedManager::ChunkedManager(OscSender* sender) : osctx(sender) {
+  prepWorker = std::thread(&ChunkedManager::runPrepWorker, this);
+}
 
-ChunkedManager::~ChunkedManager() {}
+ChunkedManager::~ChunkedManager() {
+  stopWorker();
+}
 
 void ChunkedManager::add(ChunkedSend* chunked) {
   std::shared_ptr<ChunkedSend> chunkedSend(chunked);
+
+  if (!prepOnWorker) {
+    prepare(chunkedSend);
+    return;
+  }
+
+  {
+    std::lock_guard<std::mutex> locker(prepMutex);
+    if (prepStopping) return;
+    prepQueue.push_back(std::move(chunkedSend));
+  }
+  prepCondition.notify_one();
+}
+
+void ChunkedManager::stopWorker() {
+  std::deque<std::shared_ptr<ChunkedSend>> dropped;
+  {
+    std::lock_guard<std::mutex> locker(prepMutex);
+    prepStopping = true;
+    std::swap(dropped, prepQueue);
+  }
+  prepCondition.notify_one();
+  if (prepWorker.joinable()) prepWorker.join();
+}
+
+void ChunkedManager::runPrepWorker() {
+  while (true) {
+    std::shared_ptr<ChunkedSend> chunkedSend;
+    {
+      std::unique_lock<std::mutex> locker(prepMutex);
+      prepCondition.wait(locker, [this]() {
+        return prepStopping || !prepQueue.empty();
+      });
+      if (prepStopping) return;
+      chunkedSend = std::move(prepQueue.front());
+      prepQueue.pop_front();
+    }
+    prepare(chunkedSend);
+  }
+}
+
+void ChunkedManager::prepare(const std::shared_ptr<ChunkedSend>& chunkedSend) {
   ChunkedKey key(chunkedSend->id, chunkedSend->sequenceId);
+  {
+    std::lock_guard<std::mutex> locker(chunkedSendsMutex);
+    if (chunkedSends.count(key) != 0) return;
+  }
+
+  // init outside the lock so ack() and tick() aren't held up
+  chunkedSend->init();
 
   std::lock_guard<std::mutex> locker(chunkedSendsMutex);
   if (chunkedSends.count(key) != 0) return;
-
-  chunkedSend->init();
   chunkedSends.emplace(key, chunkedSend);
 
-  // send immediately rather than waiting for the next tick
   bool validSend = processChunked(chunkedSend);
   if (!validSend) chunkedSends.erase(key);
 }
