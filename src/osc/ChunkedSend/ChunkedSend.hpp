@@ -56,7 +56,8 @@ struct ChunkedSend {
   // written under statusMutex once the send is in flight
   BENCH(bench::TracePtr trace;)
 
-  void ack(int32_t chunkNum);
+  // false if the chunk was already acked (or doesn't exist)
+  bool ack(int32_t chunkNum);
   bool acked(int32_t chunkNum);
 
   // marks pending and timed-out chunks as queued and returns their numbers.

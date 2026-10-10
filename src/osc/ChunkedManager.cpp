@@ -26,6 +26,7 @@ void ChunkedManager::add(ChunkedSend* chunked) {
     std::lock_guard<std::mutex> locker(prepMutex);
     if (prepStopping) return;
     prepQueue.push_back(std::move(chunkedSend));
+    BENCH(bench::gauge("prep_queue.depth", prepQueue.size());)
   }
   prepCondition.notify_one();
 }
@@ -58,6 +59,8 @@ void ChunkedManager::runPrepWorker() {
 }
 
 void ChunkedManager::prepare(const std::shared_ptr<ChunkedSend>& chunkedSend) {
+  BENCH(if (chunkedSend->trace) chunkedSend->trace->stamp(bench::Stage::PrepStart);)
+
   ChunkedKey key(chunkedSend->id, chunkedSend->sequenceId);
   {
     std::lock_guard<std::mutex> locker(chunkedSendsMutex);
@@ -80,10 +83,22 @@ void ChunkedManager::ack(int64_t id, int32_t sequenceId, int32_t chunkNum) {
   {
     std::lock_guard<std::mutex> locker(chunkedSendsMutex);
     auto it = chunkedSends.find(ChunkedKey(id, sequenceId));
-    if (it == chunkedSends.end()) return;
+    if (it == chunkedSends.end()) {
+      // already finished: a late ack for a resent chunk, or a stray
+      BENCH(
+        static bench::Tally& unknown = bench::tally("rx.acks.unknown");
+        unknown.add();
+      )
+      return;
+    }
     chunkedSend = it->second;
   }
-  chunkedSend->ack(chunkNum);
+  bool accepted = chunkedSend->ack(chunkNum);
+  BENCH(
+    static bench::Tally& duplicate = bench::tally("rx.acks.duplicate");
+    if (!accepted) duplicate.add();
+  )
+  (void)accepted;
 }
 
 void ChunkedManager::tick() {

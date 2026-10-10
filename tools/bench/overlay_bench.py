@@ -28,8 +28,8 @@ STAGES = [
     "prepare",
     "draw",
     "readback",
-    "flip",
     "handoff",
+    "flip",
     "compress",
     "send_queue",
     "send_all",
@@ -55,6 +55,18 @@ HEADLINE = [
     "frame.ctrl_step",
     "client.request_to_first_chunk",
     "client.request_to_complete",
+]
+
+
+# single values, shown in the p50 column by compare
+TRANSPORT_HEADLINE = [
+    "transport.acks_per_sec",
+    "transport.ack_us",
+    "transport.rx_busy_pct",
+    "transport.tx_busy_pct",
+    "transport.chunk_tick_us",
+    "transport.retry_pct",
+    "transport.up_packets_per_sec",
 ]
 
 
@@ -96,6 +108,16 @@ def parse_texture_chunks(data):
             return None
         chunks.append((*params, data[blob_at:blob_at + blob_size]))
     return chunks
+
+
+TRANSPORT_COUNTERS = [
+    "chunk_packets",
+    "chunk_bytes",
+    "acks_sent",
+    "ack_bytes",
+    "sim_dropped_packets",
+    "sim_dropped_acks",
+]
 
 
 def udp_socket_drops(port):
@@ -174,10 +196,16 @@ class Client:
         self.module_count = None
         self.module_state = {}
         self.reset_ack = None
-        self.overlay_cache_ack = None
+        self.toggle_acks = {}  # toggle route -> acked state
         self.report = None
         self.report_building = None
         self.frames = {}  # (textureId, seq) -> Frame
+
+        # simulated loss, applied after the packet reaches this socket
+        self.drop_rate = 0.0  # incoming chunk packets discarded unacked
+        self.ack_drop_rate = 0.0  # acks not sent
+        # receive thread only; read via transport_snapshot()
+        self.transport = dict.fromkeys(TRANSPORT_COUNTERS, 0)
 
         self.thread = threading.Thread(target=self._receive_loop, daemon=True)
         self.thread.start()
@@ -189,6 +217,10 @@ class Client:
         if self.keepalive_thread:
             self.keepalive_thread.join(timeout=2)
         self.sock.close()
+
+    def transport_snapshot(self):
+        with self.cond:
+            return dict(self.transport)
 
     def send(self, address, *args):
         self.sock.sendto(build(address, *args), self.server)
@@ -220,6 +252,11 @@ class Client:
                 chunks = None
             if chunks is not None:
                 with self.cond:
+                    self.transport["chunk_packets"] += 1
+                    self.transport["chunk_bytes"] += len(data)
+                    if self.drop_rate and random.random() < self.drop_rate:
+                        self.transport["sim_dropped_packets"] += 1
+                        continue
                     for chunk in chunks:
                         self._on_chunk(chunk, received_at)
                     self.cond.notify_all()
@@ -250,8 +287,8 @@ class Client:
             self.module_state[p[0]] = {"texture_id": p[3]}
         elif a == "/bench/reset/ack":
             self.reset_ack = p[0]
-        elif a == "/bench/overlay_cache/ack":
-            self.overlay_cache_ack = bool(p[0])
+        elif a in ("/bench/overlay_cache/ack", "/bench/prep_worker/ack"):
+            self.toggle_acks[a[: -len("/ack")]] = bool(p[0])
         elif a == "/bench/report/begin":
             self.report_building = {
                 "generation": p[0],
@@ -283,7 +320,13 @@ class Client:
     def _on_chunk(self, p, received_at):
         texture_id, seq, chunk_num, num_chunks, chunk_size, total_size, width, height, blob = p
         # always ack, including duplicates from retries
-        self.sock.sendto(_ACK_PREFIX + _ACK_ARGS.pack(texture_id, seq, chunk_num), self.server)
+        if self.ack_drop_rate and random.random() < self.ack_drop_rate:
+            self.transport["sim_dropped_acks"] += 1
+        else:
+            ack = _ACK_PREFIX + _ACK_ARGS.pack(texture_id, seq, chunk_num)
+            self.sock.sendto(ack, self.server)
+            self.transport["acks_sent"] += 1
+            self.transport["ack_bytes"] += len(ack)
 
         frame = self.frames.get((texture_id, seq))
         if frame is None:
@@ -351,13 +394,13 @@ class Client:
                 "(Rack's log will show 'no route for address /bench/reset')"
             )
 
-    def set_overlay_cache(self, enabled):
-        self.overlay_cache_ack = None
-        self.send("/bench/overlay_cache", ("i", int(enabled)))
-        if not self.wait_for(lambda: self.overlay_cache_ack is not None, 3):
-            raise BenchError("no /bench/overlay_cache/ack")
-        if self.overlay_cache_ack != enabled:
-            raise BenchError("overlay cache state not applied")
+    def set_toggle(self, route, enabled):
+        self.toggle_acks.pop(route, None)
+        self.send(route, ("i", int(enabled)))
+        if not self.wait_for(lambda: route in self.toggle_acks, 3):
+            raise BenchError(f"no {route}/ack")
+        if self.toggle_acks[route] != enabled:
+            raise BenchError(f"{route} state not applied")
 
     def bench_report(self):
         self.report = None
@@ -582,6 +625,44 @@ def client_stats(frames_by_texture, duration):
     }
 
 
+def transport_stats(streamed, client_counters, client_sec):
+    """Rates and thread load from the server tallies and client byte counts.
+    Server figures use the server's measurement window, client figures the
+    client's streaming time (both include the drain)."""
+    c = streamed["counters"]
+    window = streamed["window_sec"] or float("nan")
+
+    def busy_pct(name):
+        return c.get(f"{name}.busy_us", 0) / (window * 1e6) * 100
+
+    def per_call_us(name):
+        calls = c.get(name, 0)
+        return c.get(f"{name}.busy_us", 0) / calls if calls else None
+
+    frames = sum(t["completed"] for t in streamed["textures"])
+    acks = c.get("rx.acks", 0)
+    tx = c.get("tx.packets", 0)
+    retries = sum(v for k, v in c.items() if k.endswith(".retries") and k.count(".") == 1)
+    return {
+        "acks_per_sec": acks / window,
+        "acks_per_frame": acks / frames if frames else None,
+        "ack_us": per_call_us("rx.acks"),
+        "ack_busy_pct": busy_pct("rx.acks"),
+        "rx_busy_pct": busy_pct("rx.packets"),
+        "acks_unknown": c.get("rx.acks.unknown", 0),
+        "acks_duplicate": c.get("rx.acks.duplicate", 0),
+        "tx_packets_per_sec": tx / window,
+        "tx_us": per_call_us("tx.packets"),
+        "tx_busy_pct": busy_pct("tx.packets"),
+        "chunk_tick_us": per_call_us("ui.chunk_tick"),
+        "retries": retries,
+        "retry_pct": retries / tx * 100 if tx else None,
+        "down_mbps": client_counters["client.chunk_bytes"] * 8 / client_sec / 1e6,
+        "up_kbps": client_counters["client.ack_bytes"] * 8 / client_sec / 1e3,
+        "up_packets_per_sec": client_counters["client.acks_sent"] / client_sec,
+    }
+
+
 def connect(client, args):
     if args.host:
         host, port = args.host, args.port
@@ -615,6 +696,9 @@ def cmd_list(args):
 
 
 def cmd_run(args):
+    for flag in ("drop", "drop_acks"):
+        if not 0 <= getattr(args, flag) < 1:
+            raise BenchError(f"--{flag.replace('_', '-')} must be in [0, 1)")
     if args.scale is not None:
         size_args = [("f", float(args.scale))]
     else:
@@ -623,13 +707,18 @@ def cmd_run(args):
             size_args.append(("i", args.width))
 
     client = Client(verbose=args.verbose)
-    cache_disabled = False
+    restore = []  # toggles to switch back on when the run ends
     try:
         connect(client, args)
         client.bench_reset()
-        cache_disabled = not args.overlay_cache
-        client.set_overlay_cache(args.overlay_cache)
-        print(f"overlay cache: {'on' if args.overlay_cache else 'OFF'}")
+        for route, enabled, name in (
+            ("/bench/overlay_cache", args.overlay_cache, "overlay cache"),
+            ("/bench/prep_worker", args.prep_worker, "prep worker"),
+        ):
+            if not enabled:
+                restore.append(route)
+            client.set_toggle(route, enabled)
+            print(f"{name}: {'on' if enabled else 'OFF'}")
 
         targets = client.find_targets(args.plugin, args.module, args.index, args.module_id)
         for target in targets:
@@ -638,6 +727,10 @@ def cmd_run(args):
                 f"module {target['id']} overlay texture {target['texture_id']}"
             )
         texture_ids = [t["texture_id"] for t in targets]
+
+        client.drop_rate, client.ack_drop_rate = args.drop, args.drop_acks
+        if args.drop or args.drop_acks:
+            print(f"simulated loss: {args.drop:.1%} of chunk packets, {args.drop_acks:.1%} of acks")
 
         print(f"baseline: idle for {args.idle:.1f}s...")
         client.bench_reset()
@@ -653,15 +746,19 @@ def cmd_run(args):
         print(f"stream: {count}{mode} for {args.duration:.1f}s...")
         client.bench_reset()
         drops_before = udp_socket_drops(CLIENT_PORT)
+        transport_before = client.transport_snapshot()
+        stream_start = time.perf_counter()
         frames = stream(client, texture_ids, size_args, args.rate, args.duration, args.timeout)
+        stream_sec = time.perf_counter() - stream_start
+        transport_after = client.transport_snapshot()
         drops_after = udp_socket_drops(CLIENT_PORT)
         streamed = client.bench_report()
     finally:
-        if cache_disabled:
+        for route in restore:
             try:
-                client.set_overlay_cache(True)
+                client.set_toggle(route, True)
             except Exception:
-                print("  ! could not re-enable the overlay cache", file=sys.stderr)
+                print(f"  ! could not re-enable {route}", file=sys.stderr)
         client.close()
 
     result = {
@@ -675,6 +772,9 @@ def cmd_run(args):
     }
     if drops_before is not None and drops_after is not None:
         result["client"]["counters"]["client.socket_drops"] = drops_after - drops_before
+    for name in TRANSPORT_COUNTERS:
+        result["client"]["counters"][f"client.{name}"] = transport_after[name] - transport_before[name]
+    result["transport"] = transport_stats(streamed, result["client"]["counters"], stream_sec)
 
     print_result(result)
 
@@ -775,6 +875,30 @@ def print_result(r):
         )
     print(f"  image sizes         {', '.join(c['sizes']) or '-'}")
 
+    t = r.get("transport")
+    if t:
+        print("\n== transport ==")
+        rows = [
+            ("acks/s received", t["acks_per_sec"], ""),
+            ("acks per completed frame", t["acks_per_frame"], ""),
+            ("ack handling, per ack", t["ack_us"], "us"),
+            ("ack handling, rx thread busy", t["ack_busy_pct"], "%"),
+            ("rx thread busy (all packets)", t["rx_busy_pct"], "%"),
+            ("acks for finished sends", t["acks_unknown"], ""),
+            ("acks for already-acked chunks", t["acks_duplicate"], ""),
+            ("packets/s sent", t["tx_packets_per_sec"], ""),
+            ("send call, per packet", t["tx_us"], "us"),
+            ("tx thread busy in send calls", t["tx_busy_pct"], "%"),
+            ("chunk tick (UI thread), per frame", t["chunk_tick_us"], "us"),
+            ("chunks resent", t["retries"], ""),
+            ("chunks resent, % of packets sent", t["retry_pct"], "%"),
+            ("downstream", t["down_mbps"], "Mbit/s"),
+            ("upstream (acks)", t["up_kbps"], "kbit/s"),
+            ("upstream packets/s", t["up_packets_per_sec"], ""),
+        ]
+        for name, value, unit in rows:
+            print(f"  {name:40} {fmt(value):>10} {unit}")
+
     print("\n== counters ==")
     counters = {**s["counters"], **c["counters"]}
     for name in sorted(counters):
@@ -794,6 +918,8 @@ def flatten(result):
     for name, stat in result["baseline"]["stats"].items():
         stats[f"idle {name}"] = stat
     stats["client.fps"] = {"p50": result["client"]["fps"], "p95": None}
+    for name, value in result.get("transport", {}).items():
+        stats[f"transport.{name}"] = {"p50": value, "p95": None}
 
     # results from before the combined overlay.* stats existed: derive them
     # when the run was all hits or all misses
@@ -814,7 +940,11 @@ def cmd_compare(args):
         after = json.load(f)
     a, b = flatten(before), flatten(after)
 
-    names = HEADLINE + ["client.fps"] if not args.all else ordered_stat_names({**a, **b})
+    names = (
+        HEADLINE + ["client.fps"] + TRANSPORT_HEADLINE
+        if not args.all
+        else ordered_stat_names({**a, **b})
+    )
     def describe(result, path):
         label = result.get("label") or path
         notes = []
@@ -823,6 +953,12 @@ def cmd_compare(args):
             notes.append(f"{n} overlays")
         if result.get("args", {}).get("overlay_cache") is False:
             notes.append("overlay cache off")
+        if result.get("args", {}).get("prep_worker") is False:
+            notes.append("inline prep")
+        for flag, what in (("drop", "chunks"), ("drop_acks", "acks")):
+            rate = result.get("args", {}).get(flag)
+            if rate:
+                notes.append(f"{rate:.1%} {what} dropped")
         return label + (f" ({', '.join(notes)})" if notes else "")
 
     label_a = describe(before, args.before)
@@ -889,6 +1025,18 @@ def main():
     run.add_argument(
         "--no-overlay-cache", dest="overlay_cache", action="store_false",
         help="disable the overlay surrogate cache for this run (baseline)",
+    )
+    run.add_argument(
+        "--inline-prep", dest="prep_worker", action="store_false",
+        help="flip/compress on the UI thread instead of the prep worker",
+    )
+    run.add_argument(
+        "--drop", type=float, default=0.0, metavar="P",
+        help="simulate loss: discard this fraction of chunk packets unacked (0-1)",
+    )
+    run.add_argument(
+        "--drop-acks", type=float, default=0.0, metavar="P",
+        help="simulate loss: don't send this fraction of acks (0-1)",
     )
     run.add_argument("--label", default="", help="label stored in the JSON result")
     run.add_argument("--json", help="write results to this file")

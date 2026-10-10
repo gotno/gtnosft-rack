@@ -149,7 +149,13 @@ void OSCctrlWidget::step() {
   if (!module) return;
 
   if (subman) subman->tick();
-  if (chunkman) chunkman->tick();
+  if (chunkman) {
+    BENCH(
+      static bench::Tally& chunkTick = bench::tally("ui.chunk_tick");
+      bench::ScopedTally tickTimer(chunkTick);
+    )
+    chunkman->tick();
+  }
 
   processActionQueue();
 

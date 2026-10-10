@@ -8,6 +8,7 @@
 #include "Bundler/DirectHeartbeatBundler.hpp"
 
 #include "../util/Network.hpp"
+#include "../bench/Bench.hpp"
 
 OscSender::OscSender(OSCctrlWidget* _ctrl): ctrl(_ctrl),
   msgBuffer(new char[MSG_BUFFER_SIZE]),
@@ -95,6 +96,10 @@ void OscSender::rebuildSocket(SendMode mode, IpEndpointName endpoint) {
 
 void OscSender::sendBundle(osc::OutboundPacketStream& pstream) {
   if (!socket) return;
+  BENCH(
+    static bench::Tally& txPackets = bench::tally("tx.packets");
+    bench::ScopedTally txTimer(txPackets);
+  )
   try {
     socket->Send(pstream.Data(), pstream.Size());
   } catch(std::exception& e) {

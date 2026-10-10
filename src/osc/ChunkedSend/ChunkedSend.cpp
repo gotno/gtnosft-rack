@@ -36,12 +36,12 @@ bool ChunkedSend::validChunk(int32_t chunkNum) {
   return chunkNum >= 0 && chunkNum < (int32_t)chunks.size();
 }
 
-void ChunkedSend::ack(int32_t chunkNum) {
+bool ChunkedSend::ack(int32_t chunkNum) {
   std::lock_guard<std::mutex> locker(statusMutex);
-  if (!validChunk(chunkNum)) return;
+  if (!validChunk(chunkNum)) return false;
 
   ChunkStatus& chunk = chunks[chunkNum];
-  if (chunk.state == ChunkState::Acked) return;
+  if (chunk.state == ChunkState::Acked) return false;
 
   chunk.state = ChunkState::Acked;
   chunk.ackedAt = clock::now();
@@ -49,6 +49,7 @@ void ChunkedSend::ack(int32_t chunkNum) {
   BENCH(
     if (trace && numAcked == numChunks) trace->stamp(bench::Stage::AllAcked);
   )
+  return true;
 }
 
 bool ChunkedSend::acked(int32_t chunkNum) {

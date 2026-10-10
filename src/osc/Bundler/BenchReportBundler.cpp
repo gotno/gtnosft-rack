@@ -73,11 +73,12 @@ BenchResetAckBundler::BenchResetAckBundler(
   );
 }
 
-BenchOverlayCacheAckBundler::BenchOverlayCacheAckBundler(
+BenchToggleAckBundler::BenchToggleAckBundler(
+  const std::string& address,
   bool enabled
-): Bundler("BenchOverlayCacheAckBundler") {
+): Bundler("BenchToggleAckBundler") {
   messages.emplace_back(
-    "/bench/overlay_cache/ack",
+    address + "/ack",
     [=](osc::OutboundPacketStream& pstream) {
       pstream << (int32_t)enabled;
     }

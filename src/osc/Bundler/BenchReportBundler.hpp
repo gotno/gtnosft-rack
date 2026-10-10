@@ -16,9 +16,10 @@ struct BenchResetAckBundler : Bundler {
   BenchResetAckBundler(uint64_t generation);
 };
 
-// replies to /bench/overlay_cache with the resulting cache state
-struct BenchOverlayCacheAckBundler : Bundler {
-  BenchOverlayCacheAckBundler(bool enabled);
+// replies to a /bench toggle route (e.g. /bench/overlay_cache) on
+// <address>/ack with the resulting state
+struct BenchToggleAckBundler : Bundler {
+  BenchToggleAckBundler(const std::string& address, bool enabled);
 };
 
 #endif

@@ -8,6 +8,7 @@
 #define BENCH(...) __VA_ARGS__
 
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -27,8 +28,8 @@ enum class Stage : uint8_t {
   Prepared, // widget ready (overlay cache lookup/build, or fresh widget)
   Drawn, // FramebufferWidget::render + glFinish
   ReadBack, // glReadPixels
+  PrepStart, // flip/compress begins (prep worker, or inline)
   Flipped,
-  CompressStart,
   Compressed,
   FirstChunkSent,
   LastChunkSent, // every chunk has been sent at least once
@@ -73,6 +74,37 @@ void count(const std::string& name, int64_t delta = 1);
 // tracks current value and peak
 void gauge(const std::string& name, int64_t value);
 void recordFrame(double frameIntervalSec, double ctrlStepSec);
+
+// Lock-free count and busy time for hot paths (thousands of calls/sec) where
+// a mutex per call would distort what's measured. Reported as counters
+// `name` and `name.busy_us`. Look up once and keep the reference:
+//   static bench::Tally& tally = bench::tally("rx.acks");
+struct Tally {
+  std::atomic<int64_t> count{0};
+  std::atomic<int64_t> busyNs{0};
+
+  void add(int64_t ns = 0) {
+    count.fetch_add(1, std::memory_order_relaxed);
+    if (ns) busyNs.fetch_add(ns, std::memory_order_relaxed);
+  }
+};
+
+Tally& tally(const char* name);
+
+// adds one call and its duration to a tally
+class ScopedTally {
+public:
+  explicit ScopedTally(Tally& tally): tally(tally), start(clock::now()) {}
+  ~ScopedTally() {
+    tally.add(std::chrono::duration_cast<std::chrono::nanoseconds>(
+      clock::now() - start
+    ).count());
+  }
+
+private:
+  Tally& tally;
+  time_point start;
+};
 
 // starts a new measurement window, returning its generation
 uint64_t reset();

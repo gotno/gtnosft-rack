@@ -12,6 +12,7 @@
 
 #include "ChunkedSend/ChunkedImage.hpp"
 
+#include "../bench/Bench.hpp"
 #include "Bundler/PatchInfoBundler.hpp"
 #include "Bundler/ModuleStubsBundler.hpp"
 #include "Bundler/ModuleStructureBundler.hpp"
@@ -114,6 +115,10 @@ void OscReceiver::ProcessPacket(
   int size,
   const IpEndpointName& remoteEndpoint
 ) {
+  BENCH(
+    static bench::Tally& rxPackets = bench::tally("rx.packets");
+    bench::ScopedTally rxTimer(rxPackets);
+  )
   try {
     osc::OscPacketListener::ProcessPacket(data, size, remoteEndpoint);
   } catch (const osc::Exception& e) {
@@ -175,7 +180,22 @@ void OscReceiver::generateRoutes() {
         ctrl->enqueueAction([this, enabled]() {
           Renderer::overlayCacheEnabled = enabled;
           if (!enabled) Renderer::clearOverlayCache();
-          osctx->enqueueBundler(new BenchOverlayCacheAckBundler(enabled));
+          osctx->enqueueBundler(
+            new BenchToggleAckBundler("/bench/overlay_cache", enabled)
+          );
+        });
+      }
+    );
+
+    routes.emplace(
+      "/bench/prep_worker",
+      [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+        bool enabled = (args++)->AsInt32() != 0;
+        ctrl->enqueueAction([this, enabled]() {
+          chunkman->prepOnWorker = enabled;
+          osctx->enqueueBundler(
+            new BenchToggleAckBundler("/bench/prep_worker", enabled)
+          );
         });
       }
     );
@@ -217,6 +237,10 @@ void OscReceiver::generateRoutes() {
       int64_t chunkedId = (args++)->AsInt64();
       int32_t sequenceId = (args++)->AsInt32();
       int32_t chunkNum = (args++)->AsInt32();
+      BENCH(
+        static bench::Tally& rxAcks = bench::tally("rx.acks");
+        bench::ScopedTally ackTimer(rxAcks);
+      )
       chunkman->ack(chunkedId, sequenceId, chunkNum);
     }
   );

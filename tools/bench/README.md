@@ -59,10 +59,12 @@ LFO with the Scope's inputs cabled. Open it in Rack and add an OSCctrl module.
 ```
 
 `--no-overlay-cache` turns off the overlay surrogate cache for that run, so
-every frame rebuilds its surrogate as it did before the cache existed. The
-client sets the cache state at the start of every run and turns the cache back
-on when a no-cache run finishes. Both runs can therefore use the same
-`BENCH=1` build.
+every frame rebuilds its surrogate as it did before the cache existed.
+`--inline-prep` does the flip and compression on the UI thread instead of the
+prep worker thread. The client sets both states at the start of every run and
+turns them back on when the run finishes, so all variants can use the same
+`BENCH=1` build. Prefer comparing variants within one Rack session: power
+state (e.g. a laptop on battery) shifts every stage between sessions.
 
 A run goes through these steps:
 
@@ -115,6 +117,37 @@ Size is set with `--height` (default 512), optionally with `--width`, or with
   it's nonzero, the tail latencies and chunk retries are partly the client's
   fault.
 
+### Transport and loss
+
+These measure what the chunk/ack protocol costs, as groundwork for deciding
+whether to change it (see `PERF.md`).
+
+- **Over a real network:** run the client on another machine with
+  `--host <rack machine's IP>`, e.g. a second laptop on the same Wi-Fi. On
+  localhost nothing is ever lost, so retries stay at 0 and the ack path is
+  exercised only at its cheapest.
+- **Simulated loss:** `--drop P` discards that fraction of incoming chunk
+  packets without acking them, and `--drop-acks P` skips that fraction of acks
+  (`P` in 0–1, e.g. `--drop 0.01`). Both act after the packet reaches the
+  client, so the server resends exactly as it would for real loss.
+  `compare` notes the rates next to each label.
+
+The run prints a `== transport ==` section, saved as `transport` in the JSON;
+see the metrics below.
+
+### Testing the client without Rack
+
+`mock_server.py` stands in for OSCctrl with canned stats and small fake
+frames. Use it to check client changes. The numbers it produces are fake.
+
+```sh
+.venv/bin/python mock_server.py &
+.venv/bin/python overlay_bench.py run --host 127.0.0.1 --duration 1 --idle 0.3 --warmup 0
+```
+
+Always pass `--host 127.0.0.1`. Otherwise the client may find a live Rack
+first and send its toggles there.
+
 ## Metrics
 
 Server spans are named `<kind>.<metric>`. `kind` is one of:
@@ -129,16 +162,20 @@ Server spans are named `<kind>.<metric>`. `kind` is one of:
 | `prepare` | render start → surrogate/framebuffer ready |
 | `draw` | prepared → `glFinish` after the draw |
 | `readback` | drawn → `glReadPixels` done |
-| `flip` | readback → vertical flip done |
-| `handoff` | flip → compression start |
+| `handoff` | readback → flip/compress starts (prep worker queue wait) |
+| `flip` | vertical flip |
 | `compress` | QOI compression |
 | `send_queue` | compressed → first chunk sent |
 | `send_all` | first → last chunk sent |
 | `ack_all` | first chunk sent → all chunks acked |
-| `render_total` | render start → flipped |
+| `render_total` | render start → readback done |
 | `request_to_first_send` | received → first chunk sent (headline) |
 | `request_to_all_acked` | received → all chunks acked |
 | `raw_kb`, `compressed_kb`, `chunks` | payload sizes |
+
+The flip and compression moved to a prep worker thread after the
+`win3x_3qswap` run. In results recorded before that, `render_total` includes
+the flip, and `handoff` means flip → compression start.
 
 Other metrics:
 
@@ -158,5 +195,24 @@ Other metrics:
   - `client.incomplete` (frames that timed out)
   - `client.duplicate_chunks` (chunks received more than once, i.e. resent
     after a lost ack or a slow client)
-- Gauges: `overlay_cache.entries/bytes`, each with a `.peak`.
+- Gauges: `overlay_cache.entries/bytes` and `prep_queue.depth` (sends waiting
+  for the prep worker), each with a `.peak`.
+- Thread tallies (server counters `<name>` = calls and `<name>.busy_us` = total
+  time inside, both lock-free):
+  - `rx.packets`: every packet on the OSC receive thread.
+  - `rx.acks`: `/ack_chunk` handling, including waiting on the chunk map lock
+    the UI thread holds during `tick()`. `rx.acks.unknown` counts acks for
+    sends that had already finished, and `rx.acks.duplicate` counts acks for
+    chunks already acked.
+  - `tx.packets`: the socket send call on the sender thread.
+  - `ui.chunk_tick`: `ChunkedManager::tick()` on the UI thread (resend scan).
+- Client transport counters for the stream: `client.chunk_packets/bytes`
+  received, `client.acks_sent/ack_bytes`, and
+  `client.sim_dropped_packets/acks`.
+- `transport.*` (derived, single values; `compare` shows them in the p50
+  column): acks/s, acks per completed frame, µs per ack, receive-thread busy
+  %, send-call cost and sender busy %, chunk tick µs, chunks resent as % of
+  packets sent, downstream Mbit/s, and upstream (ack) kbit/s and packets/s.
+  Server rates use the server's report window; client rates use the client's
+  stream time. Both include the drain.
 - Per-texture fps: completed sends over the report window.

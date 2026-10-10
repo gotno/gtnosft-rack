@@ -28,6 +28,8 @@ std::map<std::string, std::vector<float>> samples;
 std::map<std::string, int64_t> counters;
 std::map<std::string, std::pair<int64_t, int64_t>> gauges; // current, peak
 std::map<int64_t, TextureTally> textures;
+// never erased: call sites hold references
+std::map<std::string, std::unique_ptr<Tally>> tallies;
 
 // UI thread only
 TracePtr currentTrace;
@@ -101,13 +103,13 @@ void submit(const Trace& trace) {
     addSpan(spanKind, "prepare", trace, Stage::RenderStart, Stage::Prepared);
     addSpan(spanKind, "draw", trace, Stage::Prepared, Stage::Drawn);
     addSpan(spanKind, "readback", trace, Stage::Drawn, Stage::ReadBack);
-    addSpan(spanKind, "flip", trace, Stage::ReadBack, Stage::Flipped);
-    addSpan(spanKind, "handoff", trace, Stage::Flipped, Stage::CompressStart);
-    addSpan(spanKind, "compress", trace, Stage::CompressStart, Stage::Compressed);
+    addSpan(spanKind, "handoff", trace, Stage::ReadBack, Stage::PrepStart);
+    addSpan(spanKind, "flip", trace, Stage::PrepStart, Stage::Flipped);
+    addSpan(spanKind, "compress", trace, Stage::Flipped, Stage::Compressed);
     addSpan(spanKind, "send_queue", trace, Stage::Compressed, Stage::FirstChunkSent);
     addSpan(spanKind, "send_all", trace, Stage::FirstChunkSent, Stage::LastChunkSent);
     addSpan(spanKind, "ack_all", trace, Stage::FirstChunkSent, Stage::AllAcked);
-    addSpan(spanKind, "render_total", trace, Stage::RenderStart, Stage::Flipped);
+    addSpan(spanKind, "render_total", trace, Stage::RenderStart, Stage::ReadBack);
     addSpan(spanKind, "request_to_first_send", trace, Stage::Received, Stage::FirstChunkSent);
     addSpan(spanKind, "request_to_all_acked", trace, Stage::Received, Stage::AllAcked);
 
@@ -151,6 +153,13 @@ void recordFrame(double frameIntervalSec, double ctrlStepSec) {
   samples["frame.ctrl_step"].push_back((float)(ctrlStepSec * 1000.0));
 }
 
+Tally& tally(const char* name) {
+  std::lock_guard<std::mutex> lock(mutex);
+  std::unique_ptr<Tally>& entry = tallies[name];
+  if (!entry) entry = std::make_unique<Tally>();
+  return *entry;
+}
+
 uint64_t reset() {
   std::lock_guard<std::mutex> lock(mutex);
   uint64_t newGeneration = ++generation;
@@ -158,6 +167,10 @@ uint64_t reset() {
   samples.clear();
   counters.clear();
   textures.clear();
+  for (auto& [name, entry] : tallies) {
+    entry->count.store(0, std::memory_order_relaxed);
+    entry->busyNs.store(0, std::memory_order_relaxed);
+  }
   // keep current gauge values, restart peaks from them
   for (auto& [name, value] : gauges) value.second = value.first;
   return newGeneration;
@@ -193,6 +206,13 @@ Report report() {
   for (auto& [name, value] : gauges) {
     report.counters.emplace_back(name, value.first);
     report.counters.emplace_back(name + ".peak", value.second);
+  }
+  for (auto& [name, entry] : tallies) {
+    int64_t calls = entry->count.load(std::memory_order_relaxed);
+    if (calls == 0) continue;
+    report.counters.emplace_back(name, calls);
+    int64_t busyNs = entry->busyNs.load(std::memory_order_relaxed);
+    if (busyNs > 0) report.counters.emplace_back(name + ".busy_us", busyNs / 1000);
   }
 
   for (auto& [textureId, tally] : textures) {

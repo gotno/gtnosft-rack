@@ -18,6 +18,7 @@ ChunkedImage::ChunkedImage(const RenderResult& result):
 
 void ChunkedImage::init() {
   flipRows();
+  BENCH(if (trace) trace->stamp(bench::Stage::Flipped);)
 
   // TODO?: throw on compression failure, catch in caller and dispose
   bool compressionFailure = !compressData();
@@ -40,12 +41,7 @@ void ChunkedImage::flipRows() {
 }
 
 bool ChunkedImage::compressData() {
-  BENCH(
-    if (trace) {
-      trace->stamp(bench::Stage::CompressStart);
-      trace->rawBytes = size;
-    }
-  )
+  BENCH(if (trace) trace->rawBytes = size;)
 
   qoi_desc desc;
   desc.width = width;
