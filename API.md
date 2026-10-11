@@ -406,134 +406,60 @@ Frequency: Every 30ms while subscribed
 
 ### Texture Rendering
 
-All texture endpoints return PNG images split into chunks. You must acknowledge each chunk with `/ack_chunk` to receive the next one.
-
-**Scale vs Height:**
-- Provide either `float scale` OR `int32 height` (not both)
-- Scale: Multiplier (e.g., 3.0 = 3x resolution)
-- Height: Target height in pixels (width calculated proportionally)
-
-#### `/get/texture/panel <pluginSlug> <moduleSlug> <scale|height> <requestId>`
+#### `/get/texture <textureId> <sequenceId> <scale|height> [width]`
 **Direction:** Client → Server
-**Purpose:** Render static module panel (background)
+**Purpose:** Render a texture: a panel, overlay, port, or one layer or frame of a param
 **Arguments:**
-  - `string` pluginSlug
-  - `string` moduleSlug
-  - `float` scale OR `int32` height
-  - `int32` requestId - Your unique ID for tracking this request
+  - `int64` textureId - from `/set/module_structure` (panel, params, ports) or `/set/s/m` (overlay)
+  - `int32` sequenceId - your id for this request; echoed in every chunk of the reply
+  - size, one of:
+    - `float` scale - multiplier of the widget's size in Rack (e.g. 3.0)
+    - `int32` height - target height in pixels; width keeps the aspect ratio
+    - `int32` height, `int32` width - exact size in pixels (may stretch)
 
-**Response:** Chunked PNG via `/set/texture` (see Chunked Transfer Protocol below)
+**Response:** a chunked image via `/set/texture` (see Chunked Transfer Protocol below)
 
-#### `/get/texture/overlay <moduleId> <scale|height> <forceRender> <requestId>`
-**Direction:** Client → Server
-**Purpose:** Render live module state overlay (parameters, lights)
-**Arguments:**
-  - `int64` moduleId
-  - `float` scale OR `int32` height
-  - `bool` forceRender - Render even if already processing this requestId
-  - `int32` requestId
-
-**Response:** Chunked PNG
-
-**Usage:**
-- Panel is static, render once per module type
-- Overlay shows live state, render periodically or on subscription updates
-
-#### `/get/texture/port <pluginSlug> <moduleSlug> <portId> <portType> <scale|height> <requestId>`
-**Direction:** Client → Server
-**Purpose:** Render individual port connector
-**Arguments:**
-  - `string` pluginSlug
-  - `string` moduleSlug
-  - `int32` portId
-  - `int32` portType - 0 = input, 1 = output
-  - `float` scale OR `int32` height
-  - `int32` requestId
-
-**Response:** Chunked PNG
-
-#### `/get/texture/knob <pluginSlug> <moduleSlug> <paramId> <scale|height> <bgId> <mgId> <fgId>`
-**Direction:** Client → Server
-**Purpose:** Render knob layers (background, middle, foreground)
-**Arguments:**
-  - `string` pluginSlug
-  - `string` moduleSlug
-  - `int32` paramId
-  - `float` scale OR `int32` height
-  - `int32` bgId - Request ID for background layer
-  - `int32` mgId - Request ID for middle layer
-  - `int32` fgId - Request ID for foreground layer
-
-**Response:** Up to 3 chunked PNGs (one per layer that exists)
-
-**Note:** Not all knobs have all three layers. Missing layers are not sent.
-
-#### `/get/texture/switch <pluginSlug> <moduleSlug> <paramId> <scale|height> <requestId1> [requestId2] ...`
-**Direction:** Client → Server
-**Purpose:** Render all switch positions
-**Arguments:**
-  - `string` pluginSlug
-  - `string` moduleSlug
-  - `int32` paramId
-  - `float` scale OR `int32` height
-  - `int32` requestId... - One request ID per switch position (variable count)
-
-**Response:** Multiple chunked PNGs (one per switch position)
-
-**Usage:** Number of requestIds should match numFrames from module structure.
-
-#### `/get/texture/slider <pluginSlug> <moduleSlug> <paramId> <scale|height> <trackId> <handleId>`
-**Direction:** Client → Server
-**Purpose:** Render slider track and handle separately
-**Arguments:**
-  - `string` pluginSlug
-  - `string` moduleSlug
-  - `int32` paramId
-  - `float` scale OR `int32` height
-  - `int32` trackId - Request ID for track
-  - `int32` handleId - Request ID for handle
-
-**Response:** 2 chunked PNGs (track and handle)
+**Notes:**
+- Texture ids of `-1` mean there is no texture (e.g. a missing knob layer); don't request them.
+- Overlays (any runtime graphics drawn on top of the panel) are re-rendered on every request, so each reply shows the module at roughly the moment the request is handled.
+- Requests are handled once per Rack UI frame. If a request for the same texture id and size is still queued when a new one arrives, the newer `sequenceId` replaces it and the older one gets **no reply**.
+- No reply is sent if the id is unknown or rendering fails (see Rack's `log.txt`).
 
 ---
 
 ### Chunked Transfer Protocol
 
-Large images are sent in chunks with acknowledgment:
+The rendered image is RGBA, rows top-down, encoded as [QOI](https://qoiformat.org/). The encoded bytes are split into chunks that each fit in one UDP packet, and **all chunks are sent at once**.
 
-**Server sends:**
+**Server sends, once per chunk:**
 ```
 Path: /set/texture
 Arguments:
-  - int32: requestId - Your request ID
-  - int32: chunkNum - Current chunk number (0-indexed)
-  - int32: totalChunks - Total number of chunks
-  - int32: width - Image width in pixels
-  - int32: height - Image height in pixels
-  - blob: PNG data - Chunk of PNG file
+  - int64: textureId
+  - int32: sequenceId - from your request
+  - int32: chunkNum - 0-indexed
+  - int32: numChunks
+  - int32: chunkSize - bytes per chunk (all but the last are this size)
+  - int64: totalSize - bytes of QOI data
+  - int32: width - image width in pixels
+  - int32: height - image height in pixels
+  - blob: chunk data, which belongs at offset chunkNum * chunkSize
 ```
 
-**Client must send after each chunk:**
+**Client sends for every chunk received:**
 ```
 Path: /ack_chunk
 Arguments:
-  - int32: requestId
+  - int64: textureId
+  - int32: sequenceId
   - int32: chunkNum
 ```
 
-**Process:**
-1. Server sends chunk 0
-2. Client receives chunk 0
-3. Client sends `/ack_chunk <requestId> 0`
-4. Server sends chunk 1
-5. Repeat until all chunks received
-6. Client assembles chunks into complete PNG file
-
-**Important:**
-- Server waits for ACK before sending next chunk
-- No ACK = transfer stalls and times out
-- Chunks must be reassembled in order
-- All chunks have identical width/height values
+**Delivery:**
+- Chunks can arrive out of order, and the same chunk can arrive more than once. Ack every copy, and place data by offset.
+- Unacked chunks are resent after a timeout that adapts to the measured round trip (roughly one or two UI frames, at most 200 ms), backing off on each resend.
+- A transfer is abandoned if a chunk is still unacked 1.2 s after it was first sent.
+- The image is complete when all `numChunks` chunks have arrived; decode the `totalSize` bytes as QOI.
 
 ---
 
@@ -570,10 +496,11 @@ For each unique (pluginSlug, moduleSlug) pair:
    ← Receive /set/module_structure/port for each port
    ← Receive /set/module_structure/light for each light
 
-2. Send /get/texture/panel <pluginSlug> <moduleSlug> <scale> <requestId>
-   ← Receive chunked PNG via /set/texture
+2. Send /get/texture <panelTextureId> <sequenceId> <scale|height>
+   (and the same for param and port texture ids)
+   ← Receive chunks via /set/texture
    → ACK each chunk with /ack_chunk
-   → Assemble PNG for static background
+   → Assemble and decode the QOI image
 
 3. Cache this information - only needs to be done once per module type
 ```
@@ -584,10 +511,10 @@ For each unique (pluginSlug, moduleSlug) pair:
 For each module instance:
 
 1. Send /get/module_state <moduleId>
-   ← Receive /set/s/m with position and all parameter values
+   ← Receive /set/s/m with position and overlay texture id
 
-2. Send /get/texture/overlay <moduleId> <scale> false <requestId>
-   ← Receive chunked PNG showing current knob positions, etc.
+2. Send /get/texture <overlayTextureId> <sequenceId> <scale|height>
+   ← Receive chunks of the module's current overlay (displays, etc.)
 
 3. Optional: Send /subscribe/module/lights <moduleId>
    ← Receive /set/s/l every 30ms with light brightness values
@@ -603,8 +530,8 @@ When user interacts with virtual knob/slider:
 2. Send /set/param/value <moduleId> <paramId> <value>
    → Value applied in Rack immediately
 
-3. Optional: Request new overlay render to see updated position
-   Send /get/texture/overlay <moduleId> <scale> true <requestId>
+3. Optional: Request a new overlay render to see the updated display
+   Send /get/texture <overlayTextureId> <sequenceId> <scale|height>
 ```
 
 ### Managing Cables
@@ -643,9 +570,10 @@ Errors are logged in VCV Rack's log.txt but not sent to client. Common issues:
 
 ### Chunked Transfer Errors
 
-- **Transfer stalls:** Client not sending `/ack_chunk` - ensure ACK after every received chunk
-- **Timeout:** Transfer abandoned after timeout period
-- **Wrong requestId in ACK:** Must match the requestId from `/set/texture`
+- **Missing chunks:** Resent automatically until acked; ack every chunk you receive
+- **Timeout:** Transfer abandoned if a chunk is unacked 1.2 s after its first send
+- **Wrong ids in ACK:** textureId and sequenceId must match the ones in `/set/texture`
+- **No reply at all:** Unknown texture id, render failure, or the request was replaced by a newer one for the same texture and size
 
 ---
 
@@ -660,7 +588,7 @@ Errors are logged in VCV Rack's log.txt but not sent to client. Common issues:
 
 ### Network
 
-- **UDP is unreliable:** Packet loss is possible - chunked protocol handles this
+- **UDP is unreliable:** Packet loss is possible - the chunked protocol resends lost chunks
 - **Heartbeat timing:** Keep under 1000ms to avoid disconnection
 - **Concurrent requests:** Limit simultaneous texture requests to avoid overload
 
@@ -688,14 +616,15 @@ Server → Client: /set/module_structure/port 1 0 1 "Sine" ...
 Server → Client: /set/module_structure/light 1 0 -1 0 1.0 1.0 ...
 ... (more lights) ...
 
-Client → Server: /get/texture/panel "Fundamental" "VCO-1" 3.0 100
-Server → Client: /set/texture 100 0 3 1024 768 <PNG chunk 0>
-Client → Server: /ack_chunk 100 0
-Server → Client: /set/texture 100 1 3 1024 768 <PNG chunk 1>
-Client → Server: /ack_chunk 100 1
-Server → Client: /set/texture 100 2 3 1024 768 <PNG chunk 2>
-Client → Server: /ack_chunk 100 2
-(Client assembles complete PNG)
+(panel texture id from /set/module_structure, e.g. 7001)
+Client → Server: /get/texture 7001 100 3.0
+Server → Client: /set/texture 7001 100 0 3 1416 3900 1024 768 <chunk 0>
+Server → Client: /set/texture 7001 100 1 3 1416 3900 1024 768 <chunk 1>
+Server → Client: /set/texture 7001 100 2 3 1416 3900 1024 768 <chunk 2>
+Client → Server: /ack_chunk 7001 100 0
+Client → Server: /ack_chunk 7001 100 1
+Client → Server: /ack_chunk 7001 100 2
+(Client assembles and decodes the QOI image)
 ```
 
 ### Parameter Change
@@ -704,10 +633,11 @@ Client → Server: /ack_chunk 100 2
 Client → Server: /set/param/value 42 0 0.75
 (Parameter immediately updated in Rack)
 
-Client → Server: /get/texture/overlay 42 2.0 true 200
-Server → Client: /set/texture 200 0 1 512 384 <PNG data>
-Client → Server: /ack_chunk 200 0
-(Client displays updated knob position)
+(overlay texture id from /set/s/m, e.g. 9042)
+Client → Server: /get/texture 9042 200 2.0
+Server → Client: /set/texture 9042 200 0 1 1416 1200 512 384 <data>
+Client → Server: /ack_chunk 9042 200 0
+(Client displays the updated overlay)
 ```
 
 ### Real-time Light Monitoring

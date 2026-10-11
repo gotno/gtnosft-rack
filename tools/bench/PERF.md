@@ -116,9 +116,3 @@ Not done: NACKs plus a completion ack (would remove the upstream ack traffic
 and recover a little faster) and a window or pacing. Revisit if the real
 client shows loss or upstream trouble. Combine with #6 so stale overlay
 frames aren't resent.
-
-## Known issues (not performance)
-
-- `/get/texture` doesn't handle an `Empty` `RenderResult`, which happens when
-  the texture id is unknown.
-- `API.md`'s texture section is out of date.
