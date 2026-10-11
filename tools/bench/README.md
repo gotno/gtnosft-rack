@@ -210,7 +210,8 @@ Other metrics:
   - `retry.backoffs`: ticks in which a chunk timed out on its first send, so
     the resend timeout was doubled (count only).
 - `retry.srtt` and `retry.rto` (ms, sampled once per UI frame): the smoothed
-  round trip and the resulting resend timeout. The estimator also runs with
+  round trip (one sample per completed send: its slowest chunk) and the
+  resulting resend timeout. The estimator also runs with
   `--fixed-retry`; the timeout just isn't used then.
 - Client transport counters for the stream: `client.chunk_packets/bytes`
   received, `client.acks_sent/ack_bytes`, and

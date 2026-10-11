@@ -48,6 +48,13 @@ private:
   std::thread prepWorker;
 
   RttEstimator rtt;
+  // written by tick() on the UI thread; read by prepare() on the worker too
+  std::chrono::steady_clock::time_point lastTickAt{};
+  std::atomic<int64_t> tickIntervalNs{16'000'000};
+  std::chrono::nanoseconds tickInterval() const {
+    return std::chrono::nanoseconds(tickIntervalNs.load(std::memory_order_relaxed));
+  }
+  static constexpr std::chrono::milliseconds MAX_TICK_INTERVAL{100};
 
   void runPrepWorker();
   // runs init (flip/compress) and enqueues the send

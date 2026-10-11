@@ -6,15 +6,19 @@
 #include <mutex>
 
 // Retransmission timeout from measured round trips, after RFC 6298:
-// smoothed RTT plus four times its variation, clamped to [MIN_RTO, MAX_RTO].
-// Feed it samples only from chunks sent exactly once (Karn's algorithm).
+// smoothed RTT plus the larger of the timer granularity and four times the
+// RTT variation, clamped to [MIN_RTO, MAX_RTO]. Resends are only checked once
+// per UI frame, so the caller passes the frame interval as the granularity.
+// Feed it one sample per send (its slowest chunk), only from chunks sent
+// exactly once (Karn's algorithm). One sample per chunk would arrive as a
+// tight burst each frame and collapse the variation, leaving no margin for
+// frame-to-frame jitter (seen on Wi-Fi).
 // Because resent chunks yield no samples, a timeout must back the RTO off
 // itself (otherwise a link that slows down could never raise it again).
 class RttEstimator {
 public:
   using duration = std::chrono::nanoseconds;
 
-  // RTT is clamped to min/max, min is naturally constrained by UI framerate
   static constexpr std::chrono::milliseconds MIN_RTO{10};
   static constexpr std::chrono::milliseconds MAX_RTO{200};
 
@@ -30,24 +34,26 @@ public:
       srttNs = 0.875 * srttNs + 0.125 * sample;
     }
     // a valid sample replaces any backed-off value
-    rtoValue = std::clamp<duration>(
-      duration((int64_t)(srttNs + 4.0 * rttvarNs)),
-      MIN_RTO,
-      MAX_RTO
-    );
+    backoffs = 0;
   }
 
   // doubles the RTO, up to MAX_RTO, until the next sample. call at most once
   // per resend pass in which a chunk timed out on its first send.
   void backoff() {
     std::lock_guard<std::mutex> lock(mutex);
-    rtoValue = std::min<duration>(rtoValue * 2, MAX_RTO);
+    if (backoffs < MAX_BACKOFFS) ++backoffs;
   }
 
-  // MAX_RTO until the first sample
-  duration rto() {
+  // MAX_RTO until the first sample. granularity: how often resends are checked
+  duration rto(duration granularity) {
     std::lock_guard<std::mutex> lock(mutex);
-    return rtoValue;
+    if (!hasSample) return MAX_RTO;
+    double base = srttNs + std::max((double)granularity.count(), 4.0 * rttvarNs);
+    return std::clamp<duration>(
+      duration((int64_t)(base * (double)(1 << backoffs))),
+      MIN_RTO,
+      MAX_RTO
+    );
   }
 
   // zero until the first sample
@@ -60,7 +66,7 @@ public:
     std::lock_guard<std::mutex> lock(mutex);
     hasSample = false;
     srttNs = rttvarNs = 0.0;
-    rtoValue = MAX_RTO;
+    backoffs = 0;
   }
 
 private:
@@ -68,5 +74,7 @@ private:
   bool hasSample{false};
   double srttNs{0.0};
   double rttvarNs{0.0};
-  duration rtoValue{MAX_RTO};
+  // MIN_RTO doubled this many times exceeds MAX_RTO
+  static constexpr int MAX_BACKOFFS = 5;
+  int backoffs{0};
 };

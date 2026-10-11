@@ -74,7 +74,7 @@ void ChunkedManager::prepare(const std::shared_ptr<ChunkedSend>& chunkedSend) {
   if (chunkedSends.count(key) != 0) return;
   chunkedSends.emplace(key, chunkedSend);
 
-  bool validSend = processChunked(chunkedSend, rtt.rto());
+  bool validSend = processChunked(chunkedSend, rtt.rto(tickInterval()));
   if (!validSend) chunkedSends.erase(key);
 }
 
@@ -104,7 +104,21 @@ void ChunkedManager::ack(int64_t id, int32_t sequenceId, int32_t chunkNum) {
 }
 
 void ChunkedManager::tick() {
-  std::chrono::nanoseconds rto = rtt.rto();
+  // resends are only checked here, so the frame interval bounds how
+  // precisely a timeout can fire. smoothed, and capped so a stall (e.g. a
+  // minimized window) doesn't inflate it
+  auto now = std::chrono::steady_clock::now();
+  if (lastTickAt.time_since_epoch().count() > 0) {
+    int64_t interval = std::min<std::chrono::nanoseconds>(
+      now - lastTickAt, MAX_TICK_INTERVAL
+    ).count();
+    int64_t smoothed = tickIntervalNs.load(std::memory_order_relaxed);
+    smoothed += (interval - smoothed) / 8;
+    tickIntervalNs.store(smoothed, std::memory_order_relaxed);
+  }
+  lastTickAt = now;
+
+  std::chrono::nanoseconds rto = rtt.rto(tickInterval());
   BENCH(
     if (rtt.srtt().count() > 0) {
       bench::sample("retry.srtt", rtt.srtt().count() / 1e6f);

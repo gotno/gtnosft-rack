@@ -47,12 +47,13 @@ bool ChunkedSend::ack(int32_t chunkNum, std::chrono::nanoseconds* rtt) {
 
   auto now = clock::now();
   // Queued with sendCount 1 may mean a resend is mid-send: ambiguous
-  if (rtt && chunk.state == ChunkState::Sent && chunk.sendCount == 1)
-    *rtt = now - chunk.lastSentAt;
+  if (chunk.state == ChunkState::Sent && chunk.sendCount == 1)
+    maxRtt = std::max(maxRtt, std::chrono::nanoseconds(now - chunk.lastSentAt));
 
   chunk.state = ChunkState::Acked;
   chunk.ackedAt = now;
   ++numAcked;
+  if (rtt && numAcked == numChunks && maxRtt.count() > 0) *rtt = maxRtt;
   BENCH(
     if (trace && numAcked == numChunks) trace->stamp(bench::Stage::AllAcked);
   )

@@ -63,8 +63,9 @@ struct ChunkedSend {
   BENCH(bench::TracePtr trace;)
 
   // false if the chunk was already acked (or doesn't exist).
-  // sets rtt if the chunk was sent exactly once, so the ack can't belong to
-  // a different copy (Karn's algorithm); leaves it alone otherwise.
+  // on the ack that completes the send, sets rtt to the slowest round trip
+  // among chunks sent exactly once, so their acks can't belong to a different
+  // copy (Karn's algorithm); leaves it alone otherwise.
   bool ack(int32_t chunkNum, std::chrono::nanoseconds* rtt = nullptr);
   bool acked(int32_t chunkNum);
 
@@ -93,6 +94,8 @@ private:
   std::mutex statusMutex;
   std::vector<ChunkStatus> chunks;
   int32_t numAcked{0};
+  // slowest Karn-valid round trip so far, reported when the send completes
+  std::chrono::nanoseconds maxRtt{0};
 
   bool validChunk(int32_t chunkNum);
 };

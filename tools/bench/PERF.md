@@ -19,6 +19,7 @@ remove that.
 | Request coalescing (→ `2deduped`) | A queued `/get/texture` with the same id and size is replaced by the newer sequence id; superseded requests get no reply. | request→first send −10% / −22%; `ctrl_step` p95 −37%. |
 | Action queue swap (→ `3qswap`) | `processActionQueue` swaps the queue out under the lock and runs the actions unlocked. | request→all acked −12% p50. Most of the gain is more coalescing. |
 | Prep worker (`6inline` vs `6worker`, same session) | Flip and QOI compression moved off the UI thread to one worker in `ChunkedManager`. The flip moved out of `renderPixels`, so `RenderResult` pixels are bottom-up. | `ctrl_step` −33% / −27% (5.2 → 3.5 ms); latency +2% / +4% (a single worker queues overlays one after another). |
+| Adaptive resend timeout (`9*_fixed_retry_drop` vs `9*_var_retry_drop`) | RTO from measured round trips instead of a fixed 200 ms (see Ack strategy). | With 1% loss, request→complete p95 233 → 49 ms locally, 247 → 76 ms on Wi-Fi. No-loss runs: ~0 needless resends. |
 
 Lesson: `4prepworker*` vs `3qswap` first looked like a +20% regression. The
 laptop had been unplugged, so the whole machine was throttled. Only trust A/B
@@ -71,9 +72,11 @@ with and without `--drop 0.01`; 3 overlays, ~20k acks/s):
 Decision: an adaptive resend timeout, with no protocol change
 (`RttEstimator`, after RFC 6298):
 
-- `rto = clamp(srtt + 4·rttvar, 10 ms, 200 ms)`, which is 200 ms until the
-  first sample. The UI tick only resends once per frame anyway.
-- Samples come only from chunks sent exactly once (Karn's algorithm).
+- `rto = clamp(srtt + max(G, 4·rttvar), 10 ms, 200 ms)`, which is 200 ms
+  until the first sample. `G` is the smoothed UI frame interval (each
+  interval capped at 100 ms), because resends are only checked once per frame.
+- One sample per send: the slowest round trip among its chunks that were
+  sent exactly once (Karn's algorithm), taken when the send completes.
 - Each resend doubles that chunk's timeout, capped at 200 ms. A chunk fails
   1.2 s after its first send, the same as the old 6 × 200 ms.
 - Any UI tick in which a chunk timed out on its first send doubles the
@@ -83,6 +86,31 @@ Decision: an adaptive resend timeout, with no protocol change
 - The estimator resets on `/register`.
 - `--fixed-retry` (`/bench/adaptive_retry 0`) restores the old behavior for
   A/B runs.
+
+First version (`8local_*`, `8remote_*`; per-chunk samples, no `G` term):
+
+- 1% drop: p95 request→complete fell from 233 to 43 ms locally and from 241
+  to 50 ms on Wi-Fi. Locally, retries were exactly the dropped 1%.
+- Wi-Fi with no drops: 8.5% of chunks resent needlessly, 18.6k duplicate
+  acks, about 20% more sending. SRTT was 9.9 ms but the RTO only 10.1 ms:
+  ~130 samples per frame arrive as one tight burst, so the variation collapsed
+  and left no margin for frame-to-frame jitter (SRTT p99 70 ms). Fixed with
+  one sample per send and the `G` term.
+
+Second version (`9local_*`, `9remote_*`, one Rack session; compare only
+within it, since the Wi-Fi round trip was slower than in run 8: SRTT ~12.5 vs
+~9 ms):
+
+- RTO about 20 ms locally and 30 ms on Wi-Fi.
+- Wi-Fi with no drops: 0.15% resent and 292 duplicate acks (was 8.5% and
+  18.6k); upstream packets -14%, sender busy -19%. Locally: 0 resends.
+- 1% drop, fixed → adaptive: p95 request→complete 233 → 49 ms locally and
+  247 → 76 ms on Wi-Fi, with resends equal to the dropped 1%.
+- Every frame with a drop backs the timeout off once (~500 backoffs per drop
+  run), which adds some recovery time. Acceptable for now; a possible
+  refinement is to back off only when many in-flight chunks time out at once.
+- The fixed-timeout Wi-Fi drop run again showed duplicate acks (168) and the
+  sender nearly twice as busy, as in `7ack_remote_drop`. Unexplained.
 
 Not done: NACKs plus a completion ack (would remove the upstream ack traffic
 and recover a little faster) and a window or pacing. Revisit if the real
