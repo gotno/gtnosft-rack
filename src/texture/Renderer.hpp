@@ -44,9 +44,9 @@ struct Recipe {
 
 struct RenderResult {
   // RGBA, rows bottom-up as read back from GL
-  uint8_t* pixels;
-  int width;
-  int height;
+  uint8_t* pixels{nullptr};
+  int width{0};
+  int height{0};
 
   RenderStatus status{RenderStatus::Unknown};
   std::string statusMessage{""};

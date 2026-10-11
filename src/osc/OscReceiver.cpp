@@ -389,9 +389,14 @@ void OscReceiver::generateRoutes() {
 
         RenderResult render = Catalog::pullTexture(textureId, recipe);
 
-        if (render.failure()) {
-          INFO("/get/texture %ld failed to render", textureId);
-          INFO("  %s", render.statusMessage.c_str());
+        if (!render.success()) {
+          if (render.empty()) {
+            // unknown texture id, or nothing to draw for this texture type
+            INFO("/get/texture %ld rendered nothing", textureId);
+          } else {
+            INFO("/get/texture %ld failed to render", textureId);
+            INFO("  %s", render.statusMessage.c_str());
+          }
           BENCH(trace->failed = true; bench::submit(*trace);)
           return;
         }
