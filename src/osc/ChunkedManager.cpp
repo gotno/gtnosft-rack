@@ -105,6 +105,12 @@ void ChunkedManager::ack(int64_t id, int32_t sequenceId, int32_t chunkNum) {
 
 void ChunkedManager::tick() {
   std::chrono::nanoseconds rto = rtt.rto();
+  BENCH(
+    if (rtt.srtt().count() > 0) {
+      bench::sample("retry.srtt", rtt.srtt().count() / 1e6f);
+      bench::sample("retry.rto", rto.count() / 1e6f);
+    }
+  )
 
   int32_t firstTimeouts = 0;
   {
@@ -122,6 +128,10 @@ void ChunkedManager::tick() {
   // one backoff per pass, like a single connection timer expiring
   if (firstTimeouts > 0) {
     rtt.backoff();
+    BENCH(
+      static bench::Tally& backoffs = bench::tally("retry.backoffs");
+      backoffs.add();
+    )
   }
 }
 

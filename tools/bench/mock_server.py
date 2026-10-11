@@ -26,7 +26,7 @@ from pythonosc.osc_packet import OscPacket
 
 CLIENT_PORT = 7746  # overlay_bench.py's listen port
 CHUNK = 1300
-TOGGLES = ("/bench/overlay_cache", "/bench/prep_worker")
+TOGGLES = ("/bench/overlay_cache", "/bench/prep_worker", "/bench/adaptive_retry")
 
 
 def msg(addr, *args):
@@ -99,6 +99,8 @@ def main():
                     stat("overlay.draw", 10, 1, .5, 1, 2, 3, 4),
                     stat("overlay.request_to_first_send", 10, 3, 2, 3, 4, 5, 6),
                     stat("frame.interval", 100, 16, 15, 16, 17, 20, 30),
+                    stat("retry.srtt", 100, 2, 1, 2, 3, 4, 5),
+                    stat("retry.rto", 100, 10, 10, 10, 12, 14, 15),
                     msg("/bench/counter", ("s", "overlay_cache.hit"), ("h", 10)),
                     # real counts, fake timings
                     msg("/bench/counter", ("s", "rx.acks"), ("h", acks)),

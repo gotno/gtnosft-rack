@@ -199,6 +199,19 @@ void OscReceiver::generateRoutes() {
         });
       }
     );
+
+    routes.emplace(
+      "/bench/adaptive_retry",
+      [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+        bool enabled = (args++)->AsInt32() != 0;
+        ctrl->enqueueAction([this, enabled]() {
+          chunkman->adaptiveRetry = enabled;
+          osctx->enqueueBundler(
+            new BenchToggleAckBundler("/bench/adaptive_retry", enabled)
+          );
+        });
+      }
+    );
   )
 
   routes.emplace(

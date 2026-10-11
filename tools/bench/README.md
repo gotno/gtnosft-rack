@@ -61,8 +61,9 @@ LFO with the Scope's inputs cabled. Open it in Rack and add an OSCctrl module.
 `--no-overlay-cache` turns off the overlay surrogate cache for that run, so
 every frame rebuilds its surrogate as it did before the cache existed.
 `--inline-prep` does the flip and compression on the UI thread instead of the
-prep worker thread. The client sets both states at the start of every run and
-turns them back on when the run finishes, so all variants can use the same
+prep worker thread. `--fixed-retry` resends unacked chunks after a fixed
+200 ms, as before the RTT-based timeout existed. The client sets all three
+states at the start of every run and turns them back on when the run finishes, so all variants can use the same
 `BENCH=1` build. Prefer comparing variants within one Rack session: power
 state (e.g. a laptop on battery) shifts every stage between sessions.
 
@@ -206,13 +207,18 @@ Other metrics:
     chunks already acked.
   - `tx.packets`: the socket send call on the sender thread.
   - `ui.chunk_tick`: `ChunkedManager::tick()` on the UI thread (resend scan).
+  - `retry.backoffs`: ticks in which a chunk timed out on its first send, so
+    the resend timeout was doubled (count only).
+- `retry.srtt` and `retry.rto` (ms, sampled once per UI frame): the smoothed
+  round trip and the resulting resend timeout. The estimator also runs with
+  `--fixed-retry`; the timeout just isn't used then.
 - Client transport counters for the stream: `client.chunk_packets/bytes`
   received, `client.acks_sent/ack_bytes`, and
   `client.sim_dropped_packets/acks`.
 - `transport.*` (derived, single values; `compare` shows them in the p50
   column): acks/s, acks per completed frame, µs per ack, receive-thread busy
-  %, send-call cost and sender busy %, chunk tick µs, chunks resent as % of
-  packets sent, downstream Mbit/s, and upstream (ack) kbit/s and packets/s.
+  %, send-call cost and sender busy %, chunk tick µs, smoothed RTT and resend
+  timeout (p50 over frames), chunks resent as % of packets sent, downstream Mbit/s, and upstream (ack) kbit/s and packets/s.
   Server rates use the server's report window; client rates use the client's
   stream time. Both include the drain.
 - Per-texture fps: completed sends over the report window.

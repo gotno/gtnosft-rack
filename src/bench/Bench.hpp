@@ -71,6 +71,9 @@ void stamp(Stage stage);
 void submit(const Trace& trace);
 
 void count(const std::string& name, int64_t delta = 1);
+// adds a value to the distribution `name` (takes the bench mutex: keep it
+// to about once per frame)
+void sample(const std::string& name, float value);
 // tracks current value and peak
 void gauge(const std::string& name, int64_t value);
 void recordFrame(double frameIntervalSec, double ctrlStepSec);

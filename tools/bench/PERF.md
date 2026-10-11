@@ -47,26 +47,47 @@ kept. #1, #2, #3a (the queue swap), #4, #5 and #8 are done (above).
 - **More than one prep worker.** Would remove the worker queue wait (`handoff`
   p95 about 0.5 ms with 3 overlays). Not worth it at 3 overlays.
 
-## Ack strategy (under evaluation)
+## Ack strategy
 
-Today each chunk is acked individually and resent individually after 200 ms
-(`ChunkedSend::RETRY_TIMEOUT`), with every chunk sent at once and no window.
-Considered: selective repeat with a sliding window and batched NACKs.
+Each chunk is acked individually and resent individually, with every chunk
+sent at once and no window. Considered: selective repeat with a sliding window
+and batched NACKs.
 
-On localhost (`win3x_6worker`) the wire accounts for about 2 ms of a 13.5 ms
-request→all-acked time, with 0 retries, so a protocol change would gain little
-there. Its potential wins are fewer acks (about 21k/s with 3 overlays, each a
-map lookup and two mutexes on the receive thread) and recovering from loss in
-one round trip instead of 200 ms. Both only matter on a lossy link.
+Measured (`7ack_local`, `7ack_remote` over Wi-Fi to a second machine, each
+with and without `--drop 0.01`; 3 overlays, ~20k acks/s):
 
-Preferred shape if the numbers justify it: no window, one completion ack per
-frame, a NACK bitmap for gaps, and one fallback timer per send on the server.
-Combine it with #6 so stale overlay frames aren't resent. Add a window or
-pacing only if burst drops show up.
+- Ack handling costs 0.16–0.27 µs per ack, with the receive thread under 1%
+  busy. Fewer acks would save nothing. Sending costs more: about 5 µs per
+  `sendto`, with the sender thread about 10% busy.
+- Wi-Fi carried 225 Mbit/s down and about 19.5k ack packets/s up with no real
+  loss. It adds about 8–10 ms of round trip.
+- With 1% loss, the fixed 200 ms resend timeout dominated. Mean
+  request→complete went from 14 to 112 ms locally and from 22 to 119 ms on
+  Wi-Fi. The 334-chunk overlay's p50 went to about 225 ms on both links,
+  because nearly every frame loses a chunk.
+- The Wi-Fi drop run also showed 385 duplicate acks and `sendto` cost doubling
+  (send_all p95 10 ms): probably link congestion in that one run.
 
-Tooling to decide: the `== transport ==` metrics (receive-thread busy %, acks
-per frame, resend %), `--drop`/`--drop-acks` loss simulation, and runs from a
-second machine over Wi-Fi. See README "Transport and loss".
+Decision: an adaptive resend timeout, with no protocol change
+(`RttEstimator`, after RFC 6298):
+
+- `rto = clamp(srtt + 4·rttvar, 10 ms, 200 ms)`, which is 200 ms until the
+  first sample. The UI tick only resends once per frame anyway.
+- Samples come only from chunks sent exactly once (Karn's algorithm).
+- Each resend doubles that chunk's timeout, capped at 200 ms. A chunk fails
+  1.2 s after its first send, the same as the old 6 × 200 ms.
+- Any UI tick in which a chunk timed out on its first send doubles the
+  estimator's timeout, until the next valid sample. Without this, a link that
+  got slower after the timeout reached its floor would leave it stuck: every
+  chunk would time out, so none would yield a sample (found in review).
+- The estimator resets on `/register`.
+- `--fixed-retry` (`/bench/adaptive_retry 0`) restores the old behavior for
+  A/B runs.
+
+Not done: NACKs plus a completion ack (would remove the upstream ack traffic
+and recover a little faster) and a window or pacing. Revisit if the real
+client shows loss or upstream trouble. Combine with #6 so stale overlay
+frames aren't resent.
 
 ## Known issues (not performance)
 

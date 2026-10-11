@@ -138,6 +138,11 @@ void count(const std::string& name, int64_t delta) {
   counters[name] += delta;
 }
 
+void sample(const std::string& name, float value) {
+  std::lock_guard<std::mutex> lock(mutex);
+  samples[name].push_back(value);
+}
+
 void gauge(const std::string& name, int64_t value) {
   std::lock_guard<std::mutex> lock(mutex);
   auto& [current, peak] = gauges[name];

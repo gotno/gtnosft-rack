@@ -37,7 +37,7 @@ left. These notes cover the workflow and the mistakes made before.
   like a regression. If stages a change didn't touch move too, suspect the
   environment before the code.
 - Tail latencies are only valid with the client running natively on Windows.
-  WSL's default UDP buffer cap causes chunk drops and 200 ms retries.
+  WSL's default UDP buffer cap causes chunk drops and retries.
 - The user's result files (`win3x_*.json`, gitignored) are the history of
   the optimization work. Leave them in place.
 

@@ -66,8 +66,13 @@ TRANSPORT_HEADLINE = [
     "transport.tx_busy_pct",
     "transport.chunk_tick_us",
     "transport.retry_pct",
+    "transport.rto_ms",
+    "transport.acks_duplicate",
     "transport.up_packets_per_sec",
 ]
+
+
+TOGGLE_ROUTES = ("/bench/overlay_cache", "/bench/prep_worker", "/bench/adaptive_retry")
 
 
 class BenchError(Exception):
@@ -287,7 +292,7 @@ class Client:
             self.module_state[p[0]] = {"texture_id": p[3]}
         elif a == "/bench/reset/ack":
             self.reset_ack = p[0]
-        elif a in ("/bench/overlay_cache/ack", "/bench/prep_worker/ack"):
+        elif a.endswith("/ack") and a[: -len("/ack")] in TOGGLE_ROUTES:
             self.toggle_acks[a[: -len("/ack")]] = bool(p[0])
         elif a == "/bench/report/begin":
             self.report_building = {
@@ -642,6 +647,9 @@ def transport_stats(streamed, client_counters, client_sec):
     frames = sum(t["completed"] for t in streamed["textures"])
     acks = c.get("rx.acks", 0)
     tx = c.get("tx.packets", 0)
+    def stat_p50(name):
+        return streamed["stats"].get(name, {}).get("p50")
+
     retries = sum(v for k, v in c.items() if k.endswith(".retries") and k.count(".") == 1)
     return {
         "acks_per_sec": acks / window,
@@ -655,6 +663,8 @@ def transport_stats(streamed, client_counters, client_sec):
         "tx_us": per_call_us("tx.packets"),
         "tx_busy_pct": busy_pct("tx.packets"),
         "chunk_tick_us": per_call_us("ui.chunk_tick"),
+        "srtt_ms": stat_p50("retry.srtt"),
+        "rto_ms": stat_p50("retry.rto"),
         "retries": retries,
         "retry_pct": retries / tx * 100 if tx else None,
         "down_mbps": client_counters["client.chunk_bytes"] * 8 / client_sec / 1e6,
@@ -714,6 +724,7 @@ def cmd_run(args):
         for route, enabled, name in (
             ("/bench/overlay_cache", args.overlay_cache, "overlay cache"),
             ("/bench/prep_worker", args.prep_worker, "prep worker"),
+            ("/bench/adaptive_retry", args.adaptive_retry, "adaptive retry"),
         ):
             if not enabled:
                 restore.append(route)
@@ -890,6 +901,8 @@ def print_result(r):
             ("send call, per packet", t["tx_us"], "us"),
             ("tx thread busy in send calls", t["tx_busy_pct"], "%"),
             ("chunk tick (UI thread), per frame", t["chunk_tick_us"], "us"),
+            ("smoothed RTT, p50 over frames", t.get("srtt_ms"), "ms"),
+            ("resend timeout, p50 over frames", t.get("rto_ms"), "ms"),
             ("chunks resent", t["retries"], ""),
             ("chunks resent, % of packets sent", t["retry_pct"], "%"),
             ("downstream", t["down_mbps"], "Mbit/s"),
@@ -955,6 +968,8 @@ def cmd_compare(args):
             notes.append("overlay cache off")
         if result.get("args", {}).get("prep_worker") is False:
             notes.append("inline prep")
+        if result.get("args", {}).get("adaptive_retry") is False:
+            notes.append("fixed 200 ms retry")
         for flag, what in (("drop", "chunks"), ("drop_acks", "acks")):
             rate = result.get("args", {}).get(flag)
             if rate:
@@ -1029,6 +1044,10 @@ def main():
     run.add_argument(
         "--inline-prep", dest="prep_worker", action="store_false",
         help="flip/compress on the UI thread instead of the prep worker",
+    )
+    run.add_argument(
+        "--fixed-retry", dest="adaptive_retry", action="store_false",
+        help="resend unacked chunks after a fixed 200 ms instead of an RTT-based timeout",
     )
     run.add_argument(
         "--drop", type=float, default=0.0, metavar="P",
