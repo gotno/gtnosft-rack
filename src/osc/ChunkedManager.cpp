@@ -74,7 +74,7 @@ void ChunkedManager::prepare(const std::shared_ptr<ChunkedSend>& chunkedSend) {
   if (chunkedSends.count(key) != 0) return;
   chunkedSends.emplace(key, chunkedSend);
 
-  bool validSend = processChunked(chunkedSend);
+  bool validSend = processChunked(chunkedSend, rtt.rto());
   if (!validSend) chunkedSends.erase(key);
 }
 
@@ -93,7 +93,9 @@ void ChunkedManager::ack(int64_t id, int32_t sequenceId, int32_t chunkNum) {
     }
     chunkedSend = it->second;
   }
-  bool accepted = chunkedSend->ack(chunkNum);
+  std::chrono::nanoseconds sample{0};
+  bool accepted = chunkedSend->ack(chunkNum, &sample);
+  if (sample.count() > 0) rtt.addSample(sample);
   BENCH(
     static bench::Tally& duplicate = bench::tally("rx.acks.duplicate");
     if (!accepted) duplicate.add();
@@ -102,31 +104,48 @@ void ChunkedManager::ack(int64_t id, int32_t sequenceId, int32_t chunkNum) {
 }
 
 void ChunkedManager::tick() {
-  std::lock_guard<std::mutex> locker(chunkedSendsMutex);
+  std::chrono::nanoseconds rto = rtt.rto();
 
-  for (auto it = chunkedSends.begin(); it != chunkedSends.end();) {
-    if (processChunked(it->second)) {
-      ++it;
-    } else {
-      it = chunkedSends.erase(it);
+  int32_t firstTimeouts = 0;
+  {
+    std::lock_guard<std::mutex> locker(chunkedSendsMutex);
+
+    for (auto it = chunkedSends.begin(); it != chunkedSends.end();) {
+      if (processChunked(it->second, rto, &firstTimeouts)) {
+        ++it;
+      } else {
+        it = chunkedSends.erase(it);
+      }
     }
+  }
+
+  // one backoff per pass, like a single connection timer expiring
+  if (firstTimeouts > 0) {
+    rtt.backoff();
   }
 }
 
 bool ChunkedManager::processChunked(
-  const std::shared_ptr<ChunkedSend>& chunkedSend
+  const std::shared_ptr<ChunkedSend>& chunkedSend,
+  std::chrono::nanoseconds rto,
+  int32_t* firstTimeouts
 ) {
   if (chunkedSend->sendFailed() || chunkedSend->sendSucceeded()) return false;
 
   std::vector<int32_t> dueChunkNums;
-  chunkedSend->takeChunksDue(dueChunkNums);
+  int32_t timedOut = chunkedSend->takeChunksDue(
+    dueChunkNums,
+    adaptiveRetry,
+    rto,
+    RttEstimator::MAX_RTO
+  );
+  if (firstTimeouts) *firstTimeouts += timedOut;
 
   if (chunkedSend->sendFailed()) {
     WARN(
-      "chunked send %lld-%d failed: chunk exceeded %d retries",
+      "chunked send %lld-%d failed: a chunk went unacked through all retries",
       (long long)chunkedSend->id,
-      chunkedSend->sequenceId,
-      (int)ChunkedSend::MAX_RETRIES
+      chunkedSend->sequenceId
     );
     return false;
   }

@@ -211,6 +211,7 @@ void OscReceiver::generateRoutes() {
       osctx->setDirect(ip);
       free(ip);
 
+      chunkman->resetRtt();
       subman->start();
 
       ctrl->enqueueAction([this]() {

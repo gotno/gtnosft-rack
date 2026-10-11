@@ -2,6 +2,8 @@
 
 #include "../Bundler/ChunkedSendBundler.hpp"
 
+#include <algorithm>
+
 ChunkedSend::ChunkedSend(uint8_t* _data, int64_t _size):
   id(idCounter++), data(_data), size(_size) {}
 
@@ -36,15 +38,20 @@ bool ChunkedSend::validChunk(int32_t chunkNum) {
   return chunkNum >= 0 && chunkNum < (int32_t)chunks.size();
 }
 
-bool ChunkedSend::ack(int32_t chunkNum) {
+bool ChunkedSend::ack(int32_t chunkNum, std::chrono::nanoseconds* rtt) {
   std::lock_guard<std::mutex> locker(statusMutex);
   if (!validChunk(chunkNum)) return false;
 
   ChunkStatus& chunk = chunks[chunkNum];
   if (chunk.state == ChunkState::Acked) return false;
 
+  auto now = clock::now();
+  // Queued with sendCount 1 may mean a resend is mid-send: ambiguous
+  if (rtt && chunk.state == ChunkState::Sent && chunk.sendCount == 1)
+    *rtt = now - chunk.lastSentAt;
+
   chunk.state = ChunkState::Acked;
-  chunk.ackedAt = clock::now();
+  chunk.ackedAt = now;
   ++numAcked;
   BENCH(
     if (trace && numAcked == numChunks) trace->stamp(bench::Stage::AllAcked);
@@ -57,17 +64,36 @@ bool ChunkedSend::acked(int32_t chunkNum) {
   return validChunk(chunkNum) && chunks[chunkNum].state == ChunkState::Acked;
 }
 
-void ChunkedSend::takeChunksDue(std::vector<int32_t>& chunkNums) {
+int32_t ChunkedSend::takeChunksDue(
+  std::vector<int32_t>& chunkNums,
+  bool adaptive,
+  std::chrono::nanoseconds rto,
+  std::chrono::nanoseconds maxRto
+) {
   std::lock_guard<std::mutex> locker(statusMutex);
+  auto now = clock::now();
+  int32_t firstTimeouts = 0;
 
   for (int32_t chunkNum = 0; chunkNum < (int32_t)chunks.size(); ++chunkNum) {
     ChunkStatus& chunk = chunks[chunkNum];
 
     if (chunk.state == ChunkState::Sent) {
-      if (clock::now() - chunk.lastSentAt < RETRY_TIMEOUT) continue;
-      if (chunk.sendCount > MAX_RETRIES) {
-        failed = true;
-        return;
+      if (adaptive) {
+        // exponential backoff per resend, so a stalled link isn't flooded
+        int doublings = std::min<int>(chunk.sendCount - 1, 5);
+        auto timeout = std::min(rto * (1 << doublings), maxRto);
+        if (now - chunk.lastSentAt < timeout) continue;
+        if (now - chunk.firstSentAt >= GIVE_UP_AFTER) {
+          failed = true;
+          return firstTimeouts;
+        }
+        if (chunk.sendCount == 1) ++firstTimeouts;
+      } else {
+        if (now - chunk.lastSentAt < RETRY_TIMEOUT) continue;
+        if (chunk.sendCount > MAX_RETRIES) {
+          failed = true;
+          return firstTimeouts;
+        }
       }
     } else if (chunk.state != ChunkState::Pending) {
       continue;
@@ -76,6 +102,8 @@ void ChunkedSend::takeChunksDue(std::vector<int32_t>& chunkNums) {
     chunk.state = ChunkState::Queued;
     chunkNums.push_back(chunkNum);
   }
+
+  return firstTimeouts;
 }
 
 void ChunkedSend::registerChunkSent(int32_t chunkNum) {

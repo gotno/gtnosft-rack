@@ -24,8 +24,14 @@ struct ChunkedSend {
   using clock = std::chrono::steady_clock;
   using time_point = clock::time_point;
 
+  // fixed timeout used when adaptive retry is off
   static constexpr std::chrono::milliseconds RETRY_TIMEOUT{200};
   static const uint8_t MAX_RETRIES = 5;
+  // adaptive retry gives up on a chunk unacked this long after its first send,
+  // matching the fixed timeout's 6 sends
+  static constexpr std::chrono::milliseconds GIVE_UP_AFTER{
+    RETRY_TIMEOUT * (MAX_RETRIES + 1)
+  };
 
   enum class ChunkState : uint8_t {
     Pending, // waiting to be enqueued
@@ -56,13 +62,24 @@ struct ChunkedSend {
   // written under statusMutex once the send is in flight
   BENCH(bench::TracePtr trace;)
 
-  // false if the chunk was already acked (or doesn't exist)
-  bool ack(int32_t chunkNum);
+  // false if the chunk was already acked (or doesn't exist).
+  // sets rtt if the chunk was sent exactly once, so the ack can't belong to
+  // a different copy (Karn's algorithm); leaves it alone otherwise.
+  bool ack(int32_t chunkNum, std::chrono::nanoseconds* rtt = nullptr);
   bool acked(int32_t chunkNum);
 
   // marks pending and timed-out chunks as queued and returns their numbers.
   // flags the send as failed if a chunk has exhausted its retries.
-  void takeChunksDue(std::vector<int32_t>& chunkNums);
+  // adaptive: a chunk is due after rto, doubling with each resend up to
+  // maxRto, and fails after GIVE_UP_AFTER. otherwise: fixed RETRY_TIMEOUT
+  // and MAX_RETRIES. returns how many chunks timed out on their first send
+  // (adaptive only), for estimator backoff.
+  int32_t takeChunksDue(
+    std::vector<int32_t>& chunkNums,
+    bool adaptive,
+    std::chrono::nanoseconds rto,
+    std::chrono::nanoseconds maxRto
+  );
   void registerChunkSent(int32_t chunkNum);
   // safeguard to prevent chunks getting stuck
   void registerChunkDropped(int32_t chunkNum);
