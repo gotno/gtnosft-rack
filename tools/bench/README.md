@@ -77,7 +77,7 @@ A run goes through these steps:
 5. Warm up (`--warmup`, 1 s).
 6. Reset the stats again.
 7. Stream overlay requests (`--rate` fps open loop, default 60, or `--rate 0`
-   for closed loop; `--duration` 10 s).
+   for closed loop, or scheduled with `--max-in-flight`; `--duration` 10 s).
 8. Drain, then print and save the report.
 
 ### Several overlays at once
@@ -94,6 +94,14 @@ overlay streams at the same time:
   each tick.
 - With `--rate 0`, each overlay requests its next frame as soon as its own
   previous frame finishes.
+- `--max-in-flight N` schedules requests the way the headset client does.
+  An overlay may request again once the first chunk of its newest frame has
+  arrived (or `--timeout` passed) and `1/--rate` has passed since its last
+  request (`--rate 0` removes that cap). At most `N` requests may be waiting
+  for their first chunk at once. Free slots go to the overlays that have
+  waited longest since their last request. Requests are never coalesced in
+  this mode, and `client.request_to_first_chunk` is the latency the headset
+  client adapts from.
 
 The run prints a per-overlay table of fps and latency. `client.fps` is the
 average per overlay, so you can compare runs with different overlay counts, and

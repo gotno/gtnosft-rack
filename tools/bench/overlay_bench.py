@@ -478,17 +478,47 @@ def wsl_default_gateway():
     return None
 
 
-def stream(client, texture_ids, size_args, rate, duration, timeout):
+def stream(client, texture_ids, size_args, rate, duration, timeout, max_in_flight=0):
     """Request frames of every texture for `duration` seconds. `rate` is per
     texture; open loop requests all textures together on each tick. rate=0 is
     closed loop: each texture requests its next frame as soon as its previous
     one completes (or times out), independently of the others.
+
+    max_in_flight > 0 schedules requests the way the headset client does: a
+    texture may request again once the first chunk of its newest frame has
+    arrived (or it timed out) and 1/rate has passed since its last request
+    (no interval if rate=0). At most `max_in_flight` requests may be waiting
+    for their first chunk at once; free slots go to the textures that have
+    waited longest since their last request.
     Returns {texture_id: [Frame, ...]}."""
     seqs = {tid: random.randint(1, 1_000_000_000) for tid in texture_ids}
     first_seqs = dict(seqs)
     end = time.perf_counter() + duration
 
-    if rate > 0:
+    if max_in_flight > 0:
+        interval = 1.0 / rate if rate > 0 else 0.0
+        newest = {}  # texture_id -> (key, requested_at)
+        while (now := time.perf_counter()) < end:
+            with client.cond:
+                waiting = {
+                    tid
+                    for tid, (key, requested_at) in newest.items()
+                    if client.frames[key].first_chunk_at is None
+                    and now - requested_at < timeout
+                }
+            ready = [
+                tid
+                for tid in texture_ids
+                if tid not in waiting
+                and (tid not in newest or now - newest[tid][1] >= interval)
+            ]
+            ready.sort(key=lambda tid: newest[tid][1] if tid in newest else -math.inf)
+            for tid in ready[: max_in_flight - len(waiting)]:
+                client.request_texture(tid, seqs[tid], size_args)
+                newest[tid] = ((tid, seqs[tid]), now)
+                seqs[tid] += 1
+            time.sleep(0.0005)
+    elif rate > 0:
         interval = 1.0 / rate
         next_at = time.perf_counter()
         while (now := time.perf_counter()) < end:
@@ -750,16 +780,29 @@ def cmd_run(args):
 
         if args.warmup > 0:
             print(f"warmup: streaming for {args.warmup:.1f}s...")
-            stream(client, texture_ids, size_args, args.rate, args.warmup, args.timeout)
+            stream(
+                client, texture_ids, size_args, args.rate, args.warmup, args.timeout,
+                args.max_in_flight,
+            )
 
-        mode = f"{args.rate:g} fps open loop" if args.rate > 0 else "closed loop"
+        if args.max_in_flight > 0:
+            mode = f"max {args.max_in_flight} in flight"
+            if args.rate > 0:
+                mode += f", up to {args.rate:g} fps per overlay"
+        elif args.rate > 0:
+            mode = f"{args.rate:g} fps open loop"
+        else:
+            mode = "closed loop"
         count = f"{len(targets)} overlays, " if len(targets) > 1 else ""
         print(f"stream: {count}{mode} for {args.duration:.1f}s...")
         client.bench_reset()
         drops_before = udp_socket_drops(CLIENT_PORT)
         transport_before = client.transport_snapshot()
         stream_start = time.perf_counter()
-        frames = stream(client, texture_ids, size_args, args.rate, args.duration, args.timeout)
+        frames = stream(
+            client, texture_ids, size_args, args.rate, args.duration, args.timeout,
+            args.max_in_flight,
+        )
         stream_sec = time.perf_counter() - stream_start
         transport_after = client.transport_snapshot()
         drops_after = udp_socket_drops(CLIENT_PORT)
@@ -970,6 +1013,8 @@ def cmd_compare(args):
             notes.append("inline prep")
         if result.get("args", {}).get("adaptive_retry") is False:
             notes.append("fixed 200 ms retry")
+        if result.get("args", {}).get("max_in_flight"):
+            notes.append(f"max {result['args']['max_in_flight']} in flight")
         for flag, what in (("drop", "chunks"), ("drop_acks", "acks")):
             rate = result.get("args", {}).get(flag)
             if rate:
@@ -1033,6 +1078,13 @@ def main():
     size.add_argument("--scale", type=float, help="render scale instead of height")
     run.add_argument("--width", type=int, help="render width in px (with --height)")
     run.add_argument("--rate", type=float, default=60, help="requests/sec; 0 = closed loop")
+    run.add_argument(
+        "--max-in-flight",
+        type=int,
+        default=0,
+        help="schedule like the headset client: at most N requests awaiting their "
+        "first chunk; --rate caps each overlay (0 = no cap). 0 = off",
+    )
     run.add_argument("--duration", type=float, default=10, help="measured stream seconds")
     run.add_argument("--idle", type=float, default=3, help="idle baseline seconds")
     run.add_argument("--warmup", type=float, default=1, help="unmeasured stream seconds")
