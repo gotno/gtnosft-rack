@@ -30,15 +30,20 @@ comparisons from the same session (see `AGENTS.md`).
 Numbers like #6 are item numbers from the original 10-item audit, which wasn't
 kept. #1, #2, #3a (the queue swap), #4, #5 and #8 are done (above).
 
+- **Hold back renders while the send queue is backed up.** If the send
+  backlog is more than about a frame deep, leave texture requests queued;
+  coalescing absorbs them. This is the server-side safety net against the
+  open-loop collapse (see Scaling). Highest priority on the server.
+- **Supersede stale in-flight sends (#6).** When a newer frame of the same
+  texture is ready, drop the older frame's unsent chunks and stop resending
+  it. Matters under send backlog (see Scaling), not just loss.
 - **Per-frame budget for the action queue (3b).** Always run at least one
   action, then stop when the frame's time remaining drops below a threshold,
   as `FramebufferWidget` does with `getFrameDurationRemaining()`. `step()`
   runs early in the frame, so Rack's own `-1/60` threshold is too loose.
   Leftovers go back to the front of the queue, and deferred texture requests
-  keep coalescing. It only shows a benefit under bursts, so it needs a burst
-  mode in the client. Deferred by the user.
-- **Supersede stale in-flight sends (#6).** Only helps when chunks are lost or
-  the client is slow; Windows tails are already about 30 ms.
+  keep coalescing. Only matters above ~12–16 renders per frame, which the
+  client's in-flight cap already prevents; low priority.
 - **Skip unchanged frames (#7).** Hash after readback and reply "unchanged"
   instead of compressing and sending again. Needs a protocol change. Measure
   how often frames are identical first.
@@ -116,3 +121,58 @@ Not done: NACKs plus a completion ack (would remove the upstream ack traffic
 and recover a little faster) and a window or pacing. Revisit if the real
 client shows loss or upstream trouble. Combine with #6 so stale overlay
 frames aren't resent.
+
+## Scaling: many overlays and the in-flight cap
+
+`8x_remote`: 8 overlays (6 Scopes, Tangle, Bloom) at 60 fps open loop over
+Wi-Fi.
+
+- Rack ran at ~54 fps in this patch even while idle, and each texture renders
+  at most once per frame. A 60 Hz client therefore always gets some requests
+  coalesced: 27% were superseded, and each overlay averaged 43.5 fps.
+- UI-thread cost scales linearly with the number of renders per frame:
+  `ctrl_step` was 8.7 ms p50 for about 6.4 renders per frame (3.6 ms with 3
+  overlays). Rack's own frame time didn't change.
+- Per-overlay fps fell in request order (48 → 38). The client sends all 8
+  requests together, and when a frame starts in the middle of that burst, the
+  later overlays wait a frame and get coalesced. The 3-overlay runs show it
+  too. Pacing on the client (the in-flight cap) removes it.
+- 100 Mbps down; 0.57% resends, all of them unnecessary.
+
+`16x_*`: 16 Scopes, one Rack session. `--max-in-flight N` schedules requests
+like the headset client (see `README.md`). Wi-Fi runs use the default
+`--rate 60` as a per-overlay limit.
+
+| Run | fps per overlay | Total fps | Rack fps | `ctrl_step` p50 / p95 (ms) | Request→first chunk p50 / p95 (ms) | Mbps down | Resent |
+|---|---|---|---|---|---|---|---|
+| `local_mif16_rate0` | 54.0 | 857 | 54.8 | 8.7 / 10.5 | 15.7 / 29 | 280 | 0.23% |
+| `remote_mif2` | 6.7 | 108 | 55.4 | 2.2 / 3.2 | 16.2 / 30.5 | 35 | 0% |
+| `remote_mif4` | 12.9 | 206 | 58.1 | 3.1 / 4.3 | 16.8 / 31 | 67 | 0.19% |
+| `remote_mif8` | 21.2 | 336 | 59.0 | 3.9 / 6.1 | 21.1 / 41 | 110 | 0.27% |
+| `remote_mif16` | 34.0 | 537 | 58.9 | 5.3 / 8.9 | 26.7 / 48.5 | 175 | 0.41% |
+| `remote_open` | 38.1 | 600 | 57.2 | 7.4 / 10.5 | 1072 / 2425 | 256 | 24% |
+
+- **Open loop over Wi-Fi collapsed.** `send_queue` was ~1 s p50 and 2.4 s
+  p95, and the sender thread was busy 76% of the time. SRTT p95 reached 171 ms
+  as acks queued up on the Wi-Fi link, so 58k resends fired; every one was a
+  duplicate. Nothing pushes back on the sender: coalescing only happens before
+  rendering, so Rack kept rendering ~650 frames/s into a link that couldn't
+  carry them. 8 overlays open loop (100 Mbps) was fine; somewhere between
+  ~175 and ~250 Mbps this link stopped keeping up.
+- **The in-flight cap prevents that.** A request waits for its first chunk,
+  and a backed-up send queue delays that first chunk, so the client slows
+  down on its own. Fairness across overlays was even.
+- **Each slot handles about one request per request→first-chunk time**
+  (total fps per slot: 54, 51, 42, 34 as N rises). The wait for the next UI
+  frame stayed at ~9–11 ms, but the network's share grew from ~6.5 ms to
+  ~15 ms with load. Latency-based adaptation on the client sees a clear
+  signal, but from the network, not from deferred frames.
+- **UI threshold.** 16 renders per frame (local) took 8.7 ms of `ctrl_step`
+  and pulled Rack from 60 to ~55 fps (`frame.interval` p95 17 → 29 ms). With
+  the cap, Rack stayed at ~59 fps over Wi-Fi. A UI frame budget only matters
+  above ~12–16 renders per frame.
+- `render_total` was higher at low load (0.91 ms at N=2 vs 0.48 ms at N=16),
+  probably because the GPU clocks down when lightly loaded.
+
+Conclusions: the client needs the in-flight cap (4–8 on Wi-Fi). On the
+server, a safety net should watch the send backlog rather than UI time.
