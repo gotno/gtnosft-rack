@@ -26,7 +26,9 @@ from pythonosc.osc_packet import OscPacket
 
 CLIENT_PORT = 7746  # overlay_bench.py's listen port
 CHUNK = 1300
-TOGGLES = ("/bench/overlay_cache", "/bench/prep_worker", "/bench/adaptive_retry")
+TOGGLES = (
+    "/bench/overlay_cache", "/bench/prep_worker", "/bench/adaptive_retry", "/bench/back_pressure",
+)
 
 
 def msg(addr, *args):

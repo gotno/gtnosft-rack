@@ -62,8 +62,10 @@ LFO with the Scope's inputs cabled. Open it in Rack and add an OSCctrl module.
 every frame rebuilds its surrogate as it did before the cache existed.
 `--inline-prep` does the flip and compression on the UI thread instead of the
 prep worker thread. `--fixed-retry` resends unacked chunks after a fixed
-200 ms, as before the RTT-based timeout existed. The client sets all three
-states at the start of every run and turns them back on when the run finishes, so all variants can use the same
+200 ms, as before the RTT-based timeout existed. `--no-back-pressure` renders
+texture requests even while the server's prep and send queues hold more than
+a UI frame of work (by default they wait and keep coalescing). The client
+sets all four states at the start of every run and turns them back on when the run finishes, so all variants can use the same
 `BENCH=1` build. Prefer comparing variants within one Rack session: power
 state (e.g. a laptop on battery) shifts every stage between sessions.
 
@@ -199,6 +201,9 @@ Other metrics:
   - `texture_requests.coalesced` (server): requests merged into an
     already-queued request for the same texture id and size. Only the newest
     sequence id is rendered and sent; older ones get no reply.
+  - `texture_requests.deferred` (server): frames a texture request waited
+    because the prep and send queues held more than a UI frame of work. One
+    request waiting three frames counts three.
   - `client.superseded`: requests that got no reply because the server
     coalesced them (a later frame of the same overlay arrived instead).
   - `client.incomplete` (frames that timed out)
@@ -221,13 +226,17 @@ Other metrics:
   round trip (one sample per completed send: its slowest chunk) and the
   resulting resend timeout. The estimator also runs with
   `--fixed-retry`; the timeout just isn't used then.
+- `pipeline.backlog` (ms, sampled once per UI frame): estimated time to drain
+  the prep and send queues (queued items × smoothed time per item). Texture
+  renders wait while it exceeds the UI frame interval.
 - Client transport counters for the stream: `client.chunk_packets/bytes`
   received, `client.acks_sent/ack_bytes`, and
   `client.sim_dropped_packets/acks`.
 - `transport.*` (derived, single values; `compare` shows them in the p50
   column): acks/s, acks per completed frame, µs per ack, receive-thread busy
   %, send-call cost and sender busy %, chunk tick µs, smoothed RTT and resend
-  timeout (p50 over frames), chunks resent as % of packets sent, downstream Mbit/s, and upstream (ack) kbit/s and packets/s.
+  timeout (p50 over frames), `pipeline.backlog` p95, deferred request-frames,
+  chunks resent as % of packets sent, downstream Mbit/s, and upstream (ack) kbit/s and packets/s.
   Server rates use the server's report window; client rates use the client's
   stream time. Both include the drain.
 - Per-texture fps: completed sends over the report window.

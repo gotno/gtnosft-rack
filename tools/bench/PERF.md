@@ -30,10 +30,12 @@ comparisons from the same session (see `AGENTS.md`).
 Numbers like #6 are item numbers from the original 10-item audit, which wasn't
 kept. #1, #2, #3a (the queue swap), #4, #5 and #8 are done (above).
 
-- **Hold back renders while the send queue is backed up.** If the send
-  backlog is more than about a frame deep, leave texture requests queued;
-  coalescing absorbs them. This is the server-side safety net against the
-  open-loop collapse (see Scaling). Highest priority on the server.
+- **Hold back renders while the send queue is backed up.** Implemented, not
+  yet measured: while the prep and send queues hold more than a UI frame of
+  work (queued items × smoothed time per item), `/get/texture` requests wait
+  in the action queue and keep coalescing. Off with `--no-back-pressure`.
+  This is the server-side safety net against the open-loop collapse (see
+  Scaling).
 - **Supersede stale in-flight sends (#6).** When a newer frame of the same
   texture is ready, drop the older frame's unsent chunks and stop resending
   it. Matters under send backlog (see Scaling), not just loss.

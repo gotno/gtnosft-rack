@@ -23,7 +23,8 @@ left. These notes cover the workflow and the mistakes made before.
   Spans are pairs of stages in `bench::submit` (`src/bench/Bench.cpp`). If
   you add, rename or move a stage or span, update `STAGES`/`HEADLINE` in
   `overlay_bench.py` and the metrics table in `README.md`.
-- A/B toggles (`/bench/overlay_cache`, `/bench/prep_worker`) take an int,
+- A/B toggles (`/bench/overlay_cache`, `/bench/prep_worker`,
+  `/bench/adaptive_retry`, `/bench/back_pressure`) take an int,
   apply on the UI thread through an action, and reply on `<route>/ack` with
   `BenchToggleAckBundler`. The client sets each toggle at the start of a run,
   turns it back on at the end, and records it in the result's `args`. Add new

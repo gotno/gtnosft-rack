@@ -67,12 +67,16 @@ TRANSPORT_HEADLINE = [
     "transport.chunk_tick_us",
     "transport.retry_pct",
     "transport.rto_ms",
+    "transport.backlog_p95_ms",
+    "transport.deferred",
     "transport.acks_duplicate",
     "transport.up_packets_per_sec",
 ]
 
 
-TOGGLE_ROUTES = ("/bench/overlay_cache", "/bench/prep_worker", "/bench/adaptive_retry")
+TOGGLE_ROUTES = (
+    "/bench/overlay_cache", "/bench/prep_worker", "/bench/adaptive_retry", "/bench/back_pressure",
+)
 
 
 class BenchError(Exception):
@@ -695,6 +699,8 @@ def transport_stats(streamed, client_counters, client_sec):
         "chunk_tick_us": per_call_us("ui.chunk_tick"),
         "srtt_ms": stat_p50("retry.srtt"),
         "rto_ms": stat_p50("retry.rto"),
+        "backlog_p95_ms": streamed["stats"].get("pipeline.backlog", {}).get("p95"),
+        "deferred": c.get("texture_requests.deferred", 0),
         "retries": retries,
         "retry_pct": retries / tx * 100 if tx else None,
         "down_mbps": client_counters["client.chunk_bytes"] * 8 / client_sec / 1e6,
@@ -755,6 +761,7 @@ def cmd_run(args):
             ("/bench/overlay_cache", args.overlay_cache, "overlay cache"),
             ("/bench/prep_worker", args.prep_worker, "prep worker"),
             ("/bench/adaptive_retry", args.adaptive_retry, "adaptive retry"),
+            ("/bench/back_pressure", args.back_pressure, "back pressure"),
         ):
             if not enabled:
                 restore.append(route)
@@ -1013,6 +1020,8 @@ def cmd_compare(args):
             notes.append("inline prep")
         if result.get("args", {}).get("adaptive_retry") is False:
             notes.append("fixed 200 ms retry")
+        if result.get("args", {}).get("back_pressure") is False:
+            notes.append("no back pressure")
         if result.get("args", {}).get("max_in_flight"):
             notes.append(f"max {result['args']['max_in_flight']} in flight")
         for flag, what in (("drop", "chunks"), ("drop_acks", "acks")):
@@ -1100,6 +1109,10 @@ def main():
     run.add_argument(
         "--fixed-retry", dest="adaptive_retry", action="store_false",
         help="resend unacked chunks after a fixed 200 ms instead of an RTT-based timeout",
+    )
+    run.add_argument(
+        "--no-back-pressure", dest="back_pressure", action="store_false",
+        help="render texture requests even while the server's send pipeline is backed up",
     )
     run.add_argument(
         "--drop", type=float, default=0.0, metavar="P",
