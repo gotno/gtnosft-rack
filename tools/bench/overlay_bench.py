@@ -69,6 +69,7 @@ TRANSPORT_HEADLINE = [
     "transport.rto_ms",
     "transport.backlog_p95_ms",
     "transport.deferred",
+    "transport.sends_superseded",
     "transport.acks_duplicate",
     "transport.up_packets_per_sec",
 ]
@@ -76,6 +77,7 @@ TRANSPORT_HEADLINE = [
 
 TOGGLE_ROUTES = (
     "/bench/overlay_cache", "/bench/prep_worker", "/bench/adaptive_retry", "/bench/back_pressure",
+    "/bench/supersede",
 )
 
 
@@ -482,7 +484,10 @@ def wsl_default_gateway():
     return None
 
 
-def stream(client, texture_ids, size_args, rate, duration, timeout, max_in_flight=0):
+def stream(
+    client, texture_ids, size_args, rate, duration, timeout, max_in_flight=0,
+    supersede=True,
+):
     """Request frames of every texture for `duration` seconds. `rate` is per
     texture; open loop requests all textures together on each tick. rate=0 is
     closed loop: each texture requests its next frame as soon as its previous
@@ -494,6 +499,9 @@ def stream(client, texture_ids, size_args, rate, duration, timeout, max_in_fligh
     (no interval if rate=0). At most `max_in_flight` requests may be waiting
     for their first chunk at once; free slots go to the textures that have
     waited longest since their last request.
+
+    supersede: the server stops sending a frame once a newer frame of the same
+    texture is ready, so frames left partial count as superseded too.
     Returns {texture_id: [Frame, ...]}."""
     seqs = {tid: random.randint(1, 1_000_000_000) for tid in texture_ids}
     first_seqs = dict(seqs)
@@ -555,7 +563,7 @@ def stream(client, texture_ids, size_args, rate, duration, timeout, max_in_fligh
         return [client.frames[(tid, s)] for s in range(first_seqs[tid], seqs[tid])]
 
     def settled():
-        mark_superseded([frames_of(tid) for tid in texture_ids])
+        mark_superseded([frames_of(tid) for tid in texture_ids], supersede)
         return all(
             f.completed_at is not None or f.superseded
             for tid in texture_ids
@@ -569,17 +577,24 @@ def stream(client, texture_ids, size_args, rate, duration, timeout, max_in_fligh
         return {tid: frames_of(tid) for tid in texture_ids}
 
 
-def mark_superseded(frame_lists):
+def mark_superseded(frame_lists, partial=False):
     """The server coalesces queued requests for the same texture and size into
     the newest one and never answers the older sequence ids. A frame that got
-    nothing while a later frame of the same texture did was superseded."""
+    nothing while a later frame of the same texture did was superseded.
+    partial: the server also stops sending a frame when a newer one is ready
+    (/bench/supersede), so an unfinished frame followed by an answered one was
+    superseded too."""
     for frames in frame_lists:
         answered = False
         for frame in reversed(frames):  # ascending seq order
+            if (
+                frame.completed_at is None
+                and answered
+                and (partial or frame.first_chunk_at is None)
+            ):
+                frame.superseded = True
             if frame.first_chunk_at is not None:
                 answered = True
-            elif answered:
-                frame.superseded = True
 
 
 def summarize(values):
@@ -644,7 +659,9 @@ def client_stats(frames_by_texture, duration):
         "counters": {
             "client.requested": len(frames),
             "client.completed": len(done),
-            "client.superseded": sum(1 for f in frames if f.superseded),
+            "client.superseded": sum(
+                1 for f in frames if f.superseded and f.completed_at is None
+            ),
             "client.incomplete": sum(
                 1 for f in frames if f.completed_at is None and not f.superseded
             ),
@@ -701,6 +718,7 @@ def transport_stats(streamed, client_counters, client_sec):
         "rto_ms": stat_p50("retry.rto"),
         "backlog_p95_ms": streamed["stats"].get("pipeline.backlog", {}).get("p95"),
         "deferred": c.get("texture_requests.deferred", 0),
+        "sends_superseded": c.get("chunked.superseded", 0),
         "retries": retries,
         "retry_pct": retries / tx * 100 if tx else None,
         "down_mbps": client_counters["client.chunk_bytes"] * 8 / client_sec / 1e6,
@@ -762,6 +780,7 @@ def cmd_run(args):
             ("/bench/prep_worker", args.prep_worker, "prep worker"),
             ("/bench/adaptive_retry", args.adaptive_retry, "adaptive retry"),
             ("/bench/back_pressure", args.back_pressure, "back pressure"),
+            ("/bench/supersede", args.supersede, "supersede"),
         ):
             if not enabled:
                 restore.append(route)
@@ -789,7 +808,7 @@ def cmd_run(args):
             print(f"warmup: streaming for {args.warmup:.1f}s...")
             stream(
                 client, texture_ids, size_args, args.rate, args.warmup, args.timeout,
-                args.max_in_flight,
+                args.max_in_flight, args.supersede,
             )
 
         if args.max_in_flight > 0:
@@ -808,7 +827,7 @@ def cmd_run(args):
         stream_start = time.perf_counter()
         frames = stream(
             client, texture_ids, size_args, args.rate, args.duration, args.timeout,
-            args.max_in_flight,
+            args.max_in_flight, args.supersede,
         )
         stream_sec = time.perf_counter() - stream_start
         transport_after = client.transport_snapshot()
@@ -1022,6 +1041,8 @@ def cmd_compare(args):
             notes.append("fixed 200 ms retry")
         if result.get("args", {}).get("back_pressure") is False:
             notes.append("no back pressure")
+        if result.get("args", {}).get("supersede") is False:
+            notes.append("no supersede")
         if result.get("args", {}).get("max_in_flight"):
             notes.append(f"max {result['args']['max_in_flight']} in flight")
         for flag, what in (("drop", "chunks"), ("drop_acks", "acks")):
@@ -1113,6 +1134,10 @@ def main():
     run.add_argument(
         "--no-back-pressure", dest="back_pressure", action="store_false",
         help="render texture requests even while the server's send pipeline is backed up",
+    )
+    run.add_argument(
+        "--no-supersede", dest="supersede", action="store_false",
+        help="keep sending older frames after a newer frame of the same texture is ready",
     )
     run.add_argument(
         "--drop", type=float, default=0.0, metavar="P",

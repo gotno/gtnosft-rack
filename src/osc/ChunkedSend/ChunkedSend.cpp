@@ -27,7 +27,10 @@ ChunkedSend::~ChunkedSend() {
   // logCompletionDuration();
   BENCH(
     if (trace) {
-      if (!sendSucceeded()) trace->failed = true;
+      if (!sendSucceeded()) {
+        if (superseded) trace->superseded = true;
+        else trace->failed = true;
+      }
       bench::submit(*trace);
     }
   )

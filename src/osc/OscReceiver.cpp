@@ -286,6 +286,19 @@ void OscReceiver::generateRoutes() {
         });
       }
     );
+
+    routes.emplace(
+      "/bench/supersede",
+      [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+        bool enabled = (args++)->AsInt32() != 0;
+        ctrl->enqueueAction([this, enabled]() {
+          chunkman->supersede = enabled;
+          osctx->enqueueBundler(
+            new BenchToggleAckBundler("/bench/supersede", enabled)
+          );
+        });
+      }
+    );
   )
 
   routes.emplace(

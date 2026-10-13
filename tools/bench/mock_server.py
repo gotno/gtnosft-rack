@@ -28,6 +28,7 @@ CLIENT_PORT = 7746  # overlay_bench.py's listen port
 CHUNK = 1300
 TOGGLES = (
     "/bench/overlay_cache", "/bench/prep_worker", "/bench/adaptive_retry", "/bench/back_pressure",
+    "/bench/supersede",
 )
 
 

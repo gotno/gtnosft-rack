@@ -7,6 +7,8 @@
 
 #include <atomic>
 #include <mutex>
+#include <optional>
+#include <tuple>
 #include <vector>
 #include <chrono>
 
@@ -49,8 +51,17 @@ struct ChunkedSend {
   };
 
   std::atomic<bool> failed{false};
+  // a newer send of the same image replaced this one: stop sending it
+  std::atomic<bool> superseded{false};
   bool sendFailed();
   bool sendSucceeded();
+
+  // sends with equal keys carry frames of the same image (texture id and
+  // size). a newer one supersedes the older. nullopt: never superseded
+  using SupersedeKey = std::tuple<int64_t, int32_t, int32_t>;
+  virtual std::optional<SupersedeKey> supersedeKey() const {
+    return std::nullopt;
+  }
 
   int64_t id;
   int32_t sequenceId{-1};

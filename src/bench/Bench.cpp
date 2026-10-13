@@ -90,7 +90,9 @@ void submit(const Trace& trace) {
   std::string kind = kindOf(trace);
 
   counters[kind + ".requests"] += 1;
-  counters[kind + (completed ? ".completed" : ".failed")] += 1;
+  counters[kind + (
+    completed ? ".completed" : trace.superseded ? ".superseded" : ".failed"
+  )] += 1;
   counters[kind + ".retries"] += trace.retries;
   counters[kind + ".rerenders"] += trace.rerenders;
 

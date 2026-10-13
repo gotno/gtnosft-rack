@@ -64,8 +64,9 @@ every frame rebuilds its surrogate as it did before the cache existed.
 prep worker thread. `--fixed-retry` resends unacked chunks after a fixed
 200 ms, as before the RTT-based timeout existed. `--no-back-pressure` renders
 texture requests even while the server's prep and send queues hold more than
-a UI frame of work (by default they wait and keep coalescing). The client
-sets all four states at the start of every run and turns them back on when the run finishes, so all variants can use the same
+a UI frame of work (by default they wait and keep coalescing).
+`--no-supersede` keeps sending (and resending) an older frame after a newer
+frame of the same texture and size is ready. The client sets all five states at the start of every run and turns them back on when the run finishes, so all variants can use the same
 `BENCH=1` build. Prefer comparing variants within one Rack session: power
 state (e.g. a laptop on battery) shifts every stage between sessions.
 
@@ -197,15 +198,20 @@ Other metrics:
 - `client.*`: latencies measured by the client. These include the network.
 - Counters:
   - `overlay_cache.hit/miss/evict_*`
-  - per-kind `requests/completed/failed/retries/rerenders`
+  - per-kind `requests/completed/failed/superseded/retries/rerenders`
+    (`superseded`: sends stopped for a newer frame of the same image)
   - `texture_requests.coalesced` (server): requests merged into an
     already-queued request for the same texture id and size. Only the newest
     sequence id is rendered and sent; older ones get no reply.
   - `texture_requests.deferred` (server): frames a texture request waited
     because the prep and send queues held more than a UI frame of work. One
     request waiting three frames counts three.
-  - `client.superseded`: requests that got no reply because the server
-    coalesced them (a later frame of the same overlay arrived instead).
+  - `chunked.superseded` (server): in-flight sends stopped because a newer
+    frame of the same texture id and size was ready. Their unsent chunks are
+    skipped and they're never resent.
+  - `client.superseded`: requests that never completed because a later frame
+    of the same overlay got a reply instead: either the server coalesced the
+    request (no reply), or, with supersede on, stopped sending it partway.
   - `client.incomplete` (frames that timed out)
   - `client.duplicate_chunks` (chunks received more than once, i.e. resent
     after a lost ack or a slow client)
@@ -237,7 +243,7 @@ Other metrics:
 - `transport.*` (derived, single values; `compare` shows them in the p50
   column): acks/s, acks per completed frame, µs per ack, receive-thread busy
   %, send-call cost and sender busy %, chunk tick µs, smoothed RTT and resend
-  timeout (p50 over frames), `pipeline.backlog` p95, deferred request-frames,
+  timeout (p50 over frames), `pipeline.backlog` p95, deferred request-frames, superseded sends,
   chunks resent as % of packets sent, downstream Mbit/s, and upstream (ack) kbit/s and packets/s.
   Server rates use the server's report window; client rates use the client's
   stream time. Both include the drain.

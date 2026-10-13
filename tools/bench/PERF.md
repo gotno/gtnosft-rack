@@ -29,11 +29,9 @@ comparisons from the same session (see `AGENTS.md`).
 ## Remaining ideas (from the initial audit)
 
 Numbers like #6 are item numbers from the original 10-item audit, which wasn't
-kept. #1, #2, #3a (the queue swap), #4, #5 and #8 are done (above).
+kept. #1, #2, #3a (the queue swap), #4, #5, #6 and #8 are done (above, and #6
+under Scaling).
 
-- **Supersede stale in-flight sends (#6).** When a newer frame of the same
-  texture is ready, drop the older frame's unsent chunks and stop resending
-  it. Matters under send backlog (see Scaling), not just loss.
 - **Per-frame budget for the action queue (3b).** Always run at least one
   action, then stop when the frame's time remaining drops below a threshold,
   as `FramebufferWidget` does with `getFrameDurationRemaining()`. `step()`
@@ -210,3 +208,42 @@ moderate overload rather than the collapse.
   slot first, then everything else, then chunks, so non-chunk messages never
   wait behind a chunk backlog. The backlog estimate counts only the chunk
   queue. Not yet measured.
+
+### Supersede stale sends (#6)
+
+When a frame is ready to send (after compression), any older frame of the
+same texture id and size still in flight is dropped: its queued chunks are
+skipped and it's never resent. "Older" means prepared first on the server,
+so it doesn't depend on the client's sequence ids. Matching on size keeps a
+mipmap stack (one id, several sizes) from cancelling itself. Counted as
+`chunked.superseded`; off with `--no-supersede`.
+
+Measured (16 overlays, open loop, Wi-Fi, one session, `tools/bench/supersede/`).
+This session's link never backed up (`send_queue` p95 at most 5 ms, 52
+deferred request-frames), so neither supersede nor back-pressure had a
+backlog to clear:
+
+| Run | Total fps | Req→first chunk p50/p95 | Resent | Superseded | Partial frames |
+|---|---|---|---|---|---|
+| defaults | 546 | 26 / 43 ms | 0.73% | 1658 | ~0 |
+| no supersede | 565 | 29 / 48 ms | 0.81% | 0 | 0 |
+| no back-pressure | 593 | 24 / 34 ms | 0.15% | 1683 | ~0 |
+| neither | 550 | 27 / 41 ms | 1.23% | 0 | 0 |
+| defaults, 1% drop | **425** | 31 / 48 ms | 0.61% | 3748 | **~1440** |
+| no supersede, 1% drop | 537 | 26 / 45 ms | 1.49% | 0 | 0 |
+| defaults, max in flight 8 | 419 | 17 / 27 ms | 0.15% | 0 | 0 |
+
+- Without loss the runs are within noise (±5%). Superseded sends were already
+  delivered and only waiting on acks.
+- With 1% loss supersede costs about 20% of frames. A 28-chunk frame loses a
+  chunk about a quarter of the time. One resend (about 20 ms) would finish it,
+  but the next frame (about 17 ms) supersedes it first.
+- With the client's in-flight cap nothing was superseded.
+
+Candidate fixes: supersede only frames that still have unsent chunks, and
+drop older frames once a newer frame of the same key is fully acked.
+
+The client must discard a partial frame when a newer one of the same texture
+and size arrives (the headset client does). If two frames of one texture
+both wait in the prep queue, the older is still compressed and then dropped
+at once; the prep queue is short, so that's left alone.

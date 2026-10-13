@@ -459,6 +459,7 @@ Arguments:
 - Chunks can arrive out of order, and the same chunk can arrive more than once. Ack every copy, and place data by offset.
 - Unacked chunks are resent after a timeout that adapts to the measured round trip (roughly one or two UI frames, at most 200 ms), backing off on each resend.
 - A transfer is abandoned if a chunk is still unacked 1.2 s after it was first sent.
+- A transfer also stops, possibly partway, once a newer frame of the same texture id and size is ready to send. Discard a partial frame when a newer `sequenceId` for that texture and size arrives, and ignore an older frame that completes after a newer one.
 - The image is complete when all `numChunks` chunks have arrived; decode the `totalSize` bytes as QOI.
 
 ---

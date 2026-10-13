@@ -14,6 +14,10 @@ struct ChunkedImage : ChunkedSend {
 
   ChunkedSendBundler* getBundlerForChunk(int32_t chunkNum) override;
 
+  std::optional<SupersedeKey> supersedeKey() const override {
+    return SupersedeKey{id, width, height};
+  }
+
   // flip/compress
   void init() override;
 private:

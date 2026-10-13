@@ -4,6 +4,8 @@
 #include "ChunkedSend/ChunkedSend.hpp"
 #include "Bundler/ChunkedSendBundler.hpp"
 
+#include <limits>
+#include <optional>
 #include <vector>
 
 ChunkedManager::ChunkedManager(OscSender* sender) : osctx(sender) {
@@ -95,10 +97,32 @@ void ChunkedManager::prepare(const std::shared_ptr<ChunkedSend>& chunkedSend) {
 
   std::lock_guard<std::mutex> locker(chunkedSendsMutex);
   if (chunkedSends.count(key) != 0) return;
+  if (supersede) supersedeOlder(*chunkedSend);
   chunkedSends.emplace(key, chunkedSend);
 
   bool validSend = processChunked(chunkedSend, rtt.rto(tickInterval()));
   if (!validSend) chunkedSends.erase(key);
+}
+
+void ChunkedManager::supersedeOlder(const ChunkedSend& newer) {
+  std::optional<ChunkedSend::SupersedeKey> newerKey = newer.supersedeKey();
+  if (!newerKey) return;
+
+  // sends are keyed by (id, sequenceId), so one id's sends are contiguous.
+  // erasing drops resends; the bundlers' shared_ptrs keep queued chunks
+  // valid, and noopCheck skips them
+  auto it = chunkedSends.lower_bound(
+    ChunkedKey(newer.id, std::numeric_limits<int32_t>::min())
+  );
+  while (it != chunkedSends.end() && it->first.first == newer.id) {
+    if (it->second->supersedeKey() == newerKey) {
+      it->second->superseded = true;
+      BENCH(bench::count("chunked.superseded");)
+      it = chunkedSends.erase(it);
+    } else {
+      ++it;
+    }
+  }
 }
 
 void ChunkedManager::ack(int64_t id, int32_t sequenceId, int32_t chunkNum) {
@@ -178,7 +202,11 @@ bool ChunkedManager::processChunked(
   std::chrono::nanoseconds rto,
   int32_t* firstTimeouts
 ) {
-  if (chunkedSend->sendFailed() || chunkedSend->sendSucceeded()) return false;
+  if (
+    chunkedSend->sendFailed()
+    || chunkedSend->superseded
+    || chunkedSend->sendSucceeded()
+  ) return false;
 
   std::vector<int32_t> dueChunkNums;
   int32_t timedOut = chunkedSend->takeChunksDue(
@@ -211,7 +239,9 @@ void ChunkedManager::enqueueChunk(
 
   // bundler callbacks run on the sender thread and must not touch the map
   bundler->noopCheck = [chunkedSend, chunkNum]() {
-    return chunkedSend->sendFailed() || chunkedSend->acked(chunkNum);
+    return chunkedSend->sendFailed()
+      || chunkedSend->superseded
+      || chunkedSend->acked(chunkNum);
   };
 
   bundler->onBundleSent = [chunkedSend, chunkNum]() {

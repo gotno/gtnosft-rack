@@ -38,6 +38,9 @@ struct ChunkedManager {
   std::atomic<bool> adaptiveRetry{true};
   // toggled by /bench/back_pressure for A/B runs
   std::atomic<bool> backPressure{true};
+  // a newly prepared image send stops older in-flight sends of the same
+  // texture id and size. toggled by /bench/supersede for A/B runs
+  std::atomic<bool> supersede{true};
 
 private:
   OscSender* osctx{NULL};
@@ -65,6 +68,9 @@ private:
   static constexpr std::chrono::milliseconds MAX_TICK_INTERVAL{100};
 
   void runPrepWorker();
+  // marks in-flight sends of the same image as `newer` superseded and drops
+  // them from the map. caller holds chunkedSendsMutex
+  void supersedeOlder(const ChunkedSend& newer);
   // runs init (flip/compress) and enqueues the send
   void prepare(const std::shared_ptr<ChunkedSend>& chunkedSend);
   // firstTimeouts, if given, is incremented by the chunks that timed out on

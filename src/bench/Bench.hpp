@@ -44,6 +44,7 @@ struct Trace {
   bool overlay{false};
   bool cacheHit{false};
   bool failed{false};
+  bool superseded{false}; // stopped for a newer frame of the same image
   int32_t rerenders{0};
   int64_t rawBytes{0};
   int64_t compressedBytes{0};
