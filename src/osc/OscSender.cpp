@@ -2,6 +2,8 @@
 
 #include "OscSender.hpp"
 
+#include <algorithm>
+
 #include "../OSCctrl.hpp"
 #include "Bundler/Bundler.hpp"
 #include "Bundler/BroadcastHeartbeatBundler.hpp"
@@ -30,7 +32,7 @@ OscSender::~OscSender() {
   // free anything the worker didn't get to
   drainMailboxes();
   while (!bundlerQueue.empty()) {
-    Bundler* bundler = bundlerQueue.front();
+    Bundler* bundler = bundlerQueue.front().bundler;
     bundlerQueue.pop();
     bundler->done();
     delete bundler;
@@ -142,7 +144,9 @@ void OscSender::enqueueBundler(Bundler* bundler) {
   }
 
   std::unique_lock<std::mutex> locker(qmutex);
-  bundlerQueue.push(bundler);
+  bundlerQueue.push({bundler, std::chrono::steady_clock::now()});
+  queuedBundlers.fetch_add(1, std::memory_order_relaxed);
+  if (bundlerQueue.size() == 1) updateOldestQueuedAt();
   locker.unlock();
   queueLockCondition.notify_one();
 }
@@ -177,8 +181,10 @@ void OscSender::processQueue() {
     // always process lights mailbox first
     Bundler* bundler = lightsMailbox.exchange(nullptr);
     if (!bundler && !bundlerQueue.empty()) {
-      bundler = bundlerQueue.front();
+      bundler = bundlerQueue.front().bundler;
       bundlerQueue.pop();
+      queuedBundlers.fetch_sub(1, std::memory_order_relaxed);
+      updateOldestQueuedAt();
     }
 
     bool dirty = socketDirty.exchange(false);
@@ -190,6 +196,8 @@ void OscSender::processQueue() {
     if (dirty || !socket) rebuildSocket(sendMode, endpoint);
 
     if (!bundler) return;
+
+    auto sendStart = std::chrono::steady_clock::now();
 
     if (!bundler->isNoop()) {
       while (bundler->hasRemainingMessages()) {
@@ -222,5 +230,37 @@ void OscSender::processQueue() {
 
     bundler->done();
     delete bundler;
+
+    int64_t elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::steady_clock::now() - sendStart
+    ).count();
+    int64_t smoothed = bundlerSendNs.load(std::memory_order_relaxed);
+    smoothed = smoothed == 0 ? elapsed : smoothed + (elapsed - smoothed) / 8;
+    bundlerSendNs.store(smoothed, std::memory_order_relaxed);
   }
+}
+
+void OscSender::updateOldestQueuedAt() {
+  oldestQueuedAtNs.store(
+    bundlerQueue.empty()
+      ? 0
+      : std::chrono::duration_cast<std::chrono::nanoseconds>(
+          bundlerQueue.front().queuedAt.time_since_epoch()
+        ).count(),
+    std::memory_order_relaxed
+  );
+}
+
+std::chrono::nanoseconds OscSender::backlog() const {
+  std::chrono::nanoseconds estimate(
+    queuedBundlers.load(std::memory_order_relaxed)
+      * bundlerSendNs.load(std::memory_order_relaxed)
+  );
+  int64_t oldestAt = oldestQueuedAtNs.load(std::memory_order_relaxed);
+  if (oldestAt == 0) return estimate;
+  std::chrono::nanoseconds age =
+    std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::steady_clock::now().time_since_epoch()
+    ) - std::chrono::nanoseconds(oldestAt);
+  return std::max(estimate, age);
 }

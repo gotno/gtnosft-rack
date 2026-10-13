@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <thread>
 #include <queue>
@@ -33,6 +34,12 @@ struct OscSender {
   void drainMailboxes();
   void sendHeartbeat();
 
+  // estimated time to send everything queued.
+  // work time smoothing hides socket stalls, so we take the greater of:
+  // queued bundlers * smoothed worker time, or
+  // how long the oldest queued bundler has waited
+  std::chrono::nanoseconds backlog() const;
+
   bool isBroadcasting();
   void setBroadcasting();
   void setDirect(char* ip);
@@ -62,9 +69,20 @@ private:
   // message queue
   std::thread queueWorker;
   std::atomic<bool> queueWorkerRunning;
-  std::queue<Bundler*> bundlerQueue;
+  struct QueuedBundler {
+    Bundler* bundler;
+    std::chrono::steady_clock::time_point queuedAt;
+  };
+  std::queue<QueuedBundler> bundlerQueue;
   std::mutex qmutex;
   std::condition_variable queueLockCondition;
+  std::atomic<int32_t> queuedBundlers{0};
+  // queuedAt of the queue's front in steady_clock ns, 0 when empty.
+  // written under qmutex
+  std::atomic<int64_t> oldestQueuedAtNs{0};
+  void updateOldestQueuedAt();
+  // written by the queue worker only
+  std::atomic<int64_t> bundlerSendNs{0};
   void startQueueWorker();
   void stopQueueWorker();
   void processQueue();

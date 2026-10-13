@@ -54,8 +54,31 @@ void ChunkedManager::runPrepWorker() {
       chunkedSend = std::move(prepQueue.front());
       prepQueue.pop_front();
     }
+    auto start = std::chrono::steady_clock::now();
     prepare(chunkedSend);
+    int64_t elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::steady_clock::now() - start
+    ).count();
+    int64_t smoothed = prepNs.load(std::memory_order_relaxed);
+    smoothed = smoothed == 0 ? elapsed : smoothed + (elapsed - smoothed) / 8;
+    prepNs.store(smoothed, std::memory_order_relaxed);
   }
+}
+
+std::chrono::nanoseconds ChunkedManager::backlog() {
+  size_t prepQueued;
+  {
+    std::lock_guard<std::mutex> locker(prepMutex);
+    prepQueued = prepQueue.size();
+  }
+  return std::chrono::nanoseconds(
+    (int64_t)prepQueued * prepNs.load(std::memory_order_relaxed)
+  ) + osctx->backlog();
+}
+
+bool ChunkedManager::backedUp() {
+  if (!backPressure) return false;
+  return backlog() > tickInterval();
 }
 
 void ChunkedManager::prepare(const std::shared_ptr<ChunkedSend>& chunkedSend) {
@@ -120,6 +143,7 @@ void ChunkedManager::tick() {
 
   std::chrono::nanoseconds rto = rtt.rto(tickInterval());
   BENCH(
+    bench::sample("pipeline.backlog", backlog().count() / 1e6f);
     if (rtt.srtt().count() > 0) {
       bench::sample("retry.srtt", rtt.srtt().count() / 1e6f);
       bench::sample("retry.rto", rto.count() / 1e6f);

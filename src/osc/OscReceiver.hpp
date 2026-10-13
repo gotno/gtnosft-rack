@@ -76,6 +76,7 @@ private:
   // prevent same-frame renders of the same texture at the same size.
   // tracks /get/texture requests waiting in the action queue. newer requests
   // replace the existing request's sequence id only, and are then dropped.
+  // requests stay pending across frames while the send pipeline is backed up.
   struct PendingTexture {
     int32_t sequenceId;
     BENCH(bench::TracePtr trace;)
@@ -84,4 +85,10 @@ private:
   using PendingTextureKey = std::tuple<int64_t, float, int32_t, int32_t>;
   std::map<PendingTextureKey, std::shared_ptr<PendingTexture>> pendingTextures;
   std::mutex pendingTexturesMutex;
+  // render a pending /get/texture request, or put it back on the
+  // action queue for the next frame if the send pipeline is backed up
+  void renderPendingTexture(
+    PendingTextureKey key,
+    std::shared_ptr<PendingTexture> pending
+  );
 };

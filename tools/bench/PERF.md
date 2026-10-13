@@ -20,6 +20,7 @@ remove that.
 | Action queue swap (→ `3qswap`) | `processActionQueue` swaps the queue out under the lock and runs the actions unlocked. | request→all acked −12% p50. Most of the gain is more coalescing. |
 | Prep worker (`6inline` vs `6worker`, same session) | Flip and QOI compression moved off the UI thread to one worker in `ChunkedManager`. The flip moved out of `renderPixels`, so `RenderResult` pixels are bottom-up. | `ctrl_step` −33% / −27% (5.2 → 3.5 ms); latency +2% / +4% (a single worker queues overlays one after another). |
 | Adaptive resend timeout (`9*_fixed_retry_drop` vs `9*_var_retry_drop`) | RTO from measured round trips instead of a fixed 200 ms (see Ack strategy). | With 1% loss, request→complete p95 233 → 49 ms locally, 247 → 76 ms on Wi-Fi. No-loss runs: ~0 needless resends. |
+| Back-pressure (`16x_remote_backpressure0` vs `1`, 16 overlays open loop on Wi-Fi) | `/get/texture` renders wait while the prep and send queues hold more than a UI frame of work (see Scaling). | `send_queue` p95 245 → 75 ms; request→first chunk 28 → 23 / 270 → 96 ms; resends 3.0% → 0.59%; total fps +6%. |
 
 Lesson: `4prepworker*` vs `3qswap` first looked like a +20% regression. The
 laptop had been unplugged, so the whole machine was throttled. Only trust A/B
@@ -30,12 +31,6 @@ comparisons from the same session (see `AGENTS.md`).
 Numbers like #6 are item numbers from the original 10-item audit, which wasn't
 kept. #1, #2, #3a (the queue swap), #4, #5 and #8 are done (above).
 
-- **Hold back renders while the send queue is backed up.** Implemented, not
-  yet measured: while the prep and send queues hold more than a UI frame of
-  work (queued items × smoothed time per item), `/get/texture` requests wait
-  in the action queue and keep coalescing. Off with `--no-back-pressure`.
-  This is the server-side safety net against the open-loop collapse (see
-  Scaling).
 - **Supersede stale in-flight sends (#6).** When a newer frame of the same
   texture is ready, drop the older frame's unsent chunks and stop resending
   it. Matters under send backlog (see Scaling), not just loss.
@@ -178,3 +173,35 @@ like the headset client (see `README.md`). Wi-Fi runs use the default
 
 Conclusions: the client needs the in-flight cap (4–8 on Wi-Fi). On the
 server, a safety net should watch the send backlog rather than UI time.
+
+### Back-pressure
+
+While the prep and send queues hold more than a UI frame of work,
+`/get/texture` requests wait in the action queue for the next frame and keep
+coalescing, so the server renders only what the link can carry. Other
+actions aren't held. Off with `--no-back-pressure`.
+
+`16x_remote_backpressure{0,1}`: 16 Scopes, 60 fps open loop over Wi-Fi, one
+session. This session's Wi-Fi coped better than in `16x_remote_open` (with
+back-pressure off, `send_queue` p95 was 245 ms, not 2.4 s), so this is
+moderate overload rather than the collapse.
+
+| | Off | On |
+|---|---|---|
+| `send_queue` p95 | 245 ms | 75 ms |
+| Request→first chunk (client) p50 / p95 | 28 / 270 ms | 23 / 96 ms |
+| Resent | 3.0% | 0.59% |
+| Duplicate / unknown acks | 1004 / 3130 | 380 / 993 |
+| Total fps | 613 | 651 |
+| Per overlay, first → last | 45.6 → 35.0 | 47.0 → 38.9 |
+
+- Requests waited 420 frames in total, against ~6,500 renders: it acts only
+  on spikes. `queue_wait` p50 didn't change, so it costs nothing at normal
+  load.
+- Fewer stale resends left more of the link for new frames: total fps rose 6%
+  and the spread across overlays narrowed.
+- The backlog estimate then was queued items × smoothed time per item only,
+  and its p95 (9.8 ms) stayed under a frame while `send_queue` p95 reached
+  75 ms. The socket occasionally blocks for tens of ms when Wi-Fi backs up,
+  and smoothing hides that. The send queue now also counts its oldest item's
+  wait. Not yet measured.

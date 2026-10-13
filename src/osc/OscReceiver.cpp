@@ -151,6 +151,67 @@ void OscReceiver::ProcessMessage(
   }
 }
 
+void OscReceiver::renderPendingTexture(
+  PendingTextureKey key,
+  std::shared_ptr<PendingTexture> pending
+) {
+  if (chunkman->backedUp()) {
+    BENCH(bench::count("texture_requests.deferred");)
+    ctrl->enqueueAction([this, key, pending]() {
+      renderPendingTexture(key, pending);
+    });
+    return;
+  }
+
+  int64_t textureId = std::get<0>(key);
+  float scale = std::get<1>(key);
+  int32_t height = std::get<2>(key), width = std::get<3>(key);
+
+  int32_t sequenceId;
+  BENCH(bench::TracePtr trace;)
+  {
+    std::lock_guard<std::mutex> lock(pendingTexturesMutex);
+    pendingTextures.erase(key);
+    sequenceId = pending->sequenceId;
+    BENCH(trace = pending->trace;)
+  }
+
+  BENCH(
+    trace->stamp(bench::Stage::Dequeued);
+    bench::setCurrent(trace);
+    DEFER({ bench::setCurrent(nullptr); });
+  )
+
+  Recipe recipe;
+  if (scale > 0.f) {
+    recipe = Recipe(scale);
+  } else if (width > 0) {
+    recipe = Recipe(height, width);
+  } else {
+    recipe = Recipe(height);
+  }
+
+  RenderResult render = Catalog::pullTexture(textureId, recipe);
+
+  if (!render.success()) {
+    if (render.empty()) {
+      // unknown texture id, or nothing to draw for this texture type
+      INFO("/get/texture %ld rendered nothing", textureId);
+    } else {
+      INFO("/get/texture %ld failed to render", textureId);
+      INFO("  %s", render.statusMessage.c_str());
+    }
+    BENCH(trace->failed = true; bench::submit(*trace);)
+    return;
+  }
+
+  ChunkedImage* chunkedImage = new ChunkedImage(render);
+  chunkedImage->id = textureId;
+  chunkedImage->sequenceId = sequenceId;
+  BENCH(chunkedImage->trace = trace;)
+  chunkman->add(chunkedImage);
+}
+
 void OscReceiver::generateRoutes() {
   BENCH(
     routes.emplace(
@@ -208,6 +269,19 @@ void OscReceiver::generateRoutes() {
           chunkman->adaptiveRetry = enabled;
           osctx->enqueueBundler(
             new BenchToggleAckBundler("/bench/adaptive_retry", enabled)
+          );
+        });
+      }
+    );
+
+    routes.emplace(
+      "/bench/back_pressure",
+      [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+        bool enabled = (args++)->AsInt32() != 0;
+        ctrl->enqueueAction([this, enabled]() {
+          chunkman->backPressure = enabled;
+          osctx->enqueueBundler(
+            new BenchToggleAckBundler("/bench/back_pressure", enabled)
           );
         });
       }
@@ -362,50 +436,8 @@ void OscReceiver::generateRoutes() {
         BENCH(pending->trace = bench::begin(textureId, sequenceId);)
       }
 
-      ctrl->enqueueAction([=, this]() {
-        int32_t sequenceId;
-        BENCH(bench::TracePtr trace;)
-        {
-          std::lock_guard<std::mutex> lock(pendingTexturesMutex);
-          pendingTextures.erase(key);
-          sequenceId = pending->sequenceId;
-          BENCH(trace = pending->trace;)
-        }
-
-        BENCH(
-          trace->stamp(bench::Stage::Dequeued);
-          bench::setCurrent(trace);
-          DEFER({ bench::setCurrent(nullptr); });
-        )
-
-        Recipe recipe;
-        if (scale > 0.f) {
-          recipe = Recipe(scale);
-        } else if (width > 0) {
-          recipe = Recipe(height, width);
-        } else {
-          recipe = Recipe(height);
-        }
-
-        RenderResult render = Catalog::pullTexture(textureId, recipe);
-
-        if (!render.success()) {
-          if (render.empty()) {
-            // unknown texture id, or nothing to draw for this texture type
-            INFO("/get/texture %ld rendered nothing", textureId);
-          } else {
-            INFO("/get/texture %ld failed to render", textureId);
-            INFO("  %s", render.statusMessage.c_str());
-          }
-          BENCH(trace->failed = true; bench::submit(*trace);)
-          return;
-        }
-
-        ChunkedImage* chunkedImage = new ChunkedImage(render);
-        chunkedImage->id = textureId;
-        chunkedImage->sequenceId = sequenceId;
-        BENCH(chunkedImage->trace = trace;)
-        chunkman->add(chunkedImage);
+      ctrl->enqueueAction([this, key, pending]() {
+        renderPendingTexture(key, pending);
       });
     }
   );

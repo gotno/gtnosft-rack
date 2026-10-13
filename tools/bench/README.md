@@ -227,8 +227,10 @@ Other metrics:
   resulting resend timeout. The estimator also runs with
   `--fixed-retry`; the timeout just isn't used then.
 - `pipeline.backlog` (ms, sampled once per UI frame): estimated time to drain
-  the prep and send queues (queued items × smoothed time per item). Texture
-  renders wait while it exceeds the UI frame interval.
+  the prep and send queues. Each queue counts queued items × smoothed time
+  per item; the send queue uses its oldest item's wait instead when that's
+  longer, so socket stalls count. Texture renders wait while it exceeds the
+  UI frame interval.
 - Client transport counters for the stream: `client.chunk_packets/bytes`
   received, `client.acks_sent/ack_bytes`, and
   `client.sim_dropped_packets/acks`.
