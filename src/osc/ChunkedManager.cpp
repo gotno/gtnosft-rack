@@ -222,5 +222,5 @@ void ChunkedManager::enqueueChunk(
     chunkedSend->registerChunkDropped(chunkNum);
   };
 
-  osctx->enqueueBundler(bundler);
+  osctx->enqueueChunk(bundler);
 }

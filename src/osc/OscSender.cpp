@@ -31,9 +31,15 @@ OscSender::~OscSender() {
 
   // free anything the worker didn't get to
   drainMailboxes();
-  while (!bundlerQueue.empty()) {
-    Bundler* bundler = bundlerQueue.front().bundler;
-    bundlerQueue.pop();
+  while (!priorityQueue.empty()) {
+    Bundler* bundler = priorityQueue.front();
+    priorityQueue.pop();
+    bundler->done();
+    delete bundler;
+  }
+  while (!chunkQueue.empty()) {
+    Bundler* bundler = chunkQueue.front().bundler;
+    chunkQueue.pop();
     bundler->done();
     delete bundler;
   }
@@ -144,9 +150,21 @@ void OscSender::enqueueBundler(Bundler* bundler) {
   }
 
   std::unique_lock<std::mutex> locker(qmutex);
-  bundlerQueue.push({bundler, std::chrono::steady_clock::now()});
-  queuedBundlers.fetch_add(1, std::memory_order_relaxed);
-  if (bundlerQueue.size() == 1) updateOldestQueuedAt();
+  priorityQueue.push(bundler);
+  locker.unlock();
+  queueLockCondition.notify_one();
+}
+
+void OscSender::enqueueChunk(Bundler* bundler) {
+  if (!isBroadcasting()) {
+    OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+    module->txPulse.trigger();
+  }
+
+  std::unique_lock<std::mutex> locker(qmutex);
+  chunkQueue.push({bundler, std::chrono::steady_clock::now()});
+  queuedChunks.fetch_add(1, std::memory_order_relaxed);
+  if (chunkQueue.size() == 1) updateOldestChunkQueuedAt();
   locker.unlock();
   queueLockCondition.notify_one();
 }
@@ -175,16 +193,24 @@ void OscSender::processQueue() {
   while (queueWorkerRunning) {
     std::unique_lock<std::mutex> locker(qmutex);
     queueLockCondition.wait(locker, [this](){
-      return !bundlerQueue.empty() || lightsMailbox.load() != nullptr;
+      return !priorityQueue.empty()
+        || !chunkQueue.empty()
+        || lightsMailbox.load() != nullptr;
     });
 
-    // always process lights mailbox first
+    // lights mailbox first, then everything else, then image chunks
     Bundler* bundler = lightsMailbox.exchange(nullptr);
-    if (!bundler && !bundlerQueue.empty()) {
-      bundler = bundlerQueue.front().bundler;
-      bundlerQueue.pop();
-      queuedBundlers.fetch_sub(1, std::memory_order_relaxed);
-      updateOldestQueuedAt();
+    bool isChunk = false;
+    if (!bundler && !priorityQueue.empty()) {
+      bundler = priorityQueue.front();
+      priorityQueue.pop();
+    }
+    if (!bundler && !chunkQueue.empty()) {
+      bundler = chunkQueue.front().bundler;
+      chunkQueue.pop();
+      queuedChunks.fetch_sub(1, std::memory_order_relaxed);
+      updateOldestChunkQueuedAt();
+      isChunk = true;
     }
 
     bool dirty = socketDirty.exchange(false);
@@ -231,21 +257,22 @@ void OscSender::processQueue() {
     bundler->done();
     delete bundler;
 
+    if (!isChunk) continue;
     int64_t elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::steady_clock::now() - sendStart
     ).count();
-    int64_t smoothed = bundlerSendNs.load(std::memory_order_relaxed);
+    int64_t smoothed = chunkSendNs.load(std::memory_order_relaxed);
     smoothed = smoothed == 0 ? elapsed : smoothed + (elapsed - smoothed) / 8;
-    bundlerSendNs.store(smoothed, std::memory_order_relaxed);
+    chunkSendNs.store(smoothed, std::memory_order_relaxed);
   }
 }
 
-void OscSender::updateOldestQueuedAt() {
-  oldestQueuedAtNs.store(
-    bundlerQueue.empty()
+void OscSender::updateOldestChunkQueuedAt() {
+  oldestChunkQueuedAtNs.store(
+    chunkQueue.empty()
       ? 0
       : std::chrono::duration_cast<std::chrono::nanoseconds>(
-          bundlerQueue.front().queuedAt.time_since_epoch()
+          chunkQueue.front().queuedAt.time_since_epoch()
         ).count(),
     std::memory_order_relaxed
   );
@@ -253,10 +280,10 @@ void OscSender::updateOldestQueuedAt() {
 
 std::chrono::nanoseconds OscSender::backlog() const {
   std::chrono::nanoseconds estimate(
-    queuedBundlers.load(std::memory_order_relaxed)
-      * bundlerSendNs.load(std::memory_order_relaxed)
+    queuedChunks.load(std::memory_order_relaxed)
+      * chunkSendNs.load(std::memory_order_relaxed)
   );
-  int64_t oldestAt = oldestQueuedAtNs.load(std::memory_order_relaxed);
+  int64_t oldestAt = oldestChunkQueuedAtNs.load(std::memory_order_relaxed);
   if (oldestAt == 0) return estimate;
   std::chrono::nanoseconds age =
     std::chrono::duration_cast<std::chrono::nanoseconds>(

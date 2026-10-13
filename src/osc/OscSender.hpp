@@ -29,15 +29,18 @@ struct OscSender {
 
   OSCctrlWidget* ctrl;
 
+  // everything except image chunks. sent ahead of queued chunks
   void enqueueBundler(Bundler* bundler);
+  // image chunks. sent once lights and other queued bundlers are out
+  void enqueueChunk(Bundler* bundler);
   void submitLights(Bundler* bundler);
   void drainMailboxes();
   void sendHeartbeat();
 
-  // estimated time to send everything queued.
+  // estimated time to send every queued chunk.
   // work time smoothing hides socket stalls, so we take the greater of:
-  // queued bundlers * smoothed worker time, or
-  // how long the oldest queued bundler has waited
+  // queued chunks * smoothed worker time per chunk, or
+  // how long the oldest queued chunk has waited
   std::chrono::nanoseconds backlog() const;
 
   bool isBroadcasting();
@@ -58,7 +61,7 @@ private:
 
   osc::OutboundPacketStream makeMessage(const std::string& address);
 
-  // mailboxes: latest-wins single slot, processed ahead of rest of queue
+  // mailboxes: latest-wins single slot, processed ahead of queues
   std::atomic<Bundler*> lightsMailbox{nullptr};
 
   // persistent socket — rebuilt when socketDirty is set
@@ -69,20 +72,21 @@ private:
   // message queue
   std::thread queueWorker;
   std::atomic<bool> queueWorkerRunning;
-  struct QueuedBundler {
+  std::queue<Bundler*> priorityQueue;
+  struct QueuedChunk {
     Bundler* bundler;
     std::chrono::steady_clock::time_point queuedAt;
   };
-  std::queue<QueuedBundler> bundlerQueue;
+  std::queue<QueuedChunk> chunkQueue;
   std::mutex qmutex;
   std::condition_variable queueLockCondition;
-  std::atomic<int32_t> queuedBundlers{0};
-  // queuedAt of the queue's front in steady_clock ns, 0 when empty.
+  std::atomic<int32_t> queuedChunks{0};
+  // queuedAt of chunkQueue's front in steady_clock ns, 0 when empty.
   // written under qmutex
-  std::atomic<int64_t> oldestQueuedAtNs{0};
-  void updateOldestQueuedAt();
+  std::atomic<int64_t> oldestChunkQueuedAtNs{0};
+  void updateOldestChunkQueuedAt();
   // written by the queue worker only
-  std::atomic<int64_t> bundlerSendNs{0};
+  std::atomic<int64_t> chunkSendNs{0};
   void startQueueWorker();
   void stopQueueWorker();
   void processQueue();

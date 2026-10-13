@@ -205,3 +205,8 @@ moderate overload rather than the collapse.
   75 ms. The socket occasionally blocks for tens of ms when Wi-Fi backs up,
   and smoothing hides that. The send queue now also counts its oldest item's
   wait. Not yet measured.
+- The sender has two queues: image chunks, and everything else (param
+  acks, module state, cables, heartbeats, etc.). It always sends the lights
+  slot first, then everything else, then chunks, so non-chunk messages never
+  wait behind a chunk backlog. The backlog estimate counts only the chunk
+  queue. Not yet measured.
