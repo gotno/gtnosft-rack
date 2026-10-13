@@ -8,5 +8,5 @@
 /*.dll
 .DS_Store
 /tools/bench/.venv*
-/tools/bench/*.json
+/tools/bench/**/*.json
 __pycache__/
