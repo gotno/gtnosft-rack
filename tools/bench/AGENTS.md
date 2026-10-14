@@ -1,7 +1,7 @@
 # Notes for coding agents: overlay bench
 
 Read `README.md` here first. It covers usage and what each metric means.
-`PERF.md` records what has been optimized, the measured results, and what's
+`PERFLOG.md` records what has been optimized, the measured results, and what's
 left. These notes cover the workflow and the mistakes made before.
 
 ## Building

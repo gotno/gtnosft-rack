@@ -20,14 +20,13 @@ knobs and so on) streamed to a client as QOI-compressed chunks.
   chunked sends with retries and acks (`ChunkedManager`, `ChunkedSend/`).
 - `src/texture/`: `Renderer` (offscreen renders and the overlay surrogate
   cache) and `Catalog` (texture ids).
-- `API.md`: the OSC protocol. Its texture section is out of date; the code is
-  authoritative.
+- `API.md`: the OSC protocol.
 
 ## Performance and benchmarking
 
 - `tools/bench/AGENTS.md`: how to build, measure and test the bench tooling
   safely. Read it before any performance work.
-- `tools/bench/PERF.md`: optimizations made so far, their measured effect, and
+- `tools/bench/PERFLOG.md`: optimizations made so far, their measured effect, and
   what's left.
 - `tools/bench/README.md`: how to use the bench client and what each metric
   means.

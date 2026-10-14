@@ -132,7 +132,7 @@ Size is set with `--height` (default 512), optionally with `--width`, or with
 ### Transport and loss
 
 These measure what the chunk/ack protocol costs, as groundwork for deciding
-whether to change it (see `PERF.md`).
+whether to change it (see `PERFLOG.md`).
 
 - **Over a real network:** run the client on another machine with
   `--host <rack machine's IP>`, e.g. a second laptop on the same Wi-Fi. On
