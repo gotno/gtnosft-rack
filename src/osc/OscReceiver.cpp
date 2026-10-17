@@ -333,20 +333,6 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
-    "/ack_chunk",
-    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
-      int64_t chunkedId = (args++)->AsInt64();
-      int32_t sequenceId = (args++)->AsInt32();
-      int32_t chunkNum = (args++)->AsInt32();
-      BENCH(
-        static bench::Tally& rxAcks = bench::tally("rx.acks");
-        bench::ScopedTally ackTimer(rxAcks);
-      )
-      chunkman->ack(chunkedId, sequenceId, chunkNum);
-    }
-  );
-
-  routes.emplace(
     "/get/patch_info",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       (void)args;
@@ -452,6 +438,20 @@ void OscReceiver::generateRoutes() {
       ctrl->enqueueAction([this, key, pending]() {
         renderPendingTexture(key, pending);
       });
+    }
+  );
+
+  routes.emplace(
+    "/ack_chunk",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int64_t chunkedId = (args++)->AsInt64();
+      int32_t sequenceId = (args++)->AsInt32();
+      int32_t chunkNum = (args++)->AsInt32();
+      BENCH(
+        static bench::Tally& rxAcks = bench::tally("rx.acks");
+        bench::ScopedTally ackTimer(rxAcks);
+      )
+      chunkman->ack(chunkedId, sequenceId, chunkNum);
     }
   );
 
