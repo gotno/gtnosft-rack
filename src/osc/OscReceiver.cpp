@@ -13,6 +13,7 @@
 #include "ChunkedSend/ChunkedImage.hpp"
 
 #include "../bench/Bench.hpp"
+#include "Bundler/SettingsBundler.hpp"
 #include "Bundler/PatchInfoBundler.hpp"
 #include "Bundler/ModuleStubsBundler.hpp"
 #include "Bundler/ModuleStructureBundler.hpp"
@@ -329,6 +330,17 @@ void OscReceiver::generateRoutes() {
       std::scoped_lock<std::mutex> lock(heartbeatMutex);
       missedHeartbeats = 0;
       lastHeartbeatRxTime = std::chrono::steady_clock::now();
+    }
+  );
+
+  routes.emplace(
+    "/get/settings",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      (void)args;
+
+      ctrl->enqueueAction([this]() {
+        osctx->enqueueBundler(new SettingsBundler());
+      });
     }
   );
 
