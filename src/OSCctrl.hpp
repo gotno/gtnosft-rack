@@ -71,6 +71,7 @@ struct OSCctrlWidget : ModuleWidget {
   ~OSCctrlWidget();
 
   virtual void step() override;
+  void appendContextMenu(Menu* menu) override;
 
   // enqueue actions that need to run on the render thread
   std::queue<Action> actionQueue;

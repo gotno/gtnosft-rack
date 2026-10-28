@@ -195,4 +195,50 @@ void OSCctrlWidget::processActionQueue() {
   }
 }
 
+void OSCctrlWidget::appendContextMenu(Menu* menu) {
+  BENCH(
+    menu->addChild(new MenuSeparator);
+
+    menu->addChild(createMenuItem("Reset bench", "", [=]() {
+      bench::reset();
+    }));
+
+    menu->addChild(createMenuItem("Dump bench report", "", [=]() {
+      bench::Report report = bench::report();
+
+      INFO("Bench report: generation %llu, window %.3f s",
+        (unsigned long long)report.generation,
+        report.windowSec
+      );
+
+      for (const bench::Summary& stat : report.stats) {
+        INFO("  %s: n=%d mean=%.3f min=%.3f p50=%.3f p95=%.3f p99=%.3f max=%.3f",
+          stat.name.c_str(),
+          stat.count,
+          stat.mean,
+          stat.min,
+          stat.p50,
+          stat.p95,
+          stat.p99,
+          stat.max
+        );
+      }
+
+      for (const auto& [name, value] : report.counters) {
+        INFO("  %s: %lld", name.c_str(), (long long)value);
+      }
+
+      for (const bench::TextureRate& texture : report.textures) {
+        INFO("  texture %lld (%s): %.1f fps, %d completed, %d failed",
+          (long long)texture.textureId,
+          texture.kind.c_str(),
+          texture.fps,
+          texture.completed,
+          texture.failed
+        );
+      }
+    }));
+  )
+}
+
 Model* modelOSCctrl = createModel<OSCctrl, OSCctrlWidget>("OSCctrl");
