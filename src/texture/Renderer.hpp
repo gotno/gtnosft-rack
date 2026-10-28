@@ -121,6 +121,12 @@ struct Renderer {
 		rack::app::ModuleWidget* moduleWidget
 	);
 
+  // render with all children intact
+  static RenderResult renderModule(
+		rack::app::ModuleWidget* moduleWidget,
+		const Recipe& recipe
+  );
+
   static RenderResult renderPanel(
 		rack::app::ModuleWidget* moduleWidget,
 		const Recipe& recipe

@@ -6,6 +6,7 @@
 #include "osc/SubscriptionManager.hpp"
 #include "osc/Bundler/ModuleCacheGuard.hpp"
 #include "texture/Renderer.hpp"
+#include "util/Util.hpp"
 #include "bench/Bench.hpp"
 
 OSCctrl::OSCctrl() {
@@ -268,16 +269,117 @@ void OSCctrlWidget::appendContextMenu(Menu* menu) {
       bench::logReport();
     }));
 
-    if (oscrx) {
-      menu->addChild(createBoolMenuItem("Heartbeats skip the UI queue", "",
-        [this]() { return oscrx->heartbeatSkipsUi.load(); },
-        [this](bool enabled) { oscrx->heartbeatSkipsUi = enabled; }
-      ));
-    }
+    menu->addChild(new MenuSeparator);
+    menu->addChild(createSubmenuItem("Render", "",
+      [=](Menu* menu) {
+        for (int64_t moduleId : APP->engine->getModuleIds()) {
+          rack::engine::Module* module = APP->engine->getModule(moduleId);
+          if (!module || !module->getModel()) continue;
 
-    menu->addChild(createBoolMenuItem("Budget UI actions per frame", "",
-      [this]() { return actionBudgetEnabled.load(); },
-      [this](bool enabled) { actionBudgetEnabled = enabled; }
+          std::string pluginSlug = module->getModel()->plugin->slug;
+          std::string moduleSlug = module->getModel()->slug;
+          std::string moduleName = rack::string::f(
+            "%lld-%s-%s",
+            (long long)moduleId,
+            pluginSlug.c_str(),
+            moduleSlug.c_str()
+          );
+
+          menu->addChild(createSubmenuItem(moduleName.c_str(), "",
+            [=](Menu* menu) {
+              auto renderModule = [this, moduleId, pluginSlug, moduleSlug](
+                bool panel
+              ) {
+                enqueueAction([moduleId, pluginSlug, moduleSlug, panel]() {
+                  rack::plugin::Model* model =
+                    gtnosft::util::findModel(pluginSlug, moduleSlug);
+                  rack::app::ModuleWidget* moduleWidget =
+                    gtnosft::util::makeModuleWidget(model);
+                  if (!moduleWidget) {
+                    WARN(
+                      "OSCctrl render failed to create widget for %s:%s",
+                      pluginSlug.c_str(),
+                      moduleSlug.c_str()
+                    );
+                    return;
+                  }
+
+                  RenderResult result = panel
+                    ? Renderer::renderPanel(moduleWidget, Recipe(1024))
+                    : Renderer::renderModule(moduleWidget, Recipe(1024));
+                  delete moduleWidget;
+
+                  if (!result.success()) {
+                    WARN(
+                      "OSCctrl render failed for %lld-%s-%s-%s: %s",
+                      (long long)moduleId,
+                      pluginSlug.c_str(),
+                      moduleSlug.c_str(),
+                      panel ? "Panel" : "Module",
+                      result.statusMessage.c_str()
+                    );
+                    return;
+                  }
+
+                  Renderer::renderPng(
+                    result.pixels,
+                    result.width,
+                    result.height,
+                    "oscctrl_render",
+                    rack::string::f(
+                      "%lld-%s-%s-%s",
+                      (long long)moduleId,
+                      pluginSlug.c_str(),
+                      moduleSlug.c_str(),
+                      panel ? "Panel" : "Module"
+                    )
+                  );
+                  delete[] result.pixels;
+                },
+                "context_render"
+              );
+            };
+
+            menu->addChild(createMenuItem("Module", "", [renderModule]() {
+              renderModule(false);
+            }));
+            menu->addChild(createMenuItem("Panel", "", [renderModule]() {
+              renderModule(true);
+            }));
+            menu->addChild(createMenuItem("Overlay", "", [this, moduleId,
+              pluginSlug, moduleSlug]() {
+              enqueueAction([moduleId, pluginSlug, moduleSlug]() {
+                RenderResult result =
+                  Renderer::renderOverlay(moduleId, Recipe(1024));
+                if (!result.success()) {
+                  WARN(
+                    "OSCctrl render failed for %lld-%s-%s-Overlay: %s",
+                    (long long)moduleId,
+                    pluginSlug.c_str(),
+                    moduleSlug.c_str(),
+                    result.statusMessage.c_str()
+                  );
+                  return;
+                }
+
+                Renderer::renderPng(
+                  result.pixels,
+                  result.width,
+                  result.height,
+                  "oscctrl_render",
+                  rack::string::f(
+                    "%lld-%s-%s-Overlay",
+                    (long long)moduleId,
+                    pluginSlug.c_str(),
+                    moduleSlug.c_str()
+                  )
+                );
+                delete[] result.pixels;
+              }, "context_render");
+            }));
+          }));
+        }
+      }
     ));
   )
 }

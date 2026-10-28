@@ -205,6 +205,23 @@ RenderResult Renderer::renderTexture(
   return result;
 }
 
+RenderResult Renderer::renderModule(
+  rack::app::ModuleWidget* moduleWidget,
+  const Recipe& recipe
+) {
+  rack::widget::FramebufferWidget* wrapper = wrapForRendering(moduleWidget);
+
+  wrapper->step();
+
+  rack::math::Vec scale = getScaleFromRecipe(wrapper, recipe);
+  RenderResult result = Renderer(wrapper).render(scale);
+
+  removeFromWrapper(wrapper, moduleWidget);
+  delete wrapper;
+
+  return result;
+}
+
 RenderResult Renderer::renderPanel(
   rack::app::ModuleWidget* moduleWidget,
   const Recipe& recipe
