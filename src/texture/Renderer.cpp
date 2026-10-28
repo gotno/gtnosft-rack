@@ -228,6 +228,13 @@ RenderResult Renderer::renderPanel(
 ) {
   // hide all children except the first, which should be the panel
   auto it = std::next(moduleWidget->children.begin());
+
+  // panel is the second child? idfk
+  if (
+    moduleWidget->model->plugin->slug == "Instruo" &&
+    moduleWidget->model->slug == "saich"
+  ) ++it;
+
   for (; it != moduleWidget->children.end(); ++it) (*it)->setVisible(false);
 
   rack::widget::FramebufferWidget* wrapper = wrapForRendering(moduleWidget);
