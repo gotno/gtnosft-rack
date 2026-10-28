@@ -78,7 +78,6 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
     );
   txLight->box.size = mm2px(tx_light_size);
   txLight->bgColor = lightBgColor;
-  // txLight->borderColor = lightBgColor;
   addChild(txLight);
 
   RectangleLight<WhiteLight>* hbInLight =
@@ -89,7 +88,6 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
     );
   hbInLight->box.size = mm2px(hb_light_size);
   hbInLight->bgColor = lightBgColor;
-  // hbInLight->borderColor = lightBgColor;
   addChild(hbInLight);
 
   RectangleLight<WhiteLight>* hbOutLight =
@@ -100,7 +98,6 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
     );
   hbOutLight->box.size = mm2px(hb_light_size);
   hbOutLight->bgColor = lightBgColor;
-  // hbOutLight->borderColor = lightBgColor;
   addChild(hbOutLight);
 
   if (!module) return;
