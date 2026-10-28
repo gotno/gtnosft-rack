@@ -137,6 +137,11 @@ struct Report {
 
 Report report();
 
+// writes report() to the Rack log
+void logReport();
+
+uint64_t currentGeneration();
+
 } // namespace bench
 
 #else

@@ -1,5 +1,8 @@
 #include "plugin.hpp"
+#include "bench/Bench.hpp"
 
+#include <chrono>
+#include <deque>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -73,9 +76,22 @@ struct OSCctrlWidget : ModuleWidget {
   virtual void step() override;
   void appendContextMenu(Menu* menu) override;
 
-  // enqueue actions that need to run on the render thread
-  std::queue<Action> actionQueue;
+  // enqueue actions that need to run on the render thread.
+  // tag must be a string literal; it names the action in bench reports
+  struct QueuedAction {
+    Action action;
+    const char* tag;
+    BENCH(bench::time_point enqueuedAt;)
+  };
+  std::queue<QueuedAction> actionQueue;
   std::mutex actionMutex;
-  void enqueueAction(Action action);
+  void enqueueAction(Action action, const char* tag = "other");
   void processActionQueue();
+
+  // actions run in order until this much of a frame is used; the rest
+  // carry over to the next frame (at least one action runs per frame)
+  static constexpr std::chrono::milliseconds ACTION_BUDGET{8};
+  // UI thread only: actions taken from actionQueue but not yet run
+  std::deque<QueuedAction> pendingActions;
+  BENCH(std::atomic<bool> actionBudgetEnabled{true};)
 };

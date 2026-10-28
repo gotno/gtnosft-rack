@@ -34,7 +34,7 @@ void SubscriptionManager::reset() {
   ctrl->enqueueAction([]() {
     ModuleLightsBundler::lights.clear();
     // ModuleParamsBundler::params.clear();
-  });
+  }, "subscription_reset");
 }
 
 bool SubscriptionManager::subscribeModuleLights(int64_t moduleId) {

@@ -228,6 +228,49 @@ Other metrics:
   - `ui.chunk_tick`: `ChunkedManager::tick()` on the UI thread (resend scan).
   - `retry.backoffs`: ticks in which a chunk timed out on its first send, so
     the resend timeout was doubled (count only).
+  - `ui.action.<tag>`: UI-thread actions by the request that queued them
+    (`texture`, `texture.deferred`, `module_structure`, `module_state`,
+    `heartbeat`, ...). Shows what the action queue spends its time on.
+  - `tx.bundler.<name>`: sends of non-chunk bundlers (everything on the
+    priority queue) by bundler name, on the sender thread.
+- Action queue, recorded only in frames that ran actions:
+  - `ui.actions_per_frame` and `ui.actions_ms` (time spent running them)
+  - `ui.action_wait` (ms): the longest enqueue → run wait in that frame
+  - gauge `ui.action_queue.depth` (actions waiting at the start of the
+    frame, including any carried over), with `.peak`
+  - counter `ui.action_budget.exceeded`: frames that stopped early because
+    they used up `ACTION_BUDGET` (8 ms) and carried the rest to the next
+    frame. To compare with running the whole queue in one frame, turn off
+    `/bench/action_budget` (int 0), or untick "Budget UI actions per frame"
+    in the OSCctrl menu.
+- `tx.priority_wait` (ms): non-chunk bundler enqueue → send start. Gauge
+  `tx.priority_queue.depth`, with `.peak`.
+- Server heartbeats (direct mode, from the heartbeat timer):
+  - `heartbeat.gap` (ms): time between consecutive heartbeat sends. Nominally
+    `HEARTBEAT_INTERVAL_MS`; this is what the client's timeout sees.
+  - `heartbeat.latency` (ms): timer fired → sent. Split into
+    `heartbeat.ui_hop` (fired → reached the sender queue, i.e. the UI action
+    queue) and `heartbeat.send_wait` (sender queue → sent).
+  - counters `heartbeat.client_missed` (server-side misses of the client's
+    `/keepalive`) and `heartbeat.client_gone` (client dropped). When the
+    server drops the client, the report is written to the Rack log
+    automatically.
+  - Heartbeats are sent straight from the heartbeat timer thread. To compare
+    with the old path through the UI action queue, turn off
+    `/bench/heartbeat_direct` (int 0), or untick "Heartbeats skip the UI
+    queue" in the OSCctrl menu. `heartbeat.ui_hop` only means something with
+    it off.
+- Module widgets built for `/get/module_structure` (and panel renders):
+  - tallies `connected_widget.create_module`, `.create_widget`, and
+    `.add_module` (adding the module to the engine, which takes the engine's
+    exclusive lock), and `module_structure.delete_widget` (which includes
+    removing the module from the engine).
+  - `module_structure.build_ms`: the whole bundler build. Builds over 50 ms
+    are logged with their plugin and module slugs.
+- The OSCctrl context menu (bench builds) has "Reset bench" and "Dump bench
+  report" (to the Rack log), for measuring with any client, e.g. resetting
+  before connecting to a large patch and dumping after the initial burst of
+  requests.
 - `retry.srtt` and `retry.rto` (ms, sampled once per UI frame): the smoothed
   round trip (one sample per completed send: its slowest chunk) and the
   resulting resend timeout. The estimator also runs with

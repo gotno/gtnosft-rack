@@ -7,8 +7,29 @@
 
 #include "rapidhash/rapidhash.h"
 
-int64_t Catalog::ingest(Breadcrumbs breadcrumbs) {
-  RenderResult render = Renderer::renderTexture(breadcrumbs, Recipe(8, 8));
+ProbeWidgets::ProbeWidgets(rack::app::ModuleWidget* _connected):
+  connected(_connected) {}
+
+ProbeWidgets::~ProbeWidgets() {
+  delete unconnected;
+}
+
+rack::app::ModuleWidget* ProbeWidgets::get(TextureType type) {
+  if (type == TextureType::Switch_frame) return connected;
+
+  if (!unconnected && !unconnectedFailed) {
+    unconnected = gtnosft::util::makeModuleWidget(connected->getModel());
+    unconnectedFailed = !unconnected;
+  }
+  return unconnected;
+}
+
+int64_t Catalog::ingest(Breadcrumbs breadcrumbs, ProbeWidgets& probes) {
+  rack::app::ModuleWidget* moduleWidget = probes.get(breadcrumbs.textureType);
+  if (!moduleWidget) return -1;
+
+  RenderResult render =
+    Renderer::renderTexture(breadcrumbs, Recipe(8, 8), moduleWidget);
 
   if (render.empty() || render.failure()) {
     // INFO("Catalog::ingest %s", render.empty() ? "empty" : "failure");
@@ -88,7 +109,11 @@ int64_t Catalog::pullOverlayId(rack::app::ModuleWidget* widget) {
   return overlayTextureIds.at(moduleId);
 }
 
-std::vector<int64_t> Catalog::pullIds(ParamType type, rack::app::ParamWidget* widget) {
+std::vector<int64_t> Catalog::pullIds(
+  ParamType type,
+  rack::app::ParamWidget* widget,
+  ProbeWidgets& probes
+) {
   std::vector<int64_t> textureIds;
 
   switch (type) {
@@ -106,7 +131,8 @@ std::vector<int64_t> Catalog::pullIds(ParamType type, rack::app::ParamWidget* wi
               widget->module->model->slug,
               widget->paramId,
               type
-            )
+            ),
+            probes
           ));
         }
       }
@@ -124,7 +150,8 @@ std::vector<int64_t> Catalog::pullIds(ParamType type, rack::app::ParamWidget* wi
               widget->module->model->slug,
               widget->paramId,
               type
-            )
+            ),
+            probes
           ));
         }
       }
@@ -141,7 +168,8 @@ std::vector<int64_t> Catalog::pullIds(ParamType type, rack::app::ParamWidget* wi
               widget->paramId,
               TextureType::Switch_frame,
               frameIdx
-            )
+            ),
+            probes
           ));
         }
       }
@@ -153,7 +181,11 @@ std::vector<int64_t> Catalog::pullIds(ParamType type, rack::app::ParamWidget* wi
   return textureIds;
 }
 
-int64_t Catalog::pullId(PortType portType, rack::app::PortWidget* widget) {
+int64_t Catalog::pullId(
+  PortType portType,
+  rack::app::PortWidget* widget,
+  ProbeWidgets& probes
+) {
   TextureType textureType;
   if (portType == PortType::Input) textureType = TextureType::Port_input;
   if (portType == PortType::Output) textureType = TextureType::Port_output;
@@ -164,6 +196,7 @@ int64_t Catalog::pullId(PortType portType, rack::app::PortWidget* widget) {
       widget->module->model->slug,
       widget->portId,
       textureType
-    )
+    ),
+    probes
   );
 }

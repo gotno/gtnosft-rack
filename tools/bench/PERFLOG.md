@@ -247,3 +247,66 @@ The client must discard a partial frame when a newer one of the same texture
 and size arrives (the headset client does). If two frames of one texture
 both wait in the prep queue, the older is still compressed and then dropped
 at once; the prep queue is short, so that's left alone.
+
+## Connection storm on large patches
+
+A large patch dropped the client during the initial connection flow. Measured
+with the real client, "Reset bench" before connecting, and the report the
+server logs when it drops a client.
+
+**Cause:** heartbeats went through the UI action queue, and one frame ran
+the whole connection burst (799–888 actions) in 4.5–9.3 s. `heartbeat.ui_hop`
+reached 8.9 s; `heartbeat.send_wait` (sender queue) stayed under 0.2 ms.
+
+**Fix:** heartbeats now have their own sender mailbox, sent ahead of
+everything else, and the heartbeat timer thread fills it directly (it sets
+the Rack context first, for `APP`). The `/register` heartbeat still goes
+through the UI queue. A/B: `/bench/heartbeat_direct`, or the OSCctrl menu.
+
+| Run | `heartbeat.gap` max | `heartbeat.latency` max | Result |
+|---|---|---|---|
+| through UI queue | 7321 ms | 8940 ms | dropped |
+| direct | 1017 ms | 0.2 ms | stayed connected |
+
+**Still slow:** the UI stalls (single frames up to 9.3 s) are almost all
+`/get/module_structure`: 144 calls, 10.8 s on the UI thread (p50 25 ms, p95
+379 ms, max 686 ms). `Catalog::ingest` test-renders every param and port at
+8×8 to hash it, and `Renderer::renderTexture` builds a new module widget for
+each render. Switch frames also construct the module and add it to the
+engine: `connected_widget.*` ran 1468 times for 144 structures
+(`create_module` 4.8 s, `add_module` 1.8 s, `create_widget` 0.4 s). Texture
+requests queue behind this (`texture.queue_wait` p50 2.7 s).
+
+**Fix:** structure test renders now share widgets (`ProbeWidgets` in
+`Catalog.hpp`). Switch frames render from the structure's own connected
+widget, and every other probe renders from one unconnected widget built on
+first use, so probe hashes match the old per-render widgets. `renderSwitch`
+restores the param value after rendering.
+
+| Run | structures | `build_ms` p50 / p95 / max | `ui.action.module_structure` | `connected_widget.*` | worst frame |
+|---|---|---|---|---|---|
+| per-render widgets | 144 | 25 / 379 / 686 ms | 10.8 s | 1468 | 9.3 s |
+| shared widgets | 76 | 14 / 61 / 136 ms | 1.66 s | 125 | 1.8 s |
+
+Per structure: 75 ms → 22 ms mean. The remaining `connected_widget` builds
+are one per structure plus `/get/texture` switch-frame renders (~49);
+`create_module` is still ~6 ms each. Textures are now the same size of UI
+cost as structures (418 actions, 1.18 s). The worst frame still runs a
+whole burst at once (445 actions, 1.8 s).
+
+**Fix:** `processActionQueue` runs queued actions in order until 8 ms of the
+frame is used (`ACTION_BUDGET`, at least one action per frame) and carries
+the rest over. A/B: `/bench/action_budget`, or the OSCctrl menu.
+
+| Run | worst frame | `frame.ctrl_step` p99 | `ui.action_wait` p50 / max | `texture.queue_wait` p50 / max |
+|---|---|---|---|---|
+| shared widgets, whole queue per frame | 1801 ms | 0.2 ms | 14 / 1822 ms | — |
+| + 8 ms budget | 169 ms | 76 ms | 2737 / 3754 ms | 968 / 2107 ms |
+
+The worst frame is now the slowest single structure build (169 ms); 165
+frames hit the budget. Queued actions wait longer (the storm drains over
+about 4 s instead of in one frame), but all 257 textures completed with no
+failures. Remaining UI cost: `module_structure` 3.1 s over 104 structures
+(`create_module` ~6.5 ms each), `texture` 1.2 s. Client input routed
+through the queue (`/set/param`, cables) waits behind the backlog during
+the storm.

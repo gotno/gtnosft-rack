@@ -13,6 +13,7 @@
 #include "oscpack/ip/UdpSocket.h"
 
 #include "OscConstants.hpp"
+#include "../bench/Bench.hpp"
 
 class OSCctrlWidget;
 struct Bundler;
@@ -35,7 +36,10 @@ struct OscSender {
   void enqueueChunk(Bundler* bundler);
   void submitLights(Bundler* bundler);
   void drainMailboxes();
-  void sendHeartbeat();
+  // safe from any thread with a Rack context set. goes through its own
+  // mailbox, ahead of everything else, so a backed-up queue can't delay it.
+  // firedAt: when the heartbeat timer fired (bench builds only)
+  void sendHeartbeat(BENCH(bench::time_point firedAt = {}));
 
   // estimated time to send every queued chunk.
   // work time smoothing hides socket stalls, so we take the greater of:
@@ -63,6 +67,9 @@ private:
 
   // mailboxes: latest-wins single slot, processed ahead of queues
   std::atomic<Bundler*> lightsMailbox{nullptr};
+  std::atomic<Bundler*> heartbeatMailbox{nullptr};
+  // swap a bundler into a mailbox, freeing the one it replaces
+  void post(std::atomic<Bundler*>& mailbox, Bundler* bundler);
 
   // persistent socket — rebuilt when socketDirty is set
   std::unique_ptr<UdpSocket> socket;
@@ -90,4 +97,15 @@ private:
   void startQueueWorker();
   void stopQueueWorker();
   void processQueue();
+
+  BENCH(
+    // queue worker only
+    bench::time_point lastHeartbeatSentAt{};
+    uint64_t lastHeartbeatGeneration{0};
+    void recordSent(
+      Bundler* bundler,
+      bench::time_point sendStart,
+      bool fromPriority
+    );
+  )
 };

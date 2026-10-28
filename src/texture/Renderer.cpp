@@ -129,6 +129,14 @@ RenderResult Renderer::renderTexture(
   DEFER({ delete moduleWidget; });
   BENCH(bench::stamp(bench::Stage::Prepared);)
 
+  return renderTexture(breadcrumbs, recipe, moduleWidget);
+}
+
+RenderResult Renderer::renderTexture(
+  const Breadcrumbs& breadcrumbs,
+  const Recipe& recipe,
+  rack::app::ModuleWidget* moduleWidget
+) {
   RenderResult result;
 
   switch (breadcrumbs.textureType) {
@@ -367,10 +375,17 @@ RenderResult Renderer::renderSwitch(
   rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
 
   rack::engine::ParamQuantity* pq = switchWidget->getParamQuantity();
+  float originalValue = pq->getValue();
   pq->setValue(breadcrumbs.frameIdx);
   switchWidget->step();
 
-  return Renderer(framebuffer).render(scale);
+  RenderResult result = Renderer(framebuffer).render(scale);
+
+  // the widget may be reused for other renders
+  pq->setValue(originalValue);
+  switchWidget->step();
+
+  return result;
 }
 
 RenderResult Renderer::renderSlider(

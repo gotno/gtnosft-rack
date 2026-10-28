@@ -113,6 +113,14 @@ struct Renderer {
 		const Recipe& recipe
 	);
 
+  // render from an existing module widget instead of building one;
+  // not for Overlay, and Panel leaves the widget's children hidden
+  static RenderResult renderTexture(
+		const Breadcrumbs& breadcrumbs,
+		const Recipe& recipe,
+		rack::app::ModuleWidget* moduleWidget
+	);
+
   static RenderResult renderPanel(
 		rack::app::ModuleWidget* moduleWidget,
 		const Recipe& recipe

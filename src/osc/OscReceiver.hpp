@@ -5,6 +5,7 @@
 #include <memory>
 #include <tuple>
 
+#include <atomic>
 #include <chrono>
 #include "../util/Timer.hpp"
 
@@ -31,6 +32,9 @@ struct OscReceiver : public osc::OscPacketListener {
   ~OscReceiver();
 
   inline static int32_t activePort{RX_PORT};
+
+  // bench A/B: false sends heartbeats through the UI action queue, as before
+  BENCH(std::atomic<bool> heartbeatSkipsUi{true};)
 
 private:
   OSCctrlWidget* ctrl;
@@ -67,6 +71,8 @@ private:
   void generateRoutes();
 
   void startHeartbeat();
+  // the heartbeat timer thread needs it for APP
+  rack::Context* rackContext{nullptr};
   std::chrono::time_point<std::chrono::steady_clock> lastHeartbeatRxTime =
     std::chrono::steady_clock::time_point::min();
   Interval heartbeatInterval;

@@ -1,4 +1,5 @@
 #include "Util.hpp"
+#include "../bench/Bench.hpp"
 
 namespace gtnosft {
 namespace util {
@@ -39,9 +40,26 @@ rack::app::ModuleWidget* makeModuleWidget(rack::plugin::Model* model) {
 rack::app::ModuleWidget* makeConnectedModuleWidget(rack::plugin::Model* model) {
   if (!model) return NULL;
 
-  rack::engine::Module* module = model->createModule();
-  rack::app::ModuleWidget* moduleWidget = model->createModuleWidget(module);
-  APP->engine->addModule(module);
+  BENCH(
+    static bench::Tally& createModule = bench::tally("connected_widget.create_module");
+    static bench::Tally& createWidget = bench::tally("connected_widget.create_widget");
+    static bench::Tally& addModule = bench::tally("connected_widget.add_module");
+  )
+
+  rack::engine::Module* module;
+  rack::app::ModuleWidget* moduleWidget;
+  {
+    BENCH(bench::ScopedTally timer(createModule);)
+    module = model->createModule();
+  }
+  {
+    BENCH(bench::ScopedTally timer(createWidget);)
+    moduleWidget = model->createModuleWidget(module);
+  }
+  {
+    BENCH(bench::ScopedTally timer(addModule);)
+    APP->engine->addModule(module);
+  }
   return moduleWidget;
 }
 

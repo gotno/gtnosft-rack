@@ -9,6 +9,8 @@
 #include <mutex>
 #include <vector>
 
+#include "rack.hpp"
+
 namespace bench {
 
 namespace {
@@ -240,6 +242,44 @@ Report report() {
 
   return report;
 }
+
+void logReport() {
+  Report r = report();
+
+  INFO("Bench report: generation %llu, window %.3f s",
+    (unsigned long long)r.generation,
+    r.windowSec
+  );
+
+  for (const Summary& stat : r.stats) {
+    INFO("  %s: n=%d mean=%.3f min=%.3f p50=%.3f p95=%.3f p99=%.3f max=%.3f",
+      stat.name.c_str(),
+      stat.count,
+      stat.mean,
+      stat.min,
+      stat.p50,
+      stat.p95,
+      stat.p99,
+      stat.max
+    );
+  }
+
+  for (const auto& [name, value] : r.counters) {
+    INFO("  %s: %lld", name.c_str(), (long long)value);
+  }
+
+  for (const TextureRate& texture : r.textures) {
+    INFO("  texture %lld (%s): %.1f fps, %d completed, %d failed",
+      (long long)texture.textureId,
+      texture.kind.c_str(),
+      texture.fps,
+      texture.completed,
+      texture.failed
+    );
+  }
+}
+
+uint64_t currentGeneration() { return generation.load(); }
 
 } // namespace bench
 

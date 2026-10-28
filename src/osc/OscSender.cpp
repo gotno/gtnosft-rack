@@ -31,6 +31,7 @@ OscSender::~OscSender() {
 
   // free anything the worker didn't get to
   drainMailboxes();
+  post(heartbeatMailbox, nullptr);
   while (!priorityQueue.empty()) {
     Bundler* bundler = priorityQueue.front();
     priorityQueue.pop();
@@ -77,17 +78,21 @@ void OscSender::setDirect(char* ip) {
   socketDirty.store(true);
 }
 
-void OscSender::sendHeartbeat() {
+void OscSender::sendHeartbeat(BENCH(bench::time_point firedAt)) {
   OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
 
-  // TODO: immediate via deque
+  Bundler* heartbeat;
   if (isBroadcasting()) {
-    module->txPulse.trigger();
-    enqueueBundler(new BroadcastHeartbeatBundler(ctrl->module->id));
+    heartbeat = new BroadcastHeartbeatBundler(ctrl->module->id);
   } else {
     module->hbOutPulse.trigger();
-    enqueueBundler(new DirectHeartbeatBundler());
+    heartbeat = new DirectHeartbeatBundler();
+    BENCH(heartbeat->heartbeatFiredAt = firedAt;)
   }
+  module->txPulse.trigger();
+  BENCH(heartbeat->enqueuedAt = bench::clock::now();)
+
+  post(heartbeatMailbox, heartbeat);
 }
 
 void OscSender::rebuildSocket(SendMode mode, IpEndpointName endpoint) {
@@ -149,8 +154,11 @@ void OscSender::enqueueBundler(Bundler* bundler) {
     module->txPulse.trigger();
   }
 
+  BENCH(bundler->enqueuedAt = bench::clock::now();)
+
   std::unique_lock<std::mutex> locker(qmutex);
   priorityQueue.push(bundler);
+  BENCH(bench::gauge("tx.priority_queue.depth", priorityQueue.size());)
   locker.unlock();
   queueLockCondition.notify_one();
 }
@@ -170,12 +178,17 @@ void OscSender::enqueueChunk(Bundler* bundler) {
 }
 
 void OscSender::submitLights(Bundler* bundler) {
-  Bundler* old = lightsMailbox.exchange(bundler);
+  post(lightsMailbox, bundler);
+}
+
+void OscSender::post(std::atomic<Bundler*>& mailbox, Bundler* bundler) {
+  Bundler* old = mailbox.exchange(bundler);
   if (old) {
     old->done();
     delete old;
     return;
   }
+  if (!bundler) return;
 
   // mailbox was empty, kick worker
   std::unique_lock<std::mutex> locker(qmutex);
@@ -183,10 +196,7 @@ void OscSender::submitLights(Bundler* bundler) {
 }
 
 void OscSender::drainMailboxes() {
-  if (Bundler* old = lightsMailbox.exchange(nullptr)) {
-    old->done();
-    delete old;
-  }
+  post(lightsMailbox, nullptr);
 }
 
 void OscSender::processQueue() {
@@ -195,13 +205,20 @@ void OscSender::processQueue() {
     queueLockCondition.wait(locker, [this](){
       return !priorityQueue.empty()
         || !chunkQueue.empty()
-        || lightsMailbox.load() != nullptr;
+        || lightsMailbox.load() != nullptr
+        || heartbeatMailbox.load() != nullptr;
     });
 
-    // lights mailbox first, then everything else, then image chunks
-    Bundler* bundler = lightsMailbox.exchange(nullptr);
+    // heartbeat, then lights, then everything else, then image chunks
+    Bundler* bundler = heartbeatMailbox.exchange(nullptr);
     bool isChunk = false;
+    BENCH(
+      bool fromHeartbeat = bundler != nullptr;
+      bool fromPriority = false;
+    )
+    if (!bundler) bundler = lightsMailbox.exchange(nullptr);
     if (!bundler && !priorityQueue.empty()) {
+      BENCH(fromPriority = true;)
       bundler = priorityQueue.front();
       priorityQueue.pop();
     }
@@ -254,6 +271,11 @@ void OscSender::processQueue() {
         );
     }
 
+    BENCH(
+      if (fromHeartbeat || fromPriority)
+        recordSent(bundler, sendStart, fromPriority);
+    )
+
     bundler->done();
     delete bundler;
 
@@ -266,6 +288,39 @@ void OscSender::processQueue() {
     chunkSendNs.store(smoothed, std::memory_order_relaxed);
   }
 }
+
+BENCH(
+  void OscSender::recordSent(
+    Bundler* bundler,
+    bench::time_point sendStart,
+    bool fromPriority
+  ) {
+    if (bundler->isNoop()) return;
+    bench::time_point now = bench::clock::now();
+    auto ms = [](bench::time_point from, bench::time_point to) {
+      return std::chrono::duration<float, std::milli>(to - from).count();
+    };
+
+    if (fromPriority)
+      bench::sample("tx.priority_wait", ms(bundler->enqueuedAt, sendStart));
+    bench::tally(("tx.bundler." + bundler->name).c_str()).add(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(now - sendStart).count()
+    );
+
+    if (bundler->heartbeatFiredAt == bench::time_point{}) return;
+
+    bench::sample("heartbeat.latency", ms(bundler->heartbeatFiredAt, now));
+    bench::sample("heartbeat.ui_hop", ms(bundler->heartbeatFiredAt, bundler->enqueuedAt));
+    bench::sample("heartbeat.send_wait", ms(bundler->enqueuedAt, now));
+
+    // skip the gap that spans a bench reset
+    uint64_t generation = bench::currentGeneration();
+    if (generation == lastHeartbeatGeneration)
+      bench::sample("heartbeat.gap", ms(lastHeartbeatSentAt, now));
+    lastHeartbeatSentAt = now;
+    lastHeartbeatGeneration = generation;
+  }
+)
 
 void OscSender::updateOldestChunkQueuedAt() {
   oldestChunkQueuedAtNs.store(

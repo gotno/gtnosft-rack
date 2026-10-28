@@ -4,6 +4,8 @@
 
 #include <tuple>
 
+struct ProbeWidgets;
+
 enum class ParamType {
   Unknown, Knob, Slider, Button, Switch
 };
@@ -40,6 +42,12 @@ struct ModuleStructureBundler : Bundler {
 
   void addLightMessages(rack::app::ModuleWidget* moduleWidget);
   void addLightMessage(rack::app::LightWidget* lightWidget, int32_t paramId = -1);
-  void addParamMessages(rack::app::ModuleWidget* moduleWidget);
-  void addPortMessages(rack::app::ModuleWidget* moduleWidget);
+  void addParamMessages(
+    rack::app::ModuleWidget* moduleWidget,
+    ProbeWidgets& probes
+  );
+  void addPortMessages(
+    rack::app::ModuleWidget* moduleWidget,
+    ProbeWidgets& probes
+  );
 };

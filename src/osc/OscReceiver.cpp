@@ -80,10 +80,23 @@ void OscReceiver::endListener() {
 }
 
 void OscReceiver::startHeartbeat() {
+  rackContext = rack::contextGet();
+
   heartbeatInterval = Timer::setInterval(HEARTBEAT_INTERVAL_MS, [this] {
-    ctrl->enqueueAction([this]() {
-      osctx->sendHeartbeat();
-    });
+    rack::contextSet(rackContext);
+
+    // sent from this thread, so long UI frames can't hold heartbeats back
+    BENCH(bench::time_point firedAt = bench::clock::now();)
+    auto send = [this BENCH(, firedAt)]() {
+      osctx->sendHeartbeat(BENCH(firedAt));
+    };
+    bool viaUi = false;
+    BENCH(viaUi = !heartbeatSkipsUi.load();)
+    if (viaUi) {
+      ctrl->enqueueAction(send, "heartbeat");
+    } else {
+      send();
+    }
 
     std::scoped_lock<std::mutex> lock(heartbeatMutex);
 
@@ -94,11 +107,18 @@ void OscReceiver::startHeartbeat() {
     auto now = std::chrono::steady_clock::now();
     auto delayMs = std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS);
 
-    if (lastHeartbeatRxTime < (now - delayMs)) ++missedHeartbeats;
+    if (lastHeartbeatRxTime < (now - delayMs)) {
+      ++missedHeartbeats;
+      BENCH(bench::count("heartbeat.client_missed");)
+    }
 
     // client is gone, switch back to broadcasting
     if (missedHeartbeats >= maxMissedHeartbeats) {
       WARN("client is gone, switching back to broadcasting");
+      BENCH(
+        bench::count("heartbeat.client_gone");
+        bench::logReport();
+      )
       lastHeartbeatRxTime = std::chrono::steady_clock::time_point::min();
       osctx->setBroadcasting();
 
@@ -160,7 +180,7 @@ void OscReceiver::renderPendingTexture(
     BENCH(bench::count("texture_requests.deferred");)
     ctrl->enqueueAction([this, key, pending]() {
       renderPendingTexture(key, pending);
-    });
+    }, "texture.deferred");
     return;
   }
 
@@ -221,7 +241,7 @@ void OscReceiver::generateRoutes() {
         (void)args;
         ctrl->enqueueAction([this]() {
           osctx->enqueueBundler(new BenchResetAckBundler(bench::reset()));
-        });
+        }, "bench");
       }
     );
 
@@ -231,7 +251,7 @@ void OscReceiver::generateRoutes() {
         (void)args;
         ctrl->enqueueAction([this]() {
           osctx->enqueueBundler(new BenchReportBundler());
-        });
+        }, "bench");
       }
     );
 
@@ -245,7 +265,7 @@ void OscReceiver::generateRoutes() {
           osctx->enqueueBundler(
             new BenchToggleAckBundler("/bench/overlay_cache", enabled)
           );
-        });
+        }, "bench");
       }
     );
 
@@ -258,7 +278,7 @@ void OscReceiver::generateRoutes() {
           osctx->enqueueBundler(
             new BenchToggleAckBundler("/bench/prep_worker", enabled)
           );
-        });
+        }, "bench");
       }
     );
 
@@ -271,7 +291,7 @@ void OscReceiver::generateRoutes() {
           osctx->enqueueBundler(
             new BenchToggleAckBundler("/bench/adaptive_retry", enabled)
           );
-        });
+        }, "bench");
       }
     );
 
@@ -284,7 +304,33 @@ void OscReceiver::generateRoutes() {
           osctx->enqueueBundler(
             new BenchToggleAckBundler("/bench/back_pressure", enabled)
           );
-        });
+        }, "bench");
+      }
+    );
+
+    routes.emplace(
+      "/bench/heartbeat_direct",
+      [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+        bool enabled = (args++)->AsInt32() != 0;
+        ctrl->enqueueAction([this, enabled]() {
+          heartbeatSkipsUi = enabled;
+          osctx->enqueueBundler(
+            new BenchToggleAckBundler("/bench/heartbeat_direct", enabled)
+          );
+        }, "bench");
+      }
+    );
+
+    routes.emplace(
+      "/bench/action_budget",
+      [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+        bool enabled = (args++)->AsInt32() != 0;
+        ctrl->enqueueAction([this, enabled]() {
+          ctrl->actionBudgetEnabled = enabled;
+          osctx->enqueueBundler(
+            new BenchToggleAckBundler("/bench/action_budget", enabled)
+          );
+        }, "bench");
       }
     );
 
@@ -297,7 +343,7 @@ void OscReceiver::generateRoutes() {
           osctx->enqueueBundler(
             new BenchToggleAckBundler("/bench/supersede", enabled)
           );
-        });
+        }, "bench");
       }
     );
   )
@@ -315,9 +361,10 @@ void OscReceiver::generateRoutes() {
       chunkman->resetRtt();
       subman->start();
 
+      // the receive thread has no Rack context, which the heartbeat needs
       ctrl->enqueueAction([this]() {
         osctx->sendHeartbeat();
-      });
+      }, "heartbeat");
     }
   );
 
@@ -340,7 +387,7 @@ void OscReceiver::generateRoutes() {
 
       ctrl->enqueueAction([this]() {
         osctx->enqueueBundler(new SettingsBundler());
-      });
+      }, "settings");
     }
   );
 
@@ -352,7 +399,7 @@ void OscReceiver::generateRoutes() {
       int64_t ctrlId = ctrl->module->id;
       ctrl->enqueueAction([=]() {
         osctx->enqueueBundler(new PatchInfoBundler(ctrlId));
-      });
+      }, "patch_info");
     }
   );
 
@@ -363,7 +410,7 @@ void OscReceiver::generateRoutes() {
 
       ctrl->enqueueAction([&]() {
         osctx->enqueueBundler(new ModuleStubsBundler());
-      });
+      }, "module_stubs");
     }
   );
 
@@ -374,7 +421,7 @@ void OscReceiver::generateRoutes() {
 
       ctrl->enqueueAction([&]() {
         osctx->enqueueBundler(new CablesBundler());
-      });
+      }, "cables");
     }
   );
 
@@ -388,7 +435,7 @@ void OscReceiver::generateRoutes() {
         ModuleStructureBundler* bundler =
           new ModuleStructureBundler(pluginSlug, moduleSlug);
         osctx->enqueueBundler(bundler);
-      });
+      }, "module_structure");
     }
   );
 
@@ -449,7 +496,7 @@ void OscReceiver::generateRoutes() {
 
       ctrl->enqueueAction([this, key, pending]() {
         renderPendingTexture(key, pending);
-      });
+      }, "texture");
     }
   );
 
@@ -477,7 +524,7 @@ void OscReceiver::generateRoutes() {
         osctx->enqueueBundler(
           new ModuleStateBundler(moduleId, ctrl->box)
         );
-      });
+      }, "module_state");
     }
   );
 
@@ -492,7 +539,7 @@ void OscReceiver::generateRoutes() {
         osctx->enqueueBundler(
           new ModuleParamsBundler(moduleIds)
         );
-      });
+      }, "params_state");
     }
   );
 
@@ -507,7 +554,7 @@ void OscReceiver::generateRoutes() {
         LightSubscriptionAckBundler* bundler =
           new LightSubscriptionAckBundler(moduleId, success);
         osctx->enqueueBundler(bundler);
-      });
+      }, "subscribe_lights");
     }
   );
 
@@ -541,7 +588,7 @@ void OscReceiver::generateRoutes() {
         } else {
           delete bundler;
         }
-      });
+      }, "param");
     }
   );
 
@@ -602,7 +649,7 @@ void OscReceiver::generateRoutes() {
         }();
 
         osctx->enqueueBundler(bundler);
-      });
+      }, "cable");
     }
   );
 
@@ -627,7 +674,7 @@ void OscReceiver::generateRoutes() {
         }();
 
         osctx->enqueueBundler(bundler);
-      });
+      }, "cable");
     }
   );
 
@@ -641,7 +688,7 @@ void OscReceiver::generateRoutes() {
           APP->patch->path = path;
           APP->history->setSaved();
         });
-      });
+      }, "patch_open");
     }
   );
 

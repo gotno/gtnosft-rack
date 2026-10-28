@@ -9,6 +9,8 @@
 #include "oscpack/osc/OscOutboundPacketStream.h"
 #include "oscpack/osc/OscTypes.h"
 
+#include "../../bench/Bench.hpp"
+
 struct Bundler {
   Bundler(std::string _name = "NoopBundler"): name(_name) {
     // test too many messages for one packet (multiple sends)
@@ -65,6 +67,12 @@ struct Bundler {
 
   // TODO: do we need this with the smaller packet sizes? doesn't seem that way.
   int32_t postSendDelayMs{0};
+
+  BENCH(
+    bench::time_point enqueuedAt{};
+    // set on direct heartbeats: when the heartbeat timer fired
+    bench::time_point heartbeatFiredAt{};
+  )
 
 private:
   typedef std::function<void(osc::OutboundPacketStream&)> messageBuilder;

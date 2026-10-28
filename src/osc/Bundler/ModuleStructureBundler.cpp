@@ -1,6 +1,7 @@
 #include "ModuleStructureBundler.hpp"
 #include "../../util/Util.hpp"
 #include "../../texture/Catalog.hpp"
+#include "../../bench/Bench.hpp"
 
 ModuleStructureBundler::ModuleStructureBundler(
   const std::string& _pluginSlug,
@@ -10,6 +11,7 @@ ModuleStructureBundler::ModuleStructureBundler(
   pluginSlug(_pluginSlug),
   moduleSlug(_moduleSlug)
 {
+  BENCH(bench::time_point buildStart = bench::clock::now();)
   rack::plugin::Model* model = gtnosft::util::findModel(pluginSlug, moduleSlug);
   rack::app::ModuleWidget* moduleWidget =
     gtnosft::util::makeConnectedModuleWidget(model);
@@ -23,8 +25,11 @@ ModuleStructureBundler::ModuleStructureBundler(
   }
 
   addLightMessages(moduleWidget);
-  addParamMessages(moduleWidget);
-  addPortMessages(moduleWidget);
+  {
+    ProbeWidgets probes(moduleWidget);
+    addParamMessages(moduleWidget, probes);
+    addPortMessages(moduleWidget, probes);
+  }
 
   int64_t textureId = Catalog::pullPanelId(moduleWidget);
 
@@ -46,8 +51,26 @@ ModuleStructureBundler::ModuleStructureBundler(
     }
   );
 
-  delete moduleWidget;
+  {
+    // includes removing the module from the engine
+    BENCH(
+      static bench::Tally& deleteWidget =
+        bench::tally("module_structure.delete_widget");
+      bench::ScopedTally timer(deleteWidget);
+    )
+    delete moduleWidget;
+  }
   ++structureIdCounter;
+
+  BENCH(
+    float buildMs = std::chrono::duration<float, std::milli>(
+      bench::clock::now() - buildStart
+    ).count();
+    bench::sample("module_structure.build_ms", buildMs);
+    if (buildMs > 50.f)
+      INFO("bench: slow module structure %s:%s took %.1f ms",
+        pluginSlug.c_str(), moduleSlug.c_str(), buildMs);
+  )
 }
 
 void ModuleStructureBundler::addLightMessage(
@@ -116,7 +139,10 @@ void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWid
   }
 }
 
-void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWidget) {
+void ModuleStructureBundler::addParamMessages(
+  rack::app::ModuleWidget* moduleWidget,
+  ProbeWidgets& probes
+) {
   int32_t paramId;
   ParamType type;
   rack::math::Vec size, pos;
@@ -264,7 +290,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       }
 
       std::vector<int64_t> textureIds =
-        Catalog::pullIds(ParamType::Knob, knobWidget);
+        Catalog::pullIds(ParamType::Knob, knobWidget, probes);
 
       messages.emplace_back(
         "/set/module_structure/param/knob",
@@ -295,7 +321,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       }
 
       std::vector<int64_t> textureIds =
-        Catalog::pullIds(ParamType::Slider, sliderWidget);
+        Catalog::pullIds(ParamType::Slider, sliderWidget, probes);
 
       messages.emplace_back(
         "/set/module_structure/param/slider",
@@ -324,7 +350,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       }
 
       std::vector<int64_t> textureIds =
-        Catalog::pullIds(ParamType::Button, switchWidget);
+        Catalog::pullIds(ParamType::Button, switchWidget, probes);
 
       messages.emplace_back(
         "/set/module_structure/param/button",
@@ -350,7 +376,7 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
       }
 
       std::vector<int64_t> textureIds =
-        Catalog::pullIds(ParamType::Button, switchWidget);
+        Catalog::pullIds(ParamType::Button, switchWidget, probes);
 
       messages.emplace_back(
         "/set/module_structure/param/switch",
@@ -370,7 +396,10 @@ void ModuleStructureBundler::addParamMessages(rack::app::ModuleWidget* moduleWid
   }
 }
 
-void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidget) {
+void ModuleStructureBundler::addPortMessages(
+  rack::app::ModuleWidget* moduleWidget,
+  ProbeWidgets& probes
+) {
   int32_t portId;
   PortType type;
   rack::math::Vec size, pos;
@@ -396,7 +425,7 @@ void ModuleStructureBundler::addPortMessages(rack::app::ModuleWidget* moduleWidg
       );
     }
 
-    int64_t textureId = Catalog::pullId(type, portWidget);
+    int64_t textureId = Catalog::pullId(type, portWidget, probes);
 
     messages.emplace_back(
       "/set/module_structure/port",

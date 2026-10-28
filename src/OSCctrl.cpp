@@ -177,22 +177,83 @@ void OSCctrlWidget::step() {
   )
 }
 
-void OSCctrlWidget::enqueueAction(Action action) {
+void OSCctrlWidget::enqueueAction(Action action, const char* tag) {
   std::lock_guard<std::mutex> locker(actionMutex);
-  actionQueue.push(action);
+  actionQueue.push(QueuedAction{
+    std::move(action),
+    tag
+    BENCH(, bench::clock::now())
+  });
 }
 
 void OSCctrlWidget::processActionQueue() {
-  std::queue<Action> actions;
   {
     std::lock_guard<std::mutex> locker(actionMutex);
-    std::swap(actions, actionQueue);
+    while (!actionQueue.empty()) {
+      pendingActions.push_back(std::move(actionQueue.front()));
+      actionQueue.pop();
+    }
   }
 
-  while (!actions.empty()) {
-    actions.front()();
-    actions.pop();
+  if (pendingActions.empty()) return;
+
+  bool budgeted = true;
+  BENCH(
+    budgeted = actionBudgetEnabled.load();
+
+    // UI thread only. caches tally lookups so we don't take the bench mutex
+    // per action
+    static std::map<const char*, bench::Tally*> tagTallies;
+
+    size_t ran = 0;
+    float maxWaitMs = 0.f;
+    bench::gauge("ui.action_queue.depth", pendingActions.size());
+  )
+
+  // actions enqueued while these run wait for the next frame
+  size_t available = pendingActions.size();
+  auto batchStart = std::chrono::steady_clock::now();
+
+  while (available > 0) {
+    QueuedAction queued = std::move(pendingActions.front());
+    pendingActions.pop_front();
+    --available;
+
+    BENCH(
+      bench::time_point actionStart = bench::clock::now();
+      maxWaitMs = std::max(maxWaitMs, std::chrono::duration<float, std::milli>(
+        actionStart - queued.enqueuedAt
+      ).count());
+    )
+
+    queued.action();
+
+    BENCH(
+      ++ran;
+      bench::Tally*& tally = tagTallies[queued.tag];
+      if (!tally)
+        tally = &bench::tally((std::string("ui.action.") + queued.tag).c_str());
+      tally->add(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        bench::clock::now() - actionStart
+      ).count());
+    )
+
+    if (
+      budgeted && available > 0
+        && std::chrono::steady_clock::now() - batchStart >= ACTION_BUDGET
+    ) {
+      BENCH(bench::count("ui.action_budget.exceeded");)
+      break;
+    }
   }
+
+  BENCH(
+    bench::sample("ui.actions_per_frame", (float)ran);
+    bench::sample("ui.actions_ms", std::chrono::duration<float, std::milli>(
+      bench::clock::now() - batchStart
+    ).count());
+    bench::sample("ui.action_wait", maxWaitMs);
+  )
 }
 
 void OSCctrlWidget::appendContextMenu(Menu* menu) {
@@ -204,40 +265,20 @@ void OSCctrlWidget::appendContextMenu(Menu* menu) {
     }));
 
     menu->addChild(createMenuItem("Dump bench report", "", [=]() {
-      bench::Report report = bench::report();
-
-      INFO("Bench report: generation %llu, window %.3f s",
-        (unsigned long long)report.generation,
-        report.windowSec
-      );
-
-      for (const bench::Summary& stat : report.stats) {
-        INFO("  %s: n=%d mean=%.3f min=%.3f p50=%.3f p95=%.3f p99=%.3f max=%.3f",
-          stat.name.c_str(),
-          stat.count,
-          stat.mean,
-          stat.min,
-          stat.p50,
-          stat.p95,
-          stat.p99,
-          stat.max
-        );
-      }
-
-      for (const auto& [name, value] : report.counters) {
-        INFO("  %s: %lld", name.c_str(), (long long)value);
-      }
-
-      for (const bench::TextureRate& texture : report.textures) {
-        INFO("  texture %lld (%s): %.1f fps, %d completed, %d failed",
-          (long long)texture.textureId,
-          texture.kind.c_str(),
-          texture.fps,
-          texture.completed,
-          texture.failed
-        );
-      }
+      bench::logReport();
     }));
+
+    if (oscrx) {
+      menu->addChild(createBoolMenuItem("Heartbeats skip the UI queue", "",
+        [this]() { return oscrx->heartbeatSkipsUi.load(); },
+        [this](bool enabled) { oscrx->heartbeatSkipsUi = enabled; }
+      ));
+    }
+
+    menu->addChild(createBoolMenuItem("Budget UI actions per frame", "",
+      [this]() { return actionBudgetEnabled.load(); },
+      [this](bool enabled) { actionBudgetEnabled = enabled; }
+    ));
   )
 }
 
