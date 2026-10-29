@@ -160,7 +160,8 @@ std::vector<int64_t> Catalog::pullIds(
     case ParamType::Switch:
       {
         rack::engine::ParamQuantity* pq = widget->getParamQuantity();
-        for (int frameIdx = 0; frameIdx <= pq->getMaxValue(); ++frameIdx) {
+        int numFrames = (int)(pq->getMaxValue() - pq->getMinValue()) + 1;
+        for (int frameIdx = 0; frameIdx < numFrames; ++frameIdx) {
           textureIds.push_back(Catalog::ingest(
             Breadcrumbs(
               widget->module->model->plugin->slug,

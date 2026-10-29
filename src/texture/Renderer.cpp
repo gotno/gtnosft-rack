@@ -400,7 +400,7 @@ RenderResult Renderer::renderSwitch(
 
   rack::engine::ParamQuantity* pq = switchWidget->getParamQuantity();
   float originalValue = pq->getValue();
-  pq->setValue(breadcrumbs.frameIdx);
+  pq->setValue(pq->getMinValue() + breadcrumbs.frameIdx);
   switchWidget->step();
 
   RenderResult result = Renderer(framebuffer).render(scale);

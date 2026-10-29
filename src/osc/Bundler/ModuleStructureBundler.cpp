@@ -369,7 +369,7 @@ void ModuleStructureBundler::addParamMessages(
 
     if (type == ParamType::Switch && switchWidget) {
       bool horizontal = size.x > size.y;
-      int numFrames = maxValue + 1;
+      int numFrames = maxValue - minValue + 1;
 
       if (shouldLog) {
         INFO("    %d frames", numFrames);
