@@ -1,1 +1,3 @@
 python-osc>=1.8
+# optional: decode Opus for audio_bench --wav/--analyze (needs the libopus shared library)
+opuslib>=3.0

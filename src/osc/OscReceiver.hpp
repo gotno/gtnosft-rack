@@ -77,6 +77,7 @@ private:
     std::chrono::steady_clock::time_point::min();
   Interval heartbeatInterval;
   uint8_t missedHeartbeats{0}, maxMissedHeartbeats{MAX_MISSED_HEARTBEATS};
+  uint8_t heartbeatsSinceReannounce{0};
   std::mutex heartbeatMutex;
 
   // prevent same-frame renders of the same texture at the same size.

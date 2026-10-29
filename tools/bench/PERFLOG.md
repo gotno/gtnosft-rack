@@ -310,3 +310,30 @@ failures. Remaining UI cost: `module_structure` 3.1 s over 104 structures
 (`create_module` ~6.5 ms each), `texture` 1.2 s. Client input routed
 through the queue (`/set/param`, cables) waits behind the backlog during
 the storm.
+
+## Audio (bCast)
+
+bCast streams Opus or PCM over its own UDP socket, marked DSCP EF / WMM
+voice (see `API.md`, "Audio packet format"). Texture chunks share the
+Wi-Fi link, so OSCctrl paces them from the client's `/audio/stats`
+(`ChunkPacer`: AIMD on underruns, losses and jitter spikes; unlimited when
+clean). A/B: `/bench/chunk_pacing`, or `audio_bench.py --no-chunk-pacing`.
+
+Wi-Fi, client on a laptop on the same Wi-Fi network as the Quest (not yet
+run), 60 s runs, same session:
+
+| Run | preset | overlays | pacing | underruns | lost after redundancy | jitter p95 / p99 | overlay fps | `tx.pacing.rate_mbps` min |
+|---|---|---|---|---|---|---|---|---|
+| `wifi-b3-off` | Balanced | 3 | off | not yet run (needs Wi-Fi A/B on user's network) | — | — | — | — |
+| `wifi-b3-on` | Balanced | 3 | on | not yet run (needs Wi-Fi A/B on user's network) | — | — | — | — |
+| `wifi-b16-off` | Balanced | 16 | off | not yet run (needs Wi-Fi A/B on user's network) | — | — | — | — |
+| `wifi-b16-on` | Balanced | 16 | on | not yet run (needs Wi-Fi A/B on user's network) | — | — | — | — |
+| `wifi-l16-on` | Lowest latency | 16 | on | not yet run (needs Wi-Fi A/B on user's network) | — | — | — | — |
+| `wifi-r16-on` | Robust | 16 | on | not yet run (needs Wi-Fi A/B on user's network) | — | — | — | — |
+
+Quest latency, click test (Balanced): not yet measured.
+
+**Remaining:** run the Wi-Fi A/B and fill this table; Quest click-test
+latency and the Android buffer experiment (1024 × 4 at 44.1 kHz vs 256 × 2
+at 48 kHz); confirm CI builds on win-x64, mac-x64 and mac-arm64 with libopus
+static and qwave on Windows; an Advanced settings menu (follow-up).

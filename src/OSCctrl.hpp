@@ -14,6 +14,7 @@ class OscSender;
 class OscReceiver;
 class ChunkedManager;
 class SubscriptionManager;
+struct bCast;
 
 typedef std::function<void(void)> Action;
 
@@ -76,6 +77,15 @@ struct OSCctrlWidget : ModuleWidget {
   virtual void step() override;
   void appendContextMenu(Menu* menu) override;
 
+  int64_t managedAudioId = -1;
+  int announcedAudioPreset = -1;
+  bCast* getManagedAudio();
+  void stepAudioExpander();
+  void announceAudioStream();
+
+  void onClientRegistered();
+  void onClientGone();
+
   // enqueue actions that need to run on the render thread.
   // tag must be a string literal; it names the action in bench reports
   struct QueuedAction {
@@ -91,7 +101,6 @@ struct OSCctrlWidget : ModuleWidget {
   // actions run in order until this much of a frame is used; the rest
   // carry over to the next frame (at least one action runs per frame)
   static constexpr std::chrono::milliseconds ACTION_BUDGET{8};
-  // UI thread only: actions taken from actionQueue but not yet run
   std::deque<QueuedAction> pendingActions;
   BENCH(std::atomic<bool> actionBudgetEnabled{true};)
 };
