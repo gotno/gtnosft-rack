@@ -73,19 +73,20 @@ ModuleStructureBundler::ModuleStructureBundler(
   )
 }
 
-void ModuleStructureBundler::addLightMessage(
-  rack::app::LightWidget* lightWidget,
-  int32_t paramId
-) {
+void ModuleStructureBundler::addLightMessage(const LightGroup& group) {
+  rack::app::LightWidget* lightWidget = group.front();
+  int32_t paramId = group.paramId;
   rack::math::Vec size = gtnosft::util::vec2cm(lightWidget->box.size);
   rack::math::Vec pos = gtnosft::util::vec2cm(lightWidget->box.pos);
   int32_t lightId = numLights;
-  bool defaultVisible = lightWidget->isVisible();
-  std::string bgColorHex = rack::color::toHexString(lightWidget->bgColor);
+  bool defaultVisible = group.isVisible();
+  std::string bgColorHex = rack::color::toHexString(group.bgColor());
 
   if (shouldLog) {
     if (paramId == -1) INFO("  - light %d", lightId);
     if (paramId != -1) INFO("  - light %d (param %d)", lightId, paramId);
+    if (group.widgets.size() > 1)
+      INFO("    (%zu stacked widgets)", group.widgets.size());
   }
 
   messages.emplace_back(
@@ -121,22 +122,8 @@ void ModuleStructureBundler::addLightMessage(
 }
 
 void ModuleStructureBundler::addLightMessages(rack::app::ModuleWidget* moduleWidget) {
-  using namespace rack::app;
-  using namespace rack::widget;
-
-  // panel lights
-  for (Widget* widget : moduleWidget->children) {
-    if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget))
-      addLightMessage(lightWidget);
-  }
-
-  // param lights
-  for (ParamWidget* & paramWidget : moduleWidget->getParams()) {
-    for (Widget* & widget : paramWidget->children) {
-      if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget))
-        addLightMessage(lightWidget, paramWidget->getParamQuantity()->paramId);
-    }
-  }
+  for (const LightGroup& group : collectLightGroups(moduleWidget))
+    addLightMessage(group);
 }
 
 void ModuleStructureBundler::addParamMessages(

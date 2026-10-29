@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Bundler.hpp"
+#include "LightGroups.hpp"
 
 #include <tuple>
 
@@ -41,7 +42,7 @@ struct ModuleStructureBundler : Bundler {
   bool shouldLog{false};
 
   void addLightMessages(rack::app::ModuleWidget* moduleWidget);
-  void addLightMessage(rack::app::LightWidget* lightWidget, int32_t paramId = -1);
+  void addLightMessage(const LightGroup& group);
   void addParamMessages(
     rack::app::ModuleWidget* moduleWidget,
     ProbeWidgets& probes

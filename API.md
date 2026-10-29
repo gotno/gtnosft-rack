@@ -257,7 +257,7 @@ Shared data shape for all param types.
 | 10 | int64 | texture id | unique id for requesting a render of the port |
 
 ---
-**Light definitions:** One message per light. Positions are relative to module position.
+**Light definitions:** One message per light<sup>2</sup>. Positions are relative to module position.
 
 `/set/module_structure/light`
 | index | type | contents | description |
@@ -276,6 +276,7 @@ Shared data shape for all param types.
 
 <sub>notes:</sub><br />
 <sub>1. unlike parameters and ports, this id is not something Rack assigns, but it will be useful later when receiving light updates via subscription</sub><br />
+<sub>2. some modules stack several light widgets in the same spot instead of recoloring one. Widgets with an identical bounding box and parameter id are reported as a single light: its color is the screen blend of the visible widgets' colors (as Rack draws them), its background color is their source-over composite. the light is reported as visible if any of lights in the group are visible.</sub><br />
 
 ---
 

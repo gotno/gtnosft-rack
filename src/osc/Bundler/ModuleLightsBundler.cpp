@@ -17,8 +17,8 @@ ModuleLightsBundler::ModuleLightsBundler(
 
     auto& lightList = lights.at(moduleId);
 
-    for (auto& [widget, state] : lightList)
-      if (state.update(widget)) updates.emplace_back(moduleId, state);
+    for (auto& [group, state] : lightList)
+      if (state.update(group)) updates.emplace_back(moduleId, state);
   }
 
   for (size_t i = 0; i < updates.size(); i += MAX_ENTRIES) {
@@ -31,33 +31,16 @@ void ModuleLightsBundler::collectLights(
   int64_t moduleId,
   std::vector<LightEntry>& updates
 ) {
-  using namespace rack::app;
-  using namespace rack::widget;
-
-  ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
-  int lightId = 0;
+  rack::app::ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
   lights.emplace(moduleId, LightList());
   ModuleCacheGuard::ensure(moduleWidget, moduleId);
   auto& lightList = lights.at(moduleId);
 
-  // panel lights
-  for (Widget* widget : moduleWidget->children) {
-    if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget)) {
-      lightList.emplace_back(lightWidget, LightState(lightId, lightWidget));
-      updates.emplace_back(moduleId, lightList.back().second);
-      ++lightId;
-    }
-  }
-
-  // param lights
-  for (ParamWidget* & paramWidget : moduleWidget->getParams()) {
-    for (Widget* & widget : paramWidget->children) {
-      if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget)) {
-        lightList.emplace_back(lightWidget, LightState(lightId, lightWidget));
-        updates.emplace_back(moduleId, lightList.back().second);
-        ++lightId;
-      }
-    }
+  int lightId = 0;
+  for (LightGroup& group : collectLightGroups(moduleWidget)) {
+    LightState state(lightId++, group);
+    lightList.emplace_back(std::move(group), state);
+    updates.emplace_back(moduleId, state);
   }
 }
 

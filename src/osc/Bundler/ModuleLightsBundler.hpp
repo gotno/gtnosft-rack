@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Bundler.hpp"
+#include "LightGroups.hpp"
 #include "../OscConstants.hpp"
 #include <unordered_map>
 #include <vector>
@@ -15,22 +16,21 @@ static inline int32_t packColor(NVGcolor c) {
 }
 
 struct LightState {
-  LightState(int _id, rack::app::LightWidget* widget):
+  LightState(int _id, const LightGroup& group):
     id(_id),
-    visible(widget->isVisible()),
-    color(packColor(widget->color)) {}
+    visible(group.isVisible()),
+    color(packColor(group.color())) {}
 
   int id;
   bool visible;
   int32_t color;
 
-  bool update(rack::app::LightWidget* widget) {
-    bool visibleChanged = visible != widget->isVisible();
-    int32_t newColor = packColor(widget->color);
-    bool colorChanged = color != newColor;
-    if (!visibleChanged && !colorChanged) return false;
+  bool update(const LightGroup& group) {
+    bool newVisible = group.isVisible();
+    int32_t newColor = packColor(group.color());
+    if (newVisible == visible && newColor == color) return false;
 
-    visible = widget->isVisible();
+    visible = newVisible;
     color = newColor;
     return true;
   }
@@ -40,7 +40,7 @@ static constexpr size_t oscPadded(size_t len) { return (len + 4) & ~3; }
 
 // TODO: rename ModuleLightsStateBundler
 struct ModuleLightsBundler : Bundler {
-  typedef std::vector<std::pair<rack::app::LightWidget*, LightState>> LightList;
+  typedef std::vector<std::pair<LightGroup, LightState>> LightList;
   inline static std::unordered_map<int64_t, LightList> lights;
 
   ModuleLightsBundler(const std::vector<int64_t>& moduleIds);
