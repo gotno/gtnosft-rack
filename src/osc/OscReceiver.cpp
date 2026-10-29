@@ -28,6 +28,8 @@
 
 #include "../texture/Catalog.hpp"
 #include "../texture/Renderer.hpp"
+#include "../bCast.hpp"
+#include "Bundler/AudioBundlers.hpp"
 
 OscReceiver::OscReceiver(
   OSCctrlWidget* _ctrl,
@@ -98,6 +100,18 @@ void OscReceiver::startHeartbeat() {
       send();
     }
 
+    // re-announce the managed audio stream to the connected client every
+    // ~2 s. recovers a reconnecting client, a lost offer, or a lost enable
+    // ack. UE treats a repeated identical announce as idempotent.
+    if (!osctx->isBroadcasting()) {
+      if (++heartbeatsSinceReannounce >= AUDIO_REANNOUNCE_HEARTBEATS) {
+        heartbeatsSinceReannounce = 0;
+        ctrl->enqueueAction([this]() { ctrl->announceAudioStream(); }, "audio");
+      }
+    } else {
+      heartbeatsSinceReannounce = 0;
+    }
+
     std::scoped_lock<std::mutex> lock(heartbeatMutex);
 
     // client isn't sending heartbeats or hasn't started yet
@@ -124,6 +138,8 @@ void OscReceiver::startHeartbeat() {
 
       subman->reset();
       ModuleParamsBundler::params.clear();
+
+      ctrl->enqueueAction([this]() { ctrl->onClientGone(); }, "audio");
     }
   });
 
@@ -346,6 +362,19 @@ void OscReceiver::generateRoutes() {
         }, "bench");
       }
     );
+
+    routes.emplace(
+      "/bench/chunk_pacing",
+      [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+        bool enabled = (args++)->AsInt32() != 0;
+        ctrl->enqueueAction([this, enabled]() {
+          osctx->pacer.enabled = enabled;
+          osctx->enqueueBundler(
+            new BenchToggleAckBundler("/bench/chunk_pacing", enabled)
+          );
+        }, "bench");
+      }
+    );
   )
 
   routes.emplace(
@@ -365,6 +394,8 @@ void OscReceiver::generateRoutes() {
       ctrl->enqueueAction([this]() {
         osctx->sendHeartbeat();
       }, "heartbeat");
+
+      ctrl->enqueueAction([this]() { ctrl->onClientRegistered(); }, "audio");
     }
   );
 
@@ -589,6 +620,83 @@ void OscReceiver::generateRoutes() {
           delete bundler;
         }
       }, "param");
+    }
+  );
+
+  routes.emplace(
+    "/set/audio/enabled",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int64_t moduleId = (args++)->AsInt64();
+      bool enabled = (args++)->AsInt32() != 0;
+      int32_t port = (args++)->AsInt32();
+
+      ctrl->enqueueAction([=, this]() {
+        bCast* audio = ctrl->managedAudio();
+        bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
+          && (!enabled || (port > 0 && port < 65536));
+        if (ok) {
+          audio->setManagedEnabled(enabled, osctx->directHost(), port);
+          osctx->pacer.setActive(enabled, std::chrono::steady_clock::now());
+        }
+        osctx->enqueueBundler(
+          new AudioAckBundler("/set/audio/enabled/ack", moduleId, enabled, ok)
+        );
+        if (ok) ctrl->announceAudioStream();
+      }, "audio");
+    }
+  );
+
+  routes.emplace(
+    "/set/audio/preset",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int64_t moduleId = (args++)->AsInt64();
+      int32_t preset = (args++)->AsInt32();
+
+      ctrl->enqueueAction([=, this]() {
+        bCast* audio = ctrl->managedAudio();
+        bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
+          && bcast::isValidPreset(preset);
+        if (ok) audio->setManagedPreset(preset);
+        osctx->enqueueBundler(
+          new AudioAckBundler("/set/audio/preset/ack", moduleId, preset, ok)
+        );
+        if (ok) ctrl->announceAudioStream();
+      }, "audio");
+    }
+  );
+
+  routes.emplace(
+    "/audio/stats",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      int64_t moduleId = (args++)->AsInt64();
+      ChunkPacer::AudioStats stats;
+      stats.underruns = (args++)->AsInt32();
+      stats.lost = (args++)->AsInt32();
+      stats.recovered = (args++)->AsInt32();
+      stats.jitterMs = (args++)->AsFloat();
+      stats.bufferMs = (args++)->AsFloat();
+
+      ctrl->enqueueAction([=, this]() {
+        bCast* audio = ctrl->managedAudio();
+        if (!audio || audio->id != moduleId || osctx->isBroadcasting()) return;
+
+        bCastClientStats clientStats;
+        clientStats.underruns = stats.underruns;
+        clientStats.lost = stats.lost;
+        clientStats.recovered = stats.recovered;
+        clientStats.jitterMs = stats.jitterMs;
+        clientStats.bufferMs = stats.bufferMs;
+        audio->setClientStats(clientStats);
+
+        auto now = std::chrono::steady_clock::now();
+        osctx->pacer.onStats(stats, now);
+        BENCH(
+          bench::gauge("audio.client.underruns", stats.underruns);
+          bench::gauge("audio.client.lost", stats.lost);
+          bench::sample("audio.client.jitter_ms", stats.jitterMs);
+          bench::gauge("tx.pacing.rate_mbps", (int64_t)osctx->pacer.rateMbps(now));
+        )
+      }, "audio");
     }
   );
 

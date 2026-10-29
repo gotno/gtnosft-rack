@@ -13,6 +13,8 @@
 #include "oscpack/ip/UdpSocket.h"
 
 #include "OscConstants.hpp"
+#include "ChunkPacer.hpp"
+#include <string>
 #include "../bench/Bench.hpp"
 
 class OSCctrlWidget;
@@ -50,6 +52,11 @@ struct OscSender {
   bool isBroadcasting();
   void setBroadcasting();
   void setDirect(char* ip);
+
+  // paces image chunks while an audio stream plays
+  ChunkPacer pacer;
+  // the registered client's address
+  std::string directHost();
 
 private:
   char* msgBuffer;

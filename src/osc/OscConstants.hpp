@@ -9,3 +9,6 @@
 
 #define MAX_MISSED_HEARTBEATS 5
 #define HEARTBEAT_INTERVAL_MS 1000 // ms between heartbeats
+// re-announce the managed audio stream every N heartbeats (~2 s) so a
+// reconnecting client, or a lost offer/enable ack, recovers
+#define AUDIO_REANNOUNCE_HEARTBEATS 2

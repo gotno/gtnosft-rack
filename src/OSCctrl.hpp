@@ -14,6 +14,7 @@ class OscSender;
 class OscReceiver;
 class ChunkedManager;
 class SubscriptionManager;
+struct bCast;
 
 typedef std::function<void(void)> Action;
 
@@ -75,6 +76,17 @@ struct OSCctrlWidget : ModuleWidget {
 
   virtual void step() override;
   void appendContextMenu(Menu* menu) override;
+
+  // a bCast directly left or right of the primary OSCctrl. UI thread only
+  int64_t managedAudioId = -1;
+  int announcedAudioPreset = -1;
+  bCast* managedAudio();
+  void stepAudioExpander();
+  // /set/audio_stream for the managed bCast, when a client is registered
+  void announceAudioStream();
+  // UI thread: a client registered, or stopped answering heartbeats
+  void onClientRegistered();
+  void onClientGone();
 
   // enqueue actions that need to run on the render thread.
   // tag must be a string literal; it names the action in bench reports

@@ -72,12 +72,14 @@ TRANSPORT_HEADLINE = [
     "transport.sends_superseded",
     "transport.acks_duplicate",
     "transport.up_packets_per_sec",
+    "transport.pacing_rate_mbps",
+    "transport.pacing_wait_ms",
 ]
 
 
 TOGGLE_ROUTES = (
     "/bench/overlay_cache", "/bench/prep_worker", "/bench/adaptive_retry", "/bench/back_pressure",
-    "/bench/supersede",
+    "/bench/supersede", "/bench/chunk_pacing",
 )
 
 
@@ -724,6 +726,8 @@ def transport_stats(streamed, client_counters, client_sec):
         "down_mbps": client_counters["client.chunk_bytes"] * 8 / client_sec / 1e6,
         "up_kbps": client_counters["client.ack_bytes"] * 8 / client_sec / 1e3,
         "up_packets_per_sec": client_counters["client.acks_sent"] / client_sec,
+        "pacing_rate_mbps": c.get("tx.pacing.rate_mbps", 0),
+        "pacing_wait_ms": stat_p50("tx.pacing.wait"),
     }
 
 
@@ -781,6 +785,7 @@ def cmd_run(args):
             ("/bench/adaptive_retry", args.adaptive_retry, "adaptive retry"),
             ("/bench/back_pressure", args.back_pressure, "back pressure"),
             ("/bench/supersede", args.supersede, "supersede"),
+            ("/bench/chunk_pacing", args.chunk_pacing, "chunk pacing"),
         ):
             if not enabled:
                 restore.append(route)
@@ -1138,6 +1143,10 @@ def main():
     run.add_argument(
         "--no-supersede", dest="supersede", action="store_false",
         help="keep sending older frames after a newer frame of the same texture is ready",
+    )
+    run.add_argument(
+        "--no-chunk-pacing", dest="chunk_pacing", action="store_false",
+        help="don't pace texture chunks for a managed bCast audio stream",
     )
     run.add_argument(
         "--drop", type=float, default=0.0, metavar="P",

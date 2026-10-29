@@ -18,6 +18,12 @@
       "name": "OSCctrl",
       "description": "An OSC-based API for Rack simulations",
       "tags": ["Utility"]
+    },
+    {
+      "slug": "bCast",
+      "name": "bCast",
+      "description": "Streams stereo audio to a network client",
+      "tags": ["External", "Utility"]
     }
   ]
 }

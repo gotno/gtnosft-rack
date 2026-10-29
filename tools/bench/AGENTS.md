@@ -25,7 +25,7 @@ left. These notes cover the workflow and the mistakes made before.
   `overlay_bench.py` and the metrics table in `README.md`.
 - A/B toggles (`/bench/overlay_cache`, `/bench/prep_worker`,
   `/bench/adaptive_retry`, `/bench/back_pressure`, `/bench/supersede`,
-  `/bench/heartbeat_direct`, `/bench/action_budget`) take an int,
+  `/bench/heartbeat_direct`, `/bench/action_budget`, `/bench/chunk_pacing`) take an int,
   apply on the UI thread through an action, and reply on `<route>/ack` with
   `BenchToggleAckBundler`. The client sets each toggle at the start of a run,
   turns it back on at the end, and records it in the result's `args`. Add new
@@ -51,6 +51,14 @@ left. These notes cover the workflow and the mistakes made before.
 - Run long-lived servers in an async shell and stop them with the shell tool.
   Don't kill them with `kill $PID`.
 - python-osc can't build empty blobs, so build those by hand in tests.
+
+## Audio bench
+
+- Test `audio_bench.py` with `mock_server.py --audio` (managed) or
+  `--audio-to 127.0.0.1:7747` (passive). Always pass `--host 127.0.0.1` in
+  managed mode.
+- Run `test_audio_analysis.py` after changing `audio_analysis.py`.
+- `tests/run.sh` covers the C++ packet, encoder and pacer.
 
 ## Process
 

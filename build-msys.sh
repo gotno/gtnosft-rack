@@ -18,6 +18,9 @@ set -euo pipefail
 readonly BUILD_CACHE="build-msys"
 readonly BUILD_NAME="build-msys"
 
+# libopus and other deps, kept apart from the WSL build's
+export DEP_LOCAL="${DEP_LOCAL:-dep-msys}"
+
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

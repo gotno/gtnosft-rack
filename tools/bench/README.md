@@ -66,7 +66,8 @@ prep worker thread. `--fixed-retry` resends unacked chunks after a fixed
 texture requests even while the server's prep and send queues hold more than
 a UI frame of work (by default they wait and keep coalescing).
 `--no-supersede` keeps sending (and resending) an older frame after a newer
-frame of the same texture and size is ready. The client sets all five states at the start of every run and turns them back on when the run finishes, so all variants can use the same
+frame of the same texture and size is ready. `--no-chunk-pacing` turns off
+pacing of texture chunks for a managed bCast audio stream. The client sets all six states at the start of every run and turns them back on when the run finishes, so all variants can use the same
 `BENCH=1` build. Prefer comparing variants within one Rack session: power
 state (e.g. a laptop on battery) shifts every stage between sessions.
 
@@ -287,7 +288,54 @@ Other metrics:
   column): acks/s, acks per completed frame, µs per ack, receive-thread busy
   %, send-call cost and sender busy %, chunk tick µs, smoothed RTT and resend
   timeout (p50 over frames), `pipeline.backlog` p95, deferred request-frames, superseded sends,
-  chunks resent as % of packets sent, downstream Mbit/s, and upstream (ack) kbit/s and packets/s.
+  chunks resent as % of packets sent, downstream Mbit/s, and upstream (ack) kbit/s and packets/s, plus the chunk pacing rate
+  (`pacing_rate_mbps`, 0 = unlimited) and median pacing wait (`pacing_wait_ms`).
   Server rates use the server's report window; client rates use the client's
   stream time. Both include the drain.
 - Per-texture fps: completed sends over the report window.
+
+## Audio bench
+
+`audio_bench.py` tests a bCast audio stream without Unreal. It receives the
+stream the way RackSim does, on its own socket and thread, and measures
+arrival timing, loss, reordering, clock drift and what a fixed-target jitter
+buffer at the preset's target would have done. Opus presets need `opuslib` and
+the libopus shared library (`--wav` and `--analyze` decode them).
+
+```sh
+.venv/bin/python audio_bench.py run --duration 10 --json before.json
+.venv/bin/python audio_bench.py compare before.json after.json
+```
+
+- **Passive** (`--passive`): only listens. Point a standalone bCast at this
+  machine's IP, port 7747 (`--audio-port` changes it).
+- **Managed** (default): connects to OSCctrl like `overlay_bench.py` (same
+  `--host`/`--port` discovery), finds the bCast placed directly next to it,
+  optionally selects `--preset ID`, enables the stream to this machine, and
+  sends `/audio/stats` from the simulated buffer. It disables the stream when
+  the run ends.
+- **Overlays at the same time:** `--overlays N` streams N overlays
+  (`--overlay-height`, `--overlay-rate`) during the measurement. Run it once
+  with and once with `--no-chunk-pacing`, then `compare`, to see what pacing
+  the texture chunks does to the audio. Needs a `BENCH=1` build.
+- **Glitch check:** `--analyze` decodes the last epoch and looks for glitches
+  and dropouts in the left channel. Patch a VCO sine into bCast.
+- **Recording:** `--wav PATH` writes the decoded audio.
+- **Simulated loss:** `--drop P` discards that fraction of audio packets after
+  they arrive.
+
+| Metric | Meaning |
+|---|---|
+| `jitter_ms` | arrival time minus the frame's media time, relative to the minimum |
+| `max_gap_ms` | largest time between packets |
+| `lost` / `recovered` | frames never received / received only as a redundant copy |
+| `reordered` / `duplicates` | packets older than the newest seen / repeated seq |
+| `epoch_changes` | stream resets |
+| `drift_ppm` | sender clock rate relative to ours |
+| `sim_underruns` / `sim_lost` | what a fixed-target buffer at the preset target would have done |
+| `server.pacing_rate_mbps` | chunk pacing rate at the end (0 = unlimited) |
+| `server.client_underruns` | last reported `/audio/stats` underruns |
+
+To test without Rack, run `mock_server.py --audio` (managed) or
+`mock_server.py --audio-to 127.0.0.1:7747` (passive). Both send a 1 kHz PCM
+sine. In managed mode pass `--host 127.0.0.1`.

@@ -465,6 +465,98 @@ Arguments:
 
 ---
 
+### Audio (bCast expander)
+
+A bCast module placed directly left or right of OSCctrl is managed by it.
+Its own host/port settings are ignored while managed, and it only
+streams when the registered client asks. The preset is shared: the bCast's
+knob or menu and `/set/audio/preset` all change it, and a change made in Rack
+is announced with `/set/audio_stream`. Audio goes over its own UDP
+socket, not OSC (see "Audio packet format").
+
+#### `/set/audio_stream <moduleId> <streamId> <presetId> <enabled> <epoch>`
+**Direction:** Server → Client
+**Purpose:** Describe the managed bCast's stream
+**Arguments:**
+  - `int64` moduleId
+  - `int32` streamId (read as uint32; matches the packet header)
+  - `int32` presetId (0 Lowest latency, 1 Balanced, 2 Robust, 3 Uncompressed)
+  - `int32` enabled (0/1)
+  - `int32` epoch (per-instance random u16 seed; may lag the packets by one;
+    packets are authoritative)
+
+**Sent:** on registration, when a bCast attaches or detaches (detach sends
+enabled 0), after each successful `/set/audio/*` request, when the preset is
+changed in Rack, and re-announced
+every ~2 s (2 heartbeats) to the connected client while a bCast is managed.
+The re-announce is idempotent: a repeated identical announce must not restart
+playback. It recovers a reconnecting client, a lost offer, or a lost enable
+ack.
+
+#### `/set/audio/enabled <moduleId> <enabled> <port>`
+**Direction:** Client → Server
+**Purpose:** Start or stop the stream to this client's address
+**Arguments:**
+  - `int64` moduleId
+  - `int32` enabled (0/1)
+  - `int32` port (UDP port the client listens on, normally 7747)
+
+**Response:** `/set/audio/enabled/ack <moduleId> <enabled> <success>`
+(`int64`, `int32`, `int32`). Fails if the module isn't the managed bCast or
+no client is registered.
+
+**Usage:**
+- Registering again, or missing heartbeats, stops the stream. Re-enable it
+  after `/register`.
+- While enabled, OSCctrl paces texture chunks from `/audio/stats`.
+
+#### `/set/audio/preset <moduleId> <presetId>`
+**Direction:** Client → Server
+**Purpose:** Choose the latency/quality preset
+**Arguments:**
+  - `int64` moduleId
+  - `int32` presetId (0–3)
+
+**Response:** `/set/audio/preset/ack <moduleId> <presetId> <success>`
+
+#### `/audio/stats <moduleId> <underruns> <lost> <recovered> <jitterMs> <bufferMs>`
+**Direction:** Client → Server
+**Purpose:** Jitter buffer health, every 500 ms while playing
+**Arguments:**
+  - `int64` moduleId
+  - `int32` underruns, lost, recovered (cumulative since the client started
+    this stream)
+  - `float` jitterMs (95th percentile arrival jitter), bufferMs (current
+    buffer level)
+
+**Response:** None. New underruns or losses, or a jitter spike, slow
+texture chunk sends. Clean reports speed them up again. Without stats for
+2 s, pacing stops.
+
+#### Audio packet format
+UDP to the client's port, one datagram (≤ 1232 bytes) per frame. All
+fields are little-endian:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 2 | magic `RA` |
+| 2 | 1 | version (1) |
+| 3 | 1 | flags (0) |
+| 4 | 4 | streamId (u32) |
+| 8 | 2 | epoch (u16); a new epoch means flush and reset the decoder |
+| 10 | 1 | codec (0 PCM s16le, 1 Opus) |
+| 11 | 1 | channels (2) |
+| 12 | 2 | frameSamples per channel at 48 kHz |
+| 14 | 1 | frameCount |
+| 15 | 1 | presetId |
+| 16 | 4 | seq of the newest frame |
+| 20 | … | frameCount × (u16 length, bytes), newest first; frame i has seq − i |
+
+Older frames repeat earlier packets (redundancy) so a single lost packet
+can be recovered.
+
+---
+
 ## Typical Usage Flow
 
 ### Initial Setup

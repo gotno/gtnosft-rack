@@ -17,19 +17,74 @@ Usage (always pass --host so the client can't discover a live Rack instead):
 """
 
 import argparse
+import math
+import os
 import random
 import socket
+import sys
+import threading
+import time
 
 from pythonosc.osc_bundle_builder import IMMEDIATELY, OscBundleBuilder
 from pythonosc.osc_message_builder import OscMessageBuilder
 from pythonosc.osc_packet import OscPacket
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import audio_analysis as aa  # noqa: E402
+
 CLIENT_PORT = 7746  # overlay_bench.py's listen port
 CHUNK = 1300
 TOGGLES = (
     "/bench/overlay_cache", "/bench/prep_worker", "/bench/adaptive_retry", "/bench/back_pressure",
-    "/bench/supersede",
+    "/bench/supersede", "/bench/chunk_pacing",
 )
+
+AUDIO_STREAM_ID = 4242
+AUDIO_MODULE_ID = 4242
+
+
+class AudioSender:
+    """Fake bCast: a 1 kHz PCM sine (Uncompressed preset, 5 ms frames)."""
+
+    def __init__(self, dest):
+        self.dest = dest
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.epoch = 0
+        self.running = False
+        self.thread = None
+
+    def start(self):
+        if self.running:
+            return
+        self.running = True
+        self.thread = threading.Thread(target=self._loop, daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+        if self.thread:
+            self.thread.join(timeout=1)
+        self.epoch = (self.epoch + 1) & 0xFFFF
+
+    def _loop(self):
+        fs = 240
+        seq = 0
+        start = time.perf_counter()
+        while self.running:
+            due = start + seq * fs / aa.SAMPLE_RATE
+            now = time.perf_counter()
+            if now < due:
+                time.sleep(due - now)
+            samples = []
+            for i in range(fs):
+                v = int(16383 * math.sin(2 * math.pi * 1000 * (seq * fs + i) / aa.SAMPLE_RATE))
+                samples += [v, v]
+            payload = aa.struct.pack(f"<{len(samples)}h", *samples)
+            self.sock.sendto(
+                aa.build_packet(AUDIO_STREAM_ID, self.epoch, aa.CODEC_PCM, fs, 3, seq, [payload]),
+                self.dest,
+            )
+            seq += 1
 
 
 def msg(addr, *args):
@@ -53,6 +108,10 @@ def main():
                     help="fraction of /get/texture requests silently dropped")
     ap.add_argument("--chunk-drop-rate", type=float, default=0.02,
                     help="fraction of texture chunks never sent")
+    ap.add_argument("--audio-to", metavar="HOST:PORT",
+                    help="also send a fake standalone bCast stream here")
+    ap.add_argument("--audio", action="store_true",
+                    help="act as OSCctrl with a managed bCast next to it")
     args = ap.parse_args()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -60,6 +119,16 @@ def main():
     client = None
     acks = packets_sent = 0  # since the last /bench/reset
     print(f"mock OSCctrl listening on 127.0.0.1:{args.port}", flush=True)
+    if args.audio_to:
+        host, port = args.audio_to.rsplit(":", 1)
+        AudioSender((host, int(port))).start()
+        print(f"sending fake bCast audio to {host}:{port}", flush=True)
+    managed = None  # AudioSender while a client has enabled the managed stream
+
+    def audio_stream_msg(enabled):
+        epoch = managed.epoch if managed else 0
+        return msg("/set/audio_stream", ("h", AUDIO_MODULE_ID), ("i", AUDIO_STREAM_ID),
+                   ("i", 3), ("i", int(enabled)), ("i", epoch))
 
     def send(*msgs):
         bb = OscBundleBuilder(IMMEDIATELY)
@@ -74,6 +143,11 @@ def main():
             if a == "/register":
                 client = addr
                 send(msg("/heartbeat", ("f", 1.0), ("f", 2.0)))
+                if args.audio:
+                    if managed:
+                        managed.stop()
+                        managed = None
+                    send(audio_stream_msg(False))
             elif client is None:
                 continue
             elif a == "/keepalive":
@@ -86,6 +160,23 @@ def main():
             elif a == "/bench/reset":
                 acks = packets_sent = 0
                 send(msg("/bench/reset/ack", ("h", 7)))
+            elif a == "/set/audio/enabled" and args.audio:
+                ok = p[0] == AUDIO_MODULE_ID
+                if ok and p[1] and not managed:
+                    managed = AudioSender((client[0], p[2]))
+                    managed.start()
+                elif ok and not p[1] and managed:
+                    managed.stop()
+                    managed = None
+                send(msg("/set/audio/enabled/ack", ("h", p[0]), ("i", p[1]), ("i", int(ok))))
+                if ok:
+                    send(audio_stream_msg(bool(managed)))
+            elif a == "/set/audio/preset" and args.audio:
+                # always PCM; ack the request and keep sending preset 3
+                ok = p[0] == AUDIO_MODULE_ID and 0 <= p[1] <= 3
+                send(msg("/set/audio/preset/ack", ("h", p[0]), ("i", p[1]), ("i", int(ok))))
+            elif a == "/audio/stats":
+                print("audio stats", *p[1:], flush=True)
             elif a == "/get/module_stubs":
                 send(
                     msg("/set/module_stub", ("h", 42), ("s", "Fundamental"), ("s", "Scope")),
@@ -105,6 +196,7 @@ def main():
                     stat("retry.srtt", 100, 2, 1, 2, 3, 4, 5),
                     stat("retry.rto", 100, 10, 10, 10, 12, 14, 15),
                     msg("/bench/counter", ("s", "overlay_cache.hit"), ("h", 10)),
+                    msg("/bench/counter", ("s", "tx.pacing.rate_mbps"), ("h", 0)),
                     # real counts, fake timings
                     msg("/bench/counter", ("s", "rx.acks"), ("h", acks)),
                     msg("/bench/counter", ("s", "rx.acks.busy_us"), ("h", acks * 2)),

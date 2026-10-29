@@ -78,6 +78,13 @@ void OscSender::setDirect(char* ip) {
   socketDirty.store(true);
 }
 
+std::string OscSender::directHost() {
+  std::unique_lock<std::mutex> locker(qmutex);
+  char ip[IpEndpointName::ADDRESS_STRING_LENGTH];
+  directEndpoint.AddressAsString(ip);
+  return ip;
+}
+
 void OscSender::sendHeartbeat(BENCH(bench::time_point firedAt)) {
   OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
 
@@ -223,6 +230,24 @@ void OscSender::processQueue() {
       priorityQueue.pop();
     }
     if (!bundler && !chunkQueue.empty()) {
+      auto now = std::chrono::steady_clock::now();
+      auto sendAt = pacer.nextSendTime(now);
+      if (sendAt != ChunkPacer::clock::time_point::min()) {
+        // anything but chunks wakes us early; chunks wait their turn
+        queueLockCondition.wait_until(locker, sendAt, [this]() {
+          return !queueWorkerRunning
+            || !priorityQueue.empty()
+            || lightsMailbox.load() != nullptr
+            || heartbeatMailbox.load() != nullptr;
+        });
+        BENCH(bench::sample(
+          "tx.pacing.wait",
+          std::chrono::duration<float, std::milli>(
+            std::chrono::steady_clock::now() - now
+          ).count()
+        );)
+        continue;
+      }
       bundler = chunkQueue.front().bundler;
       chunkQueue.pop();
       queuedChunks.fetch_sub(1, std::memory_order_relaxed);
@@ -242,6 +267,7 @@ void OscSender::processQueue() {
 
     auto sendStart = std::chrono::steady_clock::now();
 
+    size_t sentBytes = 0;
     if (!bundler->isNoop()) {
       while (bundler->hasRemainingMessages()) {
         pstream.Clear();
@@ -262,6 +288,7 @@ void OscSender::processQueue() {
         }
 
         sendBundle(pstream);
+        sentBytes += pstream.Size();
       }
 
       bundler->sent();
@@ -280,6 +307,7 @@ void OscSender::processQueue() {
     delete bundler;
 
     if (!isChunk) continue;
+    pacer.consume(sentBytes, std::chrono::steady_clock::now());
     int64_t elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::steady_clock::now() - sendStart
     ).count();

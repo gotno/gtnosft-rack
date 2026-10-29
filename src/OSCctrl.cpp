@@ -5,6 +5,8 @@
 #include "osc/ChunkedManager.hpp"
 #include "osc/SubscriptionManager.hpp"
 #include "osc/Bundler/ModuleCacheGuard.hpp"
+#include "bCast.hpp"
+#include "osc/Bundler/AudioBundlers.hpp"
 #include "texture/Renderer.hpp"
 #include "util/Util.hpp"
 #include "bench/Bench.hpp"
@@ -126,6 +128,11 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
 OSCctrlWidget::~OSCctrlWidget() {
   bool isPrimaryOSCctrl = osctx != NULL;
 
+  // hand the expander back to its own settings
+  if (isPrimaryOSCctrl) {
+    if (bCast* audio = managedAudio()) audio->setManaged(false);
+  }
+
   // order is important:
   // * stop inbound traffic and heartbeat
   // * stop chunked prep worker, which enqueues to the sender
@@ -157,6 +164,8 @@ void OSCctrlWidget::step() {
 
   processActionQueue();
 
+  if (osctx) stepAudioExpander();
+
   if (chunkman) Renderer::evictIdleOverlays();
 
   BENCH(
@@ -173,6 +182,71 @@ void OSCctrlWidget::step() {
       );
     }
   )
+}
+
+bCast* OSCctrlWidget::managedAudio() {
+  if (managedAudioId < 0) return nullptr;
+  Module* m = APP->engine->getModule(managedAudioId);
+  return (m && m->model == modelbCast) ? static_cast<bCast*>(m) : nullptr;
+}
+
+void OSCctrlWidget::stepAudioExpander() {
+  int64_t foundId = -1;
+  for (int64_t id : {module->leftExpander.moduleId, module->rightExpander.moduleId}) {
+    if (id < 0) continue;
+    Module* m = APP->engine->getModule(id);
+    if (m && m->model == modelbCast) {
+      foundId = id;
+      break;
+    }
+  }
+  if (foundId == managedAudioId) {
+    // the preset can also change in Rack (knob or menu); tell the client now
+    bCast* audio = managedAudio();
+    if (audio && audio->preset() != announcedAudioPreset) announceAudioStream();
+    return;
+  }
+
+  if (managedAudioId >= 0) {
+    if (bCast* old = managedAudio()) old->setManaged(false);
+    osctx->pacer.setActive(false, std::chrono::steady_clock::now());
+    if (!osctx->isBroadcasting())
+      osctx->enqueueBundler(new AudioStreamBundler(
+        managedAudioId, (uint32_t)managedAudioId, bcast::DEFAULT_PRESET, false, 0
+      ));
+  }
+
+  managedAudioId = foundId;
+  if (bCast* audio = managedAudio()) {
+    audio->setManaged(true);
+    announceAudioStream();
+  }
+}
+
+void OSCctrlWidget::announceAudioStream() {
+  if (!osctx || osctx->isBroadcasting()) return;
+  bCast* audio = managedAudio();
+  if (!audio) return;
+  bCastSnapshot snap = audio->snapshot();
+  announcedAudioPreset = snap.config.preset;
+  osctx->enqueueBundler(new AudioStreamBundler(
+    audio->id,
+    audio->streamId(),
+    snap.config.preset,
+    snap.config.enabled,
+    audio->epoch.load()
+  ));
+}
+
+void OSCctrlWidget::onClientRegistered() {
+  if (bCast* audio = managedAudio()) audio->setManagedEnabled(false, "", 0);
+  osctx->pacer.setActive(false, std::chrono::steady_clock::now());
+  announceAudioStream();
+}
+
+void OSCctrlWidget::onClientGone() {
+  if (bCast* audio = managedAudio()) audio->setManagedEnabled(false, "", 0);
+  osctx->pacer.setActive(false, std::chrono::steady_clock::now());
 }
 
 void OSCctrlWidget::enqueueAction(Action action, const char* tag) {

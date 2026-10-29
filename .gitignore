@@ -10,3 +10,7 @@
 /tools/bench/.venv*
 /tools/bench/**/*.json
 __pycache__/
+/dep/
+/dep-wsl/
+/dep-msys/
+/build-tests/
