@@ -66,25 +66,26 @@ struct bCast : Module {
 
   uint32_t streamId() const { return (uint32_t)id; }
 
-  // config API, any thread. version bumps whenever the effective config
-  // (standalone, or managed while attached to OSCctrl) changes
-  bCastSnapshot snapshot();
+  bCastSnapshot getSnapshot();
+
   bool isManaged() const { return managed.load(); }
-  bCastConfig standaloneConfig();
-  void setStandalone(const std::function<void(bCastConfig&)>& edit);
-  // attaching starts managed mode disabled; the client enables it
-  void setManaged(bool on);
-  void setManagedEnabled(bool enabled, const std::string& host, int port);
-  void setManagedPreset(int preset);
+  bCastConfig getStandaloneConfig();
+  void setStandalone(const std::function<void(bCastConfig&)>& editConfig);
+
+  void attachToOSCctrl();
+  void detachFromOSCctrl();
+
+  void setManagedStreamEnabled(bool enabled, const std::string& host, int port);
+
   // the preset is shared by both modes; the knob, menu and client all set it
   int preset() const { return presetCache.load(); }
   void setPreset(int preset);
-  void setClientStats(const bCastClientStats& stats);
-  bCastClientStats clientStats();
 
-  // engine master module: bCast clocks the engine in real time while it's master
+  void setClientStats(const bCastClientStats& newStats);
+  bCastClientStats getClientStats();
+
   bool isMaster();
-  void setMaster(bool on);
+  void setMaster(bool master);
 
 private:
   dsp::RCFilter dcFilters[2];
@@ -92,20 +93,22 @@ private:
   dsp::ClockDivider lightDivider;
 
   std::mutex configMutex;
-  bCastConfig standalone;
+  bCastConfig standaloneConfig;
   bCastConfig managedConfig;
   std::atomic<bool> managed{false};  // written under configMutex
   uint64_t version = 0;
   bCastClientStats stats;
   std::atomic<int> presetCache{bcast::DEFAULT_PRESET};
-  int lastPresetKnob = -1;  // engine thread
+  int lastPresetKnobValue = -1;  // engine thread
 
   std::unique_ptr<bcast::AudioStreamer> streamer;
   std::unique_ptr<bcast::EngineClock> engineClock;
 
-  const bCastConfig& effective() const { return managed ? managedConfig : standalone; }
+  const bCastConfig& getEffectiveConfig() const {
+    return managed ? managedConfig : standaloneConfig;
+  }
   // runs change under the lock and bumps version if the effective config moved
-  void update(const std::function<void()>& change);
+  void updateConfig(const std::function<void()>& change);
   void stopStreamer();
   void syncPresetKnob();
 };

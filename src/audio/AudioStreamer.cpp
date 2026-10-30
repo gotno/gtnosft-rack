@@ -22,7 +22,7 @@ void AudioStreamer::run() {
   int seenRate = -1;
 
   while (running.load()) {
-    bCastSnapshot snap = module->snapshot();
+    bCastSnapshot snap = module->getSnapshot();
     int rate = (int)std::lround(module->engineSampleRate.load());
 
     if (snap.version != seenVersion || rate != seenRate) {

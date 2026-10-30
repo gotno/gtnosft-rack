@@ -635,7 +635,7 @@ void OscReceiver::generateRoutes() {
         bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
           && (!enabled || (port > 0 && port < 65536));
         if (ok) {
-          audio->setManagedEnabled(enabled, osctx->directHost(), port);
+          audio->setManagedStreamEnabled(enabled, osctx->directHost(), port);
           osctx->pacer.setActive(enabled, std::chrono::steady_clock::now());
         }
         osctx->enqueueBundler(
@@ -656,7 +656,7 @@ void OscReceiver::generateRoutes() {
         bCast* audio = ctrl->managedAudio();
         bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
           && bcast::isValidPreset(preset);
-        if (ok) audio->setManagedPreset(preset);
+        if (ok) audio->setPreset(preset);
         osctx->enqueueBundler(
           new AudioAckBundler("/set/audio/preset/ack", moduleId, preset, ok)
         );

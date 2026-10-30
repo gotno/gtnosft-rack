@@ -210,8 +210,8 @@ The header is 20 bytes, little-endian:
 Then `frameCount` × `{ u16 length, u8[length] }`, newest first: seq,
 seq−1, …
 
-A frame's 48 kHz timestamp is `seq × frameSamples` within an epoch. Both seq
-and epoch start at 0. All presets fit in one datagram of 1232 bytes or less.
+A frame's 48 kHz timestamp is `seq × frameSamples` within an epoch. Seq starts
+at 0; epoch starts at a random value per bCast instance. All presets fit in one datagram of 1232 bytes or less.
 
 ### OSC control (managed mode only)
 
@@ -251,7 +251,9 @@ and epoch start at 0. All presets fit in one datagram of 1232 bytes or less.
      a packet expand to (seq−i, data). Duplicates and late frames are
      dropped; redundant copies fill holes.
   2. On an epoch change, flushes everything and waits until the buffer
-     reaches its target again.
+     reaches its target again. A packet from an older epoch (16-bit serial
+     order) is a straggler and is dropped, but only while the current epoch
+     has had a packet in the last 250 ms; after that it's a new sender.
   3. When a frame is due:
      - if it's present, decode it (`opus_decode_float`) or convert the PCM;
      - if it's missing, use PLC (`opus_decode_float(NULL)`) for up to 3

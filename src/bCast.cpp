@@ -7,19 +7,31 @@
 
 bCast::bCast() {
   config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
+
   configParam(LEVEL_PARAM, 0.f, 2.f, 1.f, "Level", " dB", -10, 40);
+
   std::vector<std::string> presetNames;
-  for (const bcast::Preset& p : bcast::PRESETS) presetNames.push_back(p.name);
-  configSwitch(PRESET_PARAM, 0.f, bcast::PRESET_COUNT - 1, bcast::DEFAULT_PRESET, "Preset", presetNames);
+  for (const bcast::Preset& preset : bcast::PRESETS)
+    presetNames.push_back(preset.name);
+  configSwitch(
+    PRESET_PARAM,
+    0.f, bcast::PRESET_COUNT - 1, bcast::DEFAULT_PRESET,
+    "Preset", presetNames
+  );
   paramQuantities[PRESET_PARAM]->randomizeEnabled = false;
+
   configInput(LEFT_INPUT, "Left");
   configInput(RIGHT_INPUT, "Right");
+
   configLight(STATUS_LIGHT, "Status");
   lightDivider.setDivision(512);
-  for (auto& f : dcFilters) f.setCutoffFreq(10.f / 48000.f);
-  // seed the epoch per instance so a recreated bCast with the same module id
-  // doesn't restart at 0 and have its packets dropped as stragglers
+
+  for (auto& filter : dcFilters) filter.setCutoffFreq(10.f / 48000.f);
+
+  // randomizing the epoch per instance helps prevent an edge case
+  // where packets are improperly judged as stragglers and dropped
   epoch = (uint16_t)rack::random::u64();
+
   engineClock = std::make_unique<bcast::EngineClock>(this);
 }
 
@@ -32,9 +44,12 @@ bool bCast::isMaster() {
   return APP->engine->getMasterModule() == this;
 }
 
-void bCast::setMaster(bool on) {
-  if (on) APP->engine->setMasterModule(this);
-  else if (isMaster()) APP->engine->setMasterModule(NULL);
+void bCast::setMaster(bool master) {
+  if (master) {
+    APP->engine->setMasterModule(this);
+  } else if (isMaster()) {
+    APP->engine->setMasterModule(NULL);
+  }
 }
 
 void bCast::stopStreamer() {
@@ -53,7 +68,7 @@ void bCast::onRemove(const RemoveEvent& e) {
 }
 
 void bCast::onSampleRateChange(const SampleRateChangeEvent& e) {
-  for (auto& f : dcFilters) f.setCutoffFreq(10.f * e.sampleTime);
+  for (auto& filter : dcFilters) filter.setCutoffFreq(10.f * e.sampleTime);
   engineSampleRate = e.sampleRate;
 }
 
@@ -64,12 +79,15 @@ void bCast::process(const ProcessArgs& args) {
   dsp::Frame<2> frame;
   for (int c = 0; c < 2; ++c) {
     int input = (c == 1 && rightConnected) ? RIGHT_INPUT : LEFT_INPUT;
+
     float v = inputs[input].getVoltageSum() / 10.f;
     if (!std::isfinite(v)) v = 0.f;
+
     if (dcFilterEnabled) {
       dcFilters[c].process(v);
       v = dcFilters[c].highpass();
     }
+
     v *= gain;
     frame.samples[c] = v;
     vuMeters[c].process(args.sampleTime, v);
@@ -84,10 +102,12 @@ void bCast::process(const ProcessArgs& args) {
     syncPresetKnob();
 
     float r = 0.f, g = 0.f, b = 0.f;
+
     bool on = streaming.load(std::memory_order_relaxed);
     if (sendFailing.load(std::memory_order_relaxed)) r = 1.f;
     else if (managed.load(std::memory_order_relaxed)) b = on ? 1.f : 0.3f;
     else if (on) g = 1.f;
+
     lights[STATUS_LIGHT + 0].setBrightness(r);
     lights[STATUS_LIGHT + 1].setBrightness(g);
     lights[STATUS_LIGHT + 2].setBrightness(b);
@@ -104,62 +124,67 @@ void bCast::process(const ProcessArgs& args) {
   }
 }
 
-// a turned knob sets the preset; otherwise the knob follows the preset
 void bCast::syncPresetKnob() {
-  int knob = (int)std::round(params[PRESET_PARAM].getValue());
-  int current = preset();
-  if (lastPresetKnob >= 0 && knob != lastPresetKnob) {
-    lastPresetKnob = knob;
-    setPreset(knob);
-  } else {
-    if (knob != current) params[PRESET_PARAM].setValue((float)current);
-    lastPresetKnob = current;
+  int currentKnobValue = (int)std::round(params[PRESET_PARAM].getValue());
+  int currentPreset = preset();
+
+  if (lastPresetKnobValue >= 0 && currentKnobValue != lastPresetKnobValue) {
+    lastPresetKnobValue = currentKnobValue;
+    setPreset(currentKnobValue);
+    return;
   }
+
+  if (currentKnobValue != currentPreset)
+    params[PRESET_PARAM].setValue((float)currentPreset);
+  lastPresetKnobValue = currentPreset;
 }
 
-void bCast::update(const std::function<void()>& change) {
+void bCast::updateConfig(const std::function<void()>& update) {
   std::lock_guard<std::mutex> lock(configMutex);
-  bCastConfig before = effective();
-  change();
-  presetCache = effective().preset;
-  if (!(effective() == before)) ++version;
+  bCastConfig priorConfig = getEffectiveConfig();
+  update();
+  presetCache = getEffectiveConfig().preset;
+  if (!(getEffectiveConfig() == priorConfig)) ++version;
 }
 
 void bCast::setPreset(int preset) {
-  update([&]() {
+  updateConfig([&]() {
     if (!bcast::isValidPreset(preset)) return;
-    standalone.preset = preset;
+    standaloneConfig.preset = preset;
     managedConfig.preset = preset;
   });
 }
 
-bCastSnapshot bCast::snapshot() {
+bCastSnapshot bCast::getSnapshot() {
   std::lock_guard<std::mutex> lock(configMutex);
-  return {effective(), managed.load(), version};
+  return {getEffectiveConfig(), managed.load(), version};
 }
 
-bCastConfig bCast::standaloneConfig() {
+bCastConfig bCast::getStandaloneConfig() {
   std::lock_guard<std::mutex> lock(configMutex);
-  return standalone;
+  return standaloneConfig;
 }
 
-void bCast::setStandalone(const std::function<void(bCastConfig&)>& edit) {
-  update([&]() { edit(standalone); });
+void bCast::setStandalone(const std::function<void(bCastConfig&)>& editConfig) {
+  updateConfig([&]() { editConfig(standaloneConfig); });
 }
 
-void bCast::setManaged(bool on) {
-  update([&]() {
-    if (on && !managed) {
-      managedConfig.enabled = false;
-      managedConfig.preset = standalone.preset;
-      stats = {};
-    }
-    managed = on;
+void bCast::attachToOSCctrl() {
+  updateConfig([&]() {
+    if (managed) return;
+    managedConfig.enabled = false;
+    managedConfig.preset = standaloneConfig.preset;
+    stats = {};
+    managed = true;
   });
 }
 
-void bCast::setManagedEnabled(bool enabled, const std::string& host, int port) {
-  update([&]() {
+void bCast::detachFromOSCctrl() {
+  updateConfig([&]() { managed = false; });
+}
+
+void bCast::setManagedStreamEnabled(bool enabled, const std::string& host, int port) {
+  updateConfig([&]() {
     if (!managed) return;
     managedConfig.enabled = enabled;
     if (enabled) {
@@ -169,27 +194,19 @@ void bCast::setManagedEnabled(bool enabled, const std::string& host, int port) {
   });
 }
 
-void bCast::setManagedPreset(int preset) {
-  update([&]() {
-    if (!managed || !bcast::isValidPreset(preset)) return;
-    standalone.preset = preset;
-    managedConfig.preset = preset;
-  });
-}
-
-void bCast::setClientStats(const bCastClientStats& s) {
+void bCast::setClientStats(const bCastClientStats& newStats) {
   std::lock_guard<std::mutex> lock(configMutex);
-  stats = s;
+  stats = newStats;
   stats.valid = true;
 }
 
-bCastClientStats bCast::clientStats() {
+bCastClientStats bCast::getClientStats() {
   std::lock_guard<std::mutex> lock(configMutex);
   return stats;
 }
 
 json_t* bCast::dataToJson() {
-  bCastConfig c = standaloneConfig();
+  bCastConfig c = getStandaloneConfig();
   json_t* rootJ = json_object();
   json_object_set_new(rootJ, "dcFilter", json_boolean(dcFilterEnabled));
   json_object_set_new(rootJ, "enabled", json_boolean(c.enabled));
@@ -200,27 +217,29 @@ json_t* bCast::dataToJson() {
 }
 
 void bCast::dataFromJson(json_t* rootJ) {
-  if (json_t* j = json_object_get(rootJ, "dcFilter")) dcFilterEnabled = json_boolean_value(j);
-  setStandalone([&](bCastConfig& c) {
-    if (json_t* j = json_object_get(rootJ, "enabled")) c.enabled = json_boolean_value(j);
+  if (json_t* j = json_object_get(rootJ, "dcFilter"))
+    dcFilterEnabled = json_boolean_value(j);
+
+  setStandalone([&](bCastConfig& cfg) {
+    if (json_t* j = json_object_get(rootJ, "enabled"))
+      cfg.enabled = json_boolean_value(j);
     if (json_t* j = json_object_get(rootJ, "preset")) {
       int preset = (int)json_integer_value(j);
-      if (bcast::isValidPreset(preset)) c.preset = preset;
+      if (bcast::isValidPreset(preset)) cfg.preset = preset;
     }
     if (json_t* j = json_object_get(rootJ, "host")) {
       const char* host = json_string_value(j);
-      if (host && *host) c.host = host;
+      if (host && *host) cfg.host = host;
     }
     if (json_t* j = json_object_get(rootJ, "port")) {
       int port = (int)json_integer_value(j);
-      if (port > 0 && port < 65536) c.port = port;
+      if (port > 0 && port < 65536) cfg.port = port;
     }
   });
 }
 
 namespace {
 
-// commits on Enter, then closes the menu
 struct ConfigField : ui::TextField {
   std::function<void(const std::string&)> commit;
 
@@ -239,13 +258,6 @@ struct ConfigField : ui::TextField {
 bCastWidget::bCastWidget(bCast* module) {
   setModule(module);
   setPanel(createPanel(asset::plugin(pluginInstance, "res/bCast.svg")));
-
-  addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-  addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-  addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-  addChild(createWidget<ScrewSilver>(
-    Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)
-  ));
 
   addChild(createLightCentered<MediumLight<RedGreenBlueLight>>(
     mm2px(Vec(12.7, 16)), module, bCast::STATUS_LIGHT
@@ -273,13 +285,17 @@ bCastWidget::bCastWidget(bCast* module) {
 
 void bCastWidget::step() {
   ModuleWidget::step();
+
   bCast* module = getModule<bCast>();
   if (!module) return;
-  // on the UI thread, like module removal, so claiming can't race it.
-  // claim the engine clock while streaming if no audio module has it
+
   engine::Engine* engine = APP->engine;
-  if (!engine->getMasterModule() && module->streaming.load()) module->setMaster(true);
-  if (module->isMaster()) engine->setSuggestedSampleRate(bcast::SAMPLE_RATE);
+
+  if (!engine->getMasterModule() && module->streaming.load())
+    module->setMaster(true);
+
+  if (module->isMaster())
+    engine->setSuggestedSampleRate(bcast::SAMPLE_RATE);
 }
 
 void bCastWidget::appendContextMenu(Menu* menu) {
@@ -302,14 +318,14 @@ void bCastWidget::appendContextMenu(Menu* menu) {
   menu->addChild(new MenuSeparator);
 
   if (module->isManaged()) {
-    bCastSnapshot snap = module->snapshot();
+    bCastSnapshot snap = module->getSnapshot();
     menu->addChild(createMenuLabel("Managed by OSCctrl"));
     menu->addChild(createMenuLabel(
       snap.config.enabled
         ? string::f("Streaming to %s:%d", snap.config.host.c_str(), snap.config.port)
         : "Not streaming"
     ));
-    bCastClientStats s = module->clientStats();
+    bCastClientStats s = module->getClientStats();
     if (s.valid) {
       menu->addChild(createMenuLabel(string::f(
         "Client: %d underruns, %d lost, %d recovered", s.underruns, s.lost, s.recovered
@@ -321,10 +337,10 @@ void bCastWidget::appendContextMenu(Menu* menu) {
       menu->addChild(createMenuLabel("No client stats yet"));
     }
   } else {
-    bCastConfig config = module->standaloneConfig();
+    bCastConfig config = module->getStandaloneConfig();
 
     menu->addChild(createBoolMenuItem("Stream", "",
-      [=]() { return module->standaloneConfig().enabled; },
+      [=]() { return module->getStandaloneConfig().enabled; },
       [=](bool on) { module->setStandalone([&](bCastConfig& c) { c.enabled = on; }); }
     ));
 

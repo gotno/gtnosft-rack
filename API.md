@@ -543,7 +543,7 @@ fields are little-endian:
 | 2 | 1 | version (1) |
 | 3 | 1 | flags (0) |
 | 4 | 4 | streamId (u32) |
-| 8 | 2 | epoch (u16); a new epoch means flush and reset the decoder |
+| 8 | 2 | epoch (u16, random start per instance); a new epoch means flush and reset the decoder. An older epoch (serial order) is a straggler only while the current one is live (packet within 250 ms) |
 | 10 | 1 | codec (0 PCM s16le, 1 Opus) |
 | 11 | 1 | channels (2) |
 | 12 | 2 | frameSamples per channel at 48 kHz |
