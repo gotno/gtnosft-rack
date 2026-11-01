@@ -365,7 +365,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
 
   if (module->isManaged()) {
     bCastSnapshot snap = module->getSnapshot();
-    menu->addChild(createMenuLabel("Managed by OSCctrl"));
+    menu->addChild(createMenuLabel("Managed mode"));
     menu->addChild(createMenuLabel(
       snap.config.enabled
         ? string::f("Streaming to %s:%d", snap.config.host.c_str(), snap.config.port)
@@ -385,7 +385,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
   } else {
     bCastConfig config = module->getStandaloneConfig();
 
-    menu->addChild(createBoolMenuItem("Stream", "",
+    menu->addChild(createBoolMenuItem("Stream enabled", "",
       [=]() { return module->getStandaloneConfig().enabled; },
       [=](bool on) { module->setStandalone([&](bCastConfig& c) { c.enabled = on; }); }
     ));
