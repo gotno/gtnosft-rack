@@ -203,7 +203,7 @@ void OSCctrlWidget::stepAudioExpander() {
 
   if (foundId == managedAudioId) {
     bCast* audio = getManagedAudio();
-    if (audio && audio->preset() != announcedAudioPreset) announceAudioStream();
+    if (audio && audio->getPreset() != announcedAudioPreset) announceAudioStream();
     return;
   }
 

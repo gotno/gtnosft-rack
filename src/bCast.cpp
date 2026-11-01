@@ -136,7 +136,7 @@ void bCast::process(const ProcessArgs& args) {
 
 void bCast::syncPresetKnob() {
   int currentKnobValue = (int)std::round(params[PRESET_PARAM].getValue());
-  int currentPreset = preset();
+  int currentPreset = getPreset();
 
   if (lastPresetKnobValue >= 0 && currentKnobValue != lastPresetKnobValue) {
     lastPresetKnobValue = currentKnobValue;
@@ -330,7 +330,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
   std::vector<std::string> labels;
   for (const bcast::Preset& p : bcast::PRESETS) labels.push_back(p.name);
   menu->addChild(createIndexSubmenuItem("Preset", labels,
-    [=]() { return (size_t)module->preset(); },
+    [=]() { return (size_t)module->getPreset(); },
     [=](size_t i) { module->setPreset((int)i); }
   ));
   menu->addChild(new MenuSeparator);

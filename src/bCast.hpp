@@ -78,7 +78,7 @@ struct bCast : Module {
   void setManagedStreamEnabled(bool enabled, const std::string& host, int port);
 
   // the preset is shared by both modes; the knob, menu and client all set it
-  int preset() const { return presetCache.load(); }
+  int getPreset() const { return presetCache.load(); }
   void setPreset(int preset);
 
   void setClientStats(const bCastClientStats& newStats);
