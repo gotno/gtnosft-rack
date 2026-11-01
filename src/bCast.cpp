@@ -23,6 +23,7 @@ bCast::bCast() {
   configInput(LEFT_INPUT, "Left");
   configInput(RIGHT_INPUT, "Right");
 
+  configLight(QUALITY_LIGHT, "Quality Preset");
   configLight(STATUS_LIGHT, "Status");
   lightDivider.setDivision(512);
 
@@ -101,26 +102,46 @@ void bCast::process(const ProcessArgs& args) {
   if (lightDivider.process()) {
     syncPresetKnob();
 
-    float r = 0.f, g = 0.f, b = 0.f;
-
-    bool streamingEnabled = streaming.load(std::memory_order_relaxed);
-    if (sendFailing.load(std::memory_order_relaxed)) {
-      r = 1.f;
-    } else if (managed.load(std::memory_order_relaxed)) {
-      if (streamingEnabled) {
+    {
+      float r = 0.f, g = 0.f, b = 0.f;
+      bool streamingEnabled = streaming.load(std::memory_order_relaxed);
+      if (sendFailing.load(std::memory_order_relaxed)) {
         r = 1.f;
-        g = 0.875f;
-      } else {
-        r = 0.25f;
-        g = 0.219f;
+      } else if (managed.load(std::memory_order_relaxed)) {
+        if (streamingEnabled) {
+          r = 1.f;
+          g = 0.875f;
+        } else {
+          r = 0.25f;
+          g = 0.219f;
+        }
+      } else if (streamingEnabled) {
+        g = 1.f;
       }
-    } else if (streamingEnabled) {
-      g = 1.f;
+      lights[STATUS_LIGHT + 0].setBrightness(r);
+      lights[STATUS_LIGHT + 1].setBrightness(g);
+      lights[STATUS_LIGHT + 2].setBrightness(b);
     }
 
-    lights[STATUS_LIGHT + 0].setBrightness(r);
-    lights[STATUS_LIGHT + 1].setBrightness(g);
-    lights[STATUS_LIGHT + 2].setBrightness(b);
+    {
+      float r = 0.f, g = 0.f, b = 0.f;
+      int currentPreset = getPreset();
+      if (currentPreset == 0) {
+        r = 1.f;
+      } else if (currentPreset == 1) {
+        r = 1.f;
+        g = 1.f;
+      } else if (currentPreset == 2) {
+        g = 1.f;
+      } else if (currentPreset == 3) {
+        r = 1.f;
+        g = 1.f;
+        b = 1.f;
+      }
+      lights[QUALITY_LIGHT + 0].setBrightness(r);
+      lights[QUALITY_LIGHT + 1].setBrightness(g);
+      lights[QUALITY_LIGHT + 2].setBrightness(b);
+    }
 
     for (int c = 0; c < 2; ++c) {
       int base = VU_LIGHTS + c * 6;
@@ -272,6 +293,9 @@ bCastWidget::bCastWidget(bCast* module) {
   addChild(createLightCentered<SmallLight<RedGreenBlueLight>>(
     mm2px(Vec(12.7, 10.8)), module, bCast::STATUS_LIGHT
   ));
+  addChild(createLight<TinyLight<RedGreenBlueLight>>(
+    mm2px(Vec(17.091, 88.928)), module, bCast::QUALITY_LIGHT
+  ));
 
   for (int c = 0; c < 2; ++c) {
     float x = c == 0 ? 9.691f : 15.709f;
@@ -296,9 +320,13 @@ bCastWidget::bCastWidget(bCast* module) {
   }
 
   addParam(createParamCentered<Rogan3PSWhite>(mm2px(Vec(12.869, 78.362)), module, bCast::LEVEL_PARAM));
-  // addParam(createParamCentered<BefacoTinyKnob>(mm2px(Vec(19.05, 90)), module, bCast::PRESET_PARAM));
   addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.285, 99.859)), module, bCast::LEFT_INPUT));
   addInput(createInputCentered<PJ301MPort>(mm2px(Vec(18.122, 99.859)), module, bCast::RIGHT_INPUT));
+  BefacoTinyKnob* presetKnob =
+    createParamCentered<BefacoTinyKnob>(mm2px(Vec(12.7, 92.1)), module, bCast::PRESET_PARAM);
+  presetKnob->minAngle = -0.333 * M_PI;
+  presetKnob->maxAngle = 0.333 * M_PI;
+  addParam(presetKnob);
 }
 
 void bCastWidget::step() {

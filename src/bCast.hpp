@@ -41,7 +41,7 @@ struct bCast : Module {
   enum ParamId { LEVEL_PARAM, PRESET_PARAM, PARAMS_LEN };
   enum InputId { LEFT_INPUT, RIGHT_INPUT, INPUTS_LEN };
   enum OutputId { OUTPUTS_LEN };
-  enum LightId { ENUMS(STATUS_LIGHT, 3), ENUMS(VU_LIGHTS, 12), LIGHTS_LEN };
+  enum LightId { ENUMS(QUALITY_LIGHT, 3), ENUMS(STATUS_LIGHT, 3), ENUMS(VU_LIGHTS, 12), LIGHTS_LEN };
 
   // engine thread -> streamer thread (single producer, single consumer).
   // 16384 frames is 340 ms at 48 kHz, 85 ms at 192 kHz.
