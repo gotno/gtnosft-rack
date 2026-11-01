@@ -107,16 +107,14 @@ void bCast::process(const ProcessArgs& args) {
       bool streamingEnabled = streaming.load(std::memory_order_relaxed);
       if (sendFailing.load(std::memory_order_relaxed)) {
         r = 1.f;
-      } else if (managed.load(std::memory_order_relaxed)) {
-        if (streamingEnabled) {
-          r = 1.f;
-          g = 0.875f;
-        } else {
-          r = 0.25f;
-          g = 0.219f;
-        }
       } else if (streamingEnabled) {
+        r = 1.f;
         g = 1.f;
+        b = 1.f;
+      } else if (managed.load(std::memory_order_relaxed)) {
+        r = 0.25f;
+        g = 0.25f;
+        b = 0.25f;
       }
       lights[STATUS_LIGHT + 0].setBrightness(r);
       lights[STATUS_LIGHT + 1].setBrightness(g);
@@ -290,18 +288,25 @@ bCastWidget::bCastWidget(bCast* module) {
   setModule(module);
   setPanel(createPanel(asset::plugin(pluginInstance, "res/bCast.svg")));
 
-  addChild(createLightCentered<SmallLight<RedGreenBlueLight>>(
-    mm2px(Vec(12.7, 10.8)), module, bCast::STATUS_LIGHT
-  ));
+  RectangleLight<RedGreenBlueLight>* statusLight =
+    createLight<RectangleLight<RedGreenBlueLight>>(
+      mm2px(Vec(10.68, 20.369)),
+      module,
+      bCast::STATUS_LIGHT
+    );
+  statusLight->box.size = mm2px(Vec(4.f, 1.f));
+  statusLight->bgColor = rack::color::fromHexString("#00b16a");
+  addChild(statusLight);
+
   addChild(createLight<TinyLight<RedGreenBlueLight>>(
-    mm2px(Vec(17.091, 88.928)), module, bCast::QUALITY_LIGHT
+    mm2px(Vec(17.091, 87.928)), module, bCast::QUALITY_LIGHT
   ));
 
   for (int c = 0; c < 2; ++c) {
     float x = c == 0 ? 9.691f : 15.709f;
     int base = bCast::VU_LIGHTS + c * 6;
 
-    float y = 28.899f;
+    float y = 27.899f;
     float rowStep = 5.297f;
 
     addChild(createLightCentered<SmallLight<RedLight>>(
@@ -319,14 +324,16 @@ bCastWidget::bCastWidget(bCast* module) {
       );
   }
 
-  addParam(createParamCentered<Rogan3PSWhite>(mm2px(Vec(12.869, 78.362)), module, bCast::LEVEL_PARAM));
-  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.285, 99.859)), module, bCast::LEFT_INPUT));
-  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(18.122, 99.859)), module, bCast::RIGHT_INPUT));
+  addParam(createParamCentered<Davies1900hLargeWhiteKnob>(mm2px(Vec(12.7, 73.862)), module, bCast::LEVEL_PARAM));
+
   BefacoTinyKnob* presetKnob =
-    createParamCentered<BefacoTinyKnob>(mm2px(Vec(12.7, 92.1)), module, bCast::PRESET_PARAM);
+    createParamCentered<BefacoTinyKnob>(mm2px(Vec(12.7, 91.1)), module, bCast::PRESET_PARAM);
   presetKnob->minAngle = -0.333 * M_PI;
   presetKnob->maxAngle = 0.333 * M_PI;
   addParam(presetKnob);
+
+  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.285, 102.859)), module, bCast::LEFT_INPUT));
+  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(18.122, 102.859)), module, bCast::RIGHT_INPUT));
 }
 
 void bCastWidget::step() {
