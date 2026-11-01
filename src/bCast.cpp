@@ -103,10 +103,20 @@ void bCast::process(const ProcessArgs& args) {
 
     float r = 0.f, g = 0.f, b = 0.f;
 
-    bool on = streaming.load(std::memory_order_relaxed);
-    if (sendFailing.load(std::memory_order_relaxed)) r = 1.f;
-    else if (managed.load(std::memory_order_relaxed)) b = on ? 1.f : 0.3f;
-    else if (on) g = 1.f;
+    bool streamingEnabled = streaming.load(std::memory_order_relaxed);
+    if (sendFailing.load(std::memory_order_relaxed)) {
+      r = 1.f;
+    } else if (managed.load(std::memory_order_relaxed)) {
+      if (streamingEnabled) {
+        r = 1.f;
+        g = 0.875f;
+      } else {
+        r = 0.25f;
+        g = 0.219f;
+      }
+    } else if (streamingEnabled) {
+      g = 1.f;
+    }
 
     lights[STATUS_LIGHT + 0].setBrightness(r);
     lights[STATUS_LIGHT + 1].setBrightness(g);
@@ -259,28 +269,36 @@ bCastWidget::bCastWidget(bCast* module) {
   setModule(module);
   setPanel(createPanel(asset::plugin(pluginInstance, "res/bCast.svg")));
 
-  addChild(createLightCentered<MediumLight<RedGreenBlueLight>>(
-    mm2px(Vec(12.7, 16)), module, bCast::STATUS_LIGHT
+  addChild(createLightCentered<SmallLight<RedGreenBlueLight>>(
+    mm2px(Vec(12.7, 10.8)), module, bCast::STATUS_LIGHT
   ));
 
   for (int c = 0; c < 2; ++c) {
-    float x = c == 0 ? 8.7f : 16.7f;
+    float x = c == 0 ? 9.691f : 15.709f;
     int base = bCast::VU_LIGHTS + c * 6;
-    addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(x, 26)), module, base));
+
+    float y = 28.899f;
+    float rowStep = 5.297f;
+
+    addChild(createLightCentered<SmallLight<RedLight>>(
+      mm2px(Vec(x, y)), module, base)
+    );
+
     for (int row = 1; row <= 2; ++row)
       addChild(createLightCentered<SmallLight<YellowLight>>(
-        mm2px(Vec(x, 26 + 5 * row)), module, base + row
-      ));
+        mm2px(Vec(x, y + rowStep * row)), module, base + row)
+      );
+
     for (int row = 3; row < 6; ++row)
       addChild(createLightCentered<SmallLight<GreenLight>>(
-        mm2px(Vec(x, 26 + 5 * row)), module, base + row
-      ));
+        mm2px(Vec(x, y + rowStep * row)), module, base + row)
+      );
   }
 
-  addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(12.7, 66)), module, bCast::LEVEL_PARAM));
-  addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(12.7, 78)), module, bCast::PRESET_PARAM));
-  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.7, 90)), module, bCast::LEFT_INPUT));
-  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.7, 106)), module, bCast::RIGHT_INPUT));
+  addParam(createParamCentered<Rogan3PSWhite>(mm2px(Vec(12.869, 78.362)), module, bCast::LEVEL_PARAM));
+  // addParam(createParamCentered<BefacoTinyKnob>(mm2px(Vec(19.05, 90)), module, bCast::PRESET_PARAM));
+  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.285, 99.859)), module, bCast::LEFT_INPUT));
+  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(18.122, 99.859)), module, bCast::RIGHT_INPUT));
 }
 
 void bCastWidget::step() {
