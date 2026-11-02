@@ -298,15 +298,11 @@ TxWidget::TxWidget(Tx* module) {
   statusLight->bgColor = rack::color::fromHexString("#00b16a");
   addChild(statusLight);
 
-  addChild(createLight<TinyLight<RedGreenBlueLight>>(
-    mm2px(Vec(17.091, 87.928)), module, Tx::QUALITY_LIGHT
-  ));
-
   for (int c = 0; c < 2; ++c) {
     float x = c == 0 ? 9.691f : 15.709f;
     int base = Tx::VU_LIGHTS + c * 6;
 
-    float y = 27.899f;
+    float y = 25.899f;
     float rowStep = 5.297f;
 
     addChild(createLightCentered<SmallLight<RedLight>>(
@@ -324,16 +320,19 @@ TxWidget::TxWidget(Tx* module) {
       );
   }
 
-  addParam(createParamCentered<Davies1900hLargeWhiteKnob>(mm2px(Vec(12.7, 73.862)), module, Tx::LEVEL_PARAM));
+  addParam(createParamCentered<Davies1900hLargeWhiteKnob>(mm2px(Vec(12.7, 71.862)), module, Tx::LEVEL_PARAM));
 
+  addChild(createLight<TinyLight<RedGreenBlueLight>>(
+    mm2px(Vec(17.091, 86.928)), module, Tx::QUALITY_LIGHT
+  ));
   BefacoTinyKnob* presetKnob =
-    createParamCentered<BefacoTinyKnob>(mm2px(Vec(12.7, 91.1)), module, Tx::PRESET_PARAM);
+    createParamCentered<BefacoTinyKnob>(mm2px(Vec(12.7, 90.1)), module, Tx::PRESET_PARAM);
   presetKnob->minAngle = -0.333 * M_PI;
   presetKnob->maxAngle = 0.333 * M_PI;
   addParam(presetKnob);
 
-  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.285, 102.859)), module, Tx::LEFT_INPUT));
-  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(18.122, 102.859)), module, Tx::RIGHT_INPUT));
+  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.285, 101.859)), module, Tx::LEFT_INPUT));
+  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(18.122, 101.859)), module, Tx::RIGHT_INPUT));
 }
 
 void TxWidget::step() {
