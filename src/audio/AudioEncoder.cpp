@@ -4,7 +4,7 @@
 #include <cmath>
 #include <opus/opus.h>
 
-namespace bcast {
+namespace tx_af {
 
 AudioEncoder::~AudioEncoder() { destroy(); }
 
@@ -61,4 +61,4 @@ int AudioEncoder::encode(const float* in, uint8_t* out, int cap) {
   return n < 0 ? -1 : n;
 }
 
-} // namespace bcast
+} // namespace tx_af

@@ -5,7 +5,7 @@
 #include <cmath>
 #include <opus/opus.h>
 
-using namespace bcast;
+using namespace tx_af;
 
 static std::vector<float> sine(int frames, int offset, float amp = 0.5f) {
   std::vector<float> out(frames * 2);

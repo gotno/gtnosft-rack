@@ -1,7 +1,7 @@
 #include "test.hpp"
 #include "audio/Packet.hpp"
 
-using namespace bcast;
+using namespace tx_af;
 
 TEST(packet_header_layout) {
   EncodedFrame newest{0xAA, 0xBB, 0xCC};

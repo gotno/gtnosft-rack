@@ -36,7 +36,7 @@ without UE.
 
 - **Rack-side naming:**
   - Rack-side names use **bCast**: module slug `bCast`, model `modelbCast`,
-    C++ namespace `bcast`, files in `src/audio/`.
+    C++ namespace `tx_af`, files in `src/audio/`.
   - The UE side keeps **NetAudio**: `RSNetAudio*` and the `RackSim.NetAudio.*`
     tests.
 - **Process:**
@@ -452,7 +452,7 @@ dropped. That's expected.
 - Test: `tests/test_packet.cpp`
 
 **Interfaces:**
-- Produces (namespace `bcast`):
+- Produces (namespace `tx_af`):
   - `enum class Codec : uint8_t { Pcm = 0, Opus = 1 }`
   - `struct Preset { int id; const char* name; Codec codec; int frameSamples; int bitrate; int redundancy; int targetMs; int minMs; int maxMs; }`
   - `PRESETS[]`, `PRESET_COUNT`, `SAMPLE_RATE`, `CHANNELS`, `DEFAULT_PRESET`
@@ -473,7 +473,7 @@ dropped. That's expected.
 #include "test.hpp"
 #include "audio/Packet.hpp"
 
-using namespace bcast;
+using namespace tx_af;
 
 TEST(packet_header_layout) {
   EncodedFrame newest{0xAA, 0xBB, 0xCC};
@@ -549,7 +549,7 @@ Expected: the compile fails with `audio/Packet.hpp: No such file or directory`.
 
 // Mirrored by tools/bench/audio_analysis.py and RackSim's
 // RSNetAudioProtocol.h. Only the id travels over the wire.
-namespace bcast {
+namespace tx_af {
 
 enum class Codec : uint8_t { Pcm = 0, Opus = 1 };
 
@@ -596,7 +596,7 @@ constexpr const Preset& presetById(int id) {
 #include "Presets.hpp"
 
 // Binary audio packet. See API.md "Audio stream".
-namespace bcast {
+namespace tx_af {
 
 constexpr uint8_t MAGIC[2] = {'R', 'A'};
 constexpr uint8_t PROTOCOL_VERSION = 1;
@@ -638,7 +638,7 @@ size_t writePacket(
 
 #include <cstring>
 
-namespace bcast {
+namespace tx_af {
 
 namespace {
 void put16(uint8_t* p, uint16_t v) {
@@ -707,7 +707,7 @@ Expected: four `PASS` lines and `4 tests, 0 failed checks`.
 
 **Interfaces:**
 - Consumes: `Preset` and `maxFrameBytes` (from Task 2).
-- Produces `bcast::AudioEncoder` (not copyable):
+- Produces `tx_af::AudioEncoder` (not copyable):
   - `bool reset(const Preset&)` returns false if Opus init fails.
   - `int encode(const float* in, uint8_t* out, int cap)`:
     - `in` holds `frameSamples × 2` interleaved floats in [-1, 1];
@@ -725,7 +725,7 @@ Expected: four `PASS` lines and `4 tests, 0 failed checks`.
 #include <cmath>
 #include <opus/opus.h>
 
-using namespace bcast;
+using namespace tx_af;
 
 static std::vector<float> sine(int frames, int offset, float amp = 0.5f) {
   std::vector<float> out(frames * 2);
@@ -811,7 +811,7 @@ Expected: the compile fails with `audio/AudioEncoder.hpp: No such file or direct
 
 struct OpusEncoder;
 
-namespace bcast {
+namespace tx_af {
 
 // Encodes one frame of 48 kHz interleaved stereo as Opus or s16le PCM
 struct AudioEncoder {
@@ -843,7 +843,7 @@ private:
 #include <cmath>
 #include <opus/opus.h>
 
-namespace bcast {
+namespace tx_af {
 
 AudioEncoder::~AudioEncoder() { destroy(); }
 
@@ -2211,12 +2211,12 @@ opuslib>=3.0
 
 **Files:**
 - Create: `src/audio/bCast.hpp`, `src/audio/bCast.cpp`
-- Create: `tools/panel/bcast_panel.py`, `res/bCast.svg` (generated)
+- Create: `tools/panel/tx_af_panel.py`, `res/bCast.svg` (generated)
 - Create (stub, filled in by Task 7): `src/audio/AudioStreamer.hpp`, `src/audio/AudioStreamer.cpp`
 - Modify: `src/plugin.hpp`, `src/plugin.cpp`, `plugin.json`
 
 **Interfaces:**
-- Consumes: `bcast::PRESETS`, `presetById`, `isValidPreset`, `DEFAULT_PRESET`
+- Consumes: `tx_af::PRESETS`, `presetById`, `isValidPreset`, `DEFAULT_PRESET`
   (Task 2, `Presets.hpp`) and `DEFAULT_PORT` (Task 2, `Packet.hpp`).
 - Produces (global namespace):
   - `struct bCastConfig { bool enabled; std::string host; int port; int preset; }`
@@ -2239,7 +2239,7 @@ Notes (additions to the deviations list):
 - **Panel labels are glyph paths.** Rack's SVG renderer can't draw text, and
   `Renderer::renderPanel` hides every widget child except the panel. A
   label widget would never reach RackSim's panel texture, so
-  `tools/panel/bcast_panel.py` turns the labels into paths with fontTools.
+  `tools/panel/tx_af_panel.py` turns the labels into paths with fontTools.
 - **OSCctrl surrogates.** `util::makeConnectedModuleWidget` adds a fresh
   `bCast` to the engine for some texture renders. Its default config is
   disabled, so its streamer thread idles (one 20 ms wakeup) and sends
@@ -2247,14 +2247,14 @@ Notes (additions to the deviations list):
 
 - [ ] **Step 1: Generate the panel**
 
-`tools/panel/bcast_panel.py`:
+`tools/panel/tx_af_panel.py`:
 
 ```python
 #!/usr/bin/env python3
 """Writes res/bCast.svg. Rack's SVG renderer has no text support, and
 OSCctrl's panel renders show only the SVG, so the labels are glyph paths.
 
-  python tools/panel/bcast_panel.py [--font PATH] [--out PATH]
+  python tools/panel/tx_af_panel.py [--font PATH] [--out PATH]
 """
 import argparse
 import pathlib
@@ -2304,7 +2304,7 @@ def main():
         f'  <path fill="{INK}" d="{text_path(font, *label)}"/>' for label in LABELS
     )
     svg = f"""<?xml version="1.0" encoding="UTF-8"?>
-<!-- generated by tools/panel/bcast_panel.py -->
+<!-- generated by tools/panel/tx_af_panel.py -->
 <svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}mm" height="{HEIGHT}mm" viewBox="0 0 {WIDTH} {HEIGHT}">
   <rect width="{WIDTH}" height="{HEIGHT}" fill="#e6e6e6"/>
   <rect x="1.5" y="21" width="22.4" height="35" rx="1" fill="#d2d2d2"/>
@@ -2325,7 +2325,7 @@ Run (fontTools isn't in the bench venv; this uses a throwaway one):
 
 ```bash
 python3 -m venv /tmp/panel-venv && /tmp/panel-venv/bin/pip -q install fonttools
-/tmp/panel-venv/bin/python tools/panel/bcast_panel.py
+/tmp/panel-venv/bin/python tools/panel/tx_af_panel.py
 rm -rf /tmp/panel-venv
 ```
 
@@ -2341,7 +2341,7 @@ Task 7 replaces both files. `src/audio/AudioStreamer.hpp`:
 
 struct bCast;
 
-namespace bcast {
+namespace tx_af {
 
 class AudioStreamer {
 public:
@@ -2377,13 +2377,13 @@ private:
 #include <mutex>
 #include <string>
 
-namespace bcast { class AudioStreamer; }
+namespace tx_af { class AudioStreamer; }
 
 struct bCastConfig {
   bool enabled = false;
   std::string host = "127.0.0.1";
-  int port = bcast::DEFAULT_PORT;
-  int preset = bcast::DEFAULT_PRESET;
+  int port = tx_af::DEFAULT_PORT;
+  int preset = tx_af::DEFAULT_PRESET;
 
   bool operator==(const bCastConfig&) const = default;
 };
@@ -2458,7 +2458,7 @@ private:
   uint64_t version = 0;
   bCastClientStats stats;
 
-  std::unique_ptr<bcast::AudioStreamer> streamer;
+  std::unique_ptr<tx_af::AudioStreamer> streamer;
 
   const bCastConfig& effective() const { return managed ? managedConfig : standalone; }
   // runs change under the lock and bumps version if the effective config moved
@@ -2502,7 +2502,7 @@ void bCast::stopStreamer() {
 }
 
 void bCast::onAdd(const AddEvent& e) {
-  if (!streamer) streamer = std::make_unique<bcast::AudioStreamer>(this);
+  if (!streamer) streamer = std::make_unique<tx_af::AudioStreamer>(this);
   streamer->start();
 }
 
@@ -2603,7 +2603,7 @@ void bCast::setManagedEnabled(bool enabled, const std::string& host, int port) {
 
 void bCast::setManagedPreset(int preset) {
   update([&]() {
-    if (managed && bcast::isValidPreset(preset)) managedConfig.preset = preset;
+    if (managed && tx_af::isValidPreset(preset)) managedConfig.preset = preset;
   });
 }
 
@@ -2635,7 +2635,7 @@ void bCast::dataFromJson(json_t* rootJ) {
     if (json_t* j = json_object_get(rootJ, "enabled")) c.enabled = json_boolean_value(j);
     if (json_t* j = json_object_get(rootJ, "preset")) {
       int preset = (int)json_integer_value(j);
-      if (bcast::isValidPreset(preset)) c.preset = preset;
+      if (tx_af::isValidPreset(preset)) c.preset = preset;
     }
     if (json_t* j = json_object_get(rootJ, "host")) {
       const char* host = json_string_value(j);
@@ -2717,7 +2717,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
         : "Not streaming"
     ));
     menu->addChild(createMenuLabel(
-      string::f("Preset: %s", bcast::presetById(snap.config.preset).name)
+      string::f("Preset: %s", tx_af::presetById(snap.config.preset).name)
     ));
     bCastClientStats s = module->clientStats();
     if (s.valid) {
@@ -2739,7 +2739,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
     ));
 
     std::vector<std::string> labels;
-    for (const bcast::Preset& p : bcast::PRESETS) labels.push_back(p.name);
+    for (const tx_af::Preset& p : tx_af::PRESETS) labels.push_back(p.name);
     menu->addChild(createIndexSubmenuItem("Preset", labels,
       [=]() { return (size_t)module->standaloneConfig().preset; },
       [=](size_t i) { module->setStandalone([&](bCastConfig& c) { c.preset = (int)i; }); }
@@ -2834,10 +2834,10 @@ The user builds with `./build-msys.sh -j8`, opens Rack, and checks:
   - from `bCast` (Task 6): `ring`, `streaming`, `engineSampleRate`, `epoch`,
     `sendFailing`, `snapshot()`, `streamId()`.
 - Produces:
-  - `bcast::UdpAudioSocket`: `open(host, port)`, `close()`,
+  - `tx_af::UdpAudioSocket`: `open(host, port)`, `close()`,
     `send(data, size)`, `isOpen()`, `priorityMarked()`, `lastError()`;
-  - `bcast::setHighResolutionTimer(bool)`;
-  - `bcast::AudioStreamer(bCast*)`: `start()`, `stop()` (idempotent,
+  - `tx_af::setHighResolutionTimer(bool)`;
+  - `tx_af::AudioStreamer(bCast*)`: `start()`, `stop()` (idempotent,
     joins).
 
 Behaviour:
@@ -2862,7 +2862,7 @@ Behaviour:
 #include <cstdint>
 #include <string>
 
-namespace bcast {
+namespace tx_af {
 
 // connected UDP socket for audio, marked for voice priority where the OS allows
 class UdpAudioSocket {
@@ -2924,7 +2924,7 @@ void setHighResolutionTimer(bool on);
 
 #include "audio/UdpAudioSocket.hpp"
 
-namespace bcast {
+namespace tx_af {
 
 namespace {
 
@@ -3083,7 +3083,7 @@ void setHighResolutionTimer(bool on) {
 struct bCast;
 struct bCastConfig;
 
-namespace bcast {
+namespace tx_af {
 
 // Drains the module's ring, resamples to 48 kHz, frames, encodes and sends.
 // Owned by the module; never touches the engine.
@@ -3149,7 +3149,7 @@ private:
 #include <cmath>
 #include <limits>
 
-namespace bcast {
+namespace tx_af {
 
 void AudioStreamer::start() {
   if (running.exchange(true)) return;
@@ -4010,7 +4010,7 @@ void OSCctrlWidget::stepAudioExpander() {
     osctx->pacer.setActive(false, std::chrono::steady_clock::now());
     if (!osctx->isBroadcasting())
       osctx->enqueueBundler(new AudioStreamBundler(
-        managedAudioId, (uint32_t)managedAudioId, bcast::DEFAULT_PRESET, false, 0
+        managedAudioId, (uint32_t)managedAudioId, tx_af::DEFAULT_PRESET, false, 0
       ));
   }
 
@@ -4130,7 +4130,7 @@ After the `/set/param/value` route:
       ctrl->enqueueAction([=, this]() {
         bCast* audio = ctrl->managedAudio();
         bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
-          && bcast::isValidPreset(preset);
+          && tx_af::isValidPreset(preset);
         if (ok) audio->setManagedPreset(preset);
         osctx->enqueueBundler(
           new AudioAckBundler("/set/audio/preset/ack", moduleId, preset, ok)
@@ -4444,7 +4444,7 @@ bool FRSNetAudioProtocolTest::RunTest(const FString& Parameters) {
   Rejects(TEXT("truncated frame"), [](TArray<uint8>& B) { B.Pop(); });
   Rejects(TEXT("short header"), [](TArray<uint8>& B) { B.SetNum(19); });
 
-  // mirrors bcast::PRESETS in gtnosft-rack src/audio/Presets.hpp
+  // mirrors tx_af::PRESETS in gtnosft-rack src/audio/Presets.hpp
   const RSNetAudio::FPreset* Balanced = RSNetAudio::FindPreset(1);
   TestTrue(TEXT("balanced exists"), Balanced != nullptr);
   if (Balanced) {
@@ -4494,7 +4494,7 @@ namespace RSNetAudio {
     float MaxMs;
   };
 
-  // mirrors bcast::PRESETS in gtnosft-rack src/audio/Presets.hpp
+  // mirrors tx_af::PRESETS in gtnosft-rack src/audio/Presets.hpp
   const FPreset* FindPreset(int32 Id);
 }
 

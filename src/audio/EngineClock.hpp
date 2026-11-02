@@ -6,7 +6,7 @@
 #include <mutex>
 #include <thread>
 
-namespace bcast {
+namespace tx_af {
 
 // steps the Rack engine in real time while `module` is the engine's master
 // module, the way an Audio module's device callback does. idles otherwise.
@@ -33,4 +33,4 @@ private:
   );
 };
 
-} // namespace bcast
+} // namespace tx_af

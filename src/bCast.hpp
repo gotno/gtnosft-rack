@@ -10,13 +10,13 @@
 #include <mutex>
 #include <string>
 
-namespace bcast { class AudioStreamer; class EngineClock; }
+namespace tx_af { class AudioStreamer; class EngineClock; }
 
 struct bCastConfig {
   bool enabled = false;
   std::string host = "127.0.0.1";
-  int port = bcast::DEFAULT_PORT;
-  int preset = bcast::DEFAULT_PRESET;
+  int port = tx_af::DEFAULT_PORT;
+  int preset = tx_af::DEFAULT_PRESET;
 
   bool operator==(const bCastConfig&) const = default;
 };
@@ -98,11 +98,11 @@ private:
   std::atomic<bool> managed{false};  // written under configMutex
   uint64_t version = 0;
   bCastClientStats stats;
-  std::atomic<int> presetCache{bcast::DEFAULT_PRESET};
+  std::atomic<int> presetCache{tx_af::DEFAULT_PRESET};
   int lastPresetKnobValue = -1;  // engine thread
 
-  std::unique_ptr<bcast::AudioStreamer> streamer;
-  std::unique_ptr<bcast::EngineClock> engineClock;
+  std::unique_ptr<tx_af::AudioStreamer> streamer;
+  std::unique_ptr<tx_af::EngineClock> engineClock;
 
   const bCastConfig& getEffectiveConfig() const {
     return managed ? managedConfig : standaloneConfig;

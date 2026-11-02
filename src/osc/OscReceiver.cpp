@@ -654,7 +654,7 @@ void OscReceiver::generateRoutes() {
       ctrl->enqueueAction([=, this]() {
         bCast* audio = ctrl->getManagedAudio();
         bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
-          && bcast::isValidPreset(preset);
+          && tx_af::isValidPreset(preset);
         if (ok) audio->setPreset(preset);
         osctx->enqueueBundler(
           new AudioAckBundler("/set/audio/preset/ack", moduleId, preset, ok)

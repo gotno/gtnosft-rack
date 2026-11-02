@@ -11,11 +11,11 @@ bCast::bCast() {
   configParam(LEVEL_PARAM, 0.f, 2.f, 1.f, "Level", " dB", -10, 40);
 
   std::vector<std::string> presetNames;
-  for (const bcast::Preset& preset : bcast::PRESETS)
+  for (const tx_af::Preset& preset : tx_af::PRESETS)
     presetNames.push_back(preset.name);
   configSwitch(
     PRESET_PARAM,
-    0.f, bcast::PRESET_COUNT - 1, bcast::DEFAULT_PRESET,
+    0.f, tx_af::PRESET_COUNT - 1, tx_af::DEFAULT_PRESET,
     "Preset", presetNames
   );
   paramQuantities[PRESET_PARAM]->randomizeEnabled = false;
@@ -33,7 +33,7 @@ bCast::bCast() {
   // where packets are improperly judged as stragglers and dropped
   epoch = (uint16_t)rack::random::u64();
 
-  engineClock = std::make_unique<bcast::EngineClock>(this);
+  engineClock = std::make_unique<tx_af::EngineClock>(this);
 }
 
 bCast::~bCast() {
@@ -60,7 +60,7 @@ void bCast::stopStreamer() {
 }
 
 void bCast::onAdd(const AddEvent& e) {
-  if (!streamer) streamer = std::make_unique<bcast::AudioStreamer>(this);
+  if (!streamer) streamer = std::make_unique<tx_af::AudioStreamer>(this);
   streamer->start();
 }
 
@@ -178,7 +178,7 @@ void bCast::updateConfig(const std::function<void()>& update) {
 
 void bCast::setPreset(int preset) {
   updateConfig([&]() {
-    if (!bcast::isValidPreset(preset)) return;
+    if (!tx_af::isValidPreset(preset)) return;
     standaloneConfig.preset = preset;
     managedConfig.preset = preset;
   });
@@ -254,7 +254,7 @@ void bCast::dataFromJson(json_t* rootJ) {
       cfg.enabled = json_boolean_value(j);
     if (json_t* j = json_object_get(rootJ, "preset")) {
       int preset = (int)json_integer_value(j);
-      if (bcast::isValidPreset(preset)) cfg.preset = preset;
+      if (tx_af::isValidPreset(preset)) cfg.preset = preset;
     }
     if (json_t* j = json_object_get(rootJ, "host")) {
       const char* host = json_string_value(j);
@@ -348,7 +348,7 @@ void bCastWidget::step() {
     module->setMaster(true);
 
   if (module->isMaster())
-    engine->setSuggestedSampleRate(bcast::SAMPLE_RATE);
+    engine->setSuggestedSampleRate(tx_af::SAMPLE_RATE);
 }
 
 void bCastWidget::appendContextMenu(Menu* menu) {
@@ -363,7 +363,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
   menu->addChild(createBoolPtrMenuItem("DC blocker", "", &module->dcFilterEnabled));
 
   std::vector<std::string> labels;
-  for (const bcast::Preset& p : bcast::PRESETS) labels.push_back(p.name);
+  for (const tx_af::Preset& p : tx_af::PRESETS) labels.push_back(p.name);
   menu->addChild(createIndexSubmenuItem("Preset", labels,
     [=]() { return (size_t)module->getPreset(); },
     [=](size_t i) { module->setPreset((int)i); }

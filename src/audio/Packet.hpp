@@ -6,7 +6,7 @@
 #include "Presets.hpp"
 
 // Binary audio packet. See API.md "Audio packet format".
-namespace bcast {
+namespace tx_af {
 
 constexpr uint8_t MAGIC[2] = {'R', 'A'};
 constexpr uint8_t PROTOCOL_VERSION = 1;
@@ -38,4 +38,4 @@ size_t writePacket(
   const std::vector<const EncodedFrame*>& frames
 );
 
-} // namespace bcast
+} // namespace tx_af

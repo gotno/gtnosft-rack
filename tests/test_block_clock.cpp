@@ -3,7 +3,7 @@
 
 #include <cmath>
 
-using bcast::BlockClock;
+using tx_af::BlockClock;
 using clk = BlockClock::clock;
 using std::chrono::duration;
 using std::chrono::microseconds;

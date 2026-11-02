@@ -217,7 +217,7 @@ void OSCctrlWidget::stepAudioExpander() {
         new AudioStreamBundler(
           managedAudioId,
           (uint32_t)managedAudioId,
-          bcast::DEFAULT_PRESET,
+          tx_af::DEFAULT_PRESET,
           false,
           0
         )

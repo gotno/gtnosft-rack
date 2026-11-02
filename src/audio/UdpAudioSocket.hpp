@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-namespace bcast {
+namespace tx_af {
 
 // connected UDP socket for audio, marked for voice priority where the OS allows
 class UdpAudioSocket {
@@ -35,4 +35,4 @@ private:
 // 1 ms scheduler resolution on Windows; a no-op elsewhere. Calls must pair
 void setHighResolutionTimer(bool on);
 
-} // namespace bcast
+} // namespace tx_af

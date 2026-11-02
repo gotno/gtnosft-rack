@@ -48,7 +48,7 @@ BOOL WINAPI QOSRemoveSocketFromFlow(HANDLE QOSHandle, SOCKET Socket, QOS_FLOWID 
 constexpr DWORD QOS_NON_ADAPTIVE_FLOW = 0x00000002;
 #endif
 
-namespace bcast {
+namespace tx_af {
 
 namespace {
 
@@ -184,4 +184,4 @@ void setHighResolutionTimer(bool on) {
 #endif
 }
 
-} // namespace bcast
+} // namespace tx_af

@@ -2,7 +2,7 @@
 #include "BlockClock.hpp"
 #include "UdpAudioSocket.hpp"
 
-namespace bcast {
+namespace tx_af {
 
 EngineClock::EngineClock(rack::engine::Module* module) : state(std::make_shared<State>()) {
   rack::Context* context = rack::contextGet();
@@ -81,4 +81,4 @@ void EngineClock::run(std::shared_ptr<State> state, rack::Context* context, rack
   state->cv.notify_all();
 }
 
-} // namespace bcast
+} // namespace tx_af

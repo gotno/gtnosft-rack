@@ -3,7 +3,7 @@
 
 // mirrored by tools/bench/audio_analysis.py
 // only the id travels over the wire.
-namespace bcast {
+namespace tx_af {
 
 enum class Codec : uint8_t { Pcm = 0, Opus = 1 };
 
@@ -40,4 +40,4 @@ constexpr const Preset& presetById(int id) {
   return PRESETS[isValidPreset(id) ? id : DEFAULT_PRESET];
 }
 
-} // namespace bcast
+} // namespace tx_af

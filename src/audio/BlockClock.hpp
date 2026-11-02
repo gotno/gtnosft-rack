@@ -3,7 +3,7 @@
 #include <chrono>
 #include <cmath>
 
-namespace bcast {
+namespace tx_af {
 
 // provides a clock to pace engine blocks against absolute deadlines in order to
 // make up wakeup delays on the next block (Rack's fallback clock sleeps relative
@@ -48,4 +48,4 @@ private:
   bool running = false;
 };
 
-} // namespace bcast
+} // namespace tx_af

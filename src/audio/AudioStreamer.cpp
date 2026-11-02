@@ -5,7 +5,7 @@
 #include <cmath>
 #include <limits>
 
-namespace bcast {
+namespace tx_af {
 
 void AudioStreamer::start() {
   if (running.exchange(true)) return;

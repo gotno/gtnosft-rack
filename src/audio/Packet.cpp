@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-namespace bcast {
+namespace tx_af {
 
 namespace {
 void put16(uint8_t* p, uint16_t v) {
@@ -53,4 +53,4 @@ size_t writePacket(
   return size;
 }
 
-} // namespace bcast
+} // namespace tx_af

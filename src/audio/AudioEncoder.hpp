@@ -5,7 +5,7 @@
 
 struct OpusEncoder;
 
-namespace bcast {
+namespace tx_af {
 
 // encodes one frame of 48 kHz interleaved stereo as Opus or s16le PCM
 struct AudioEncoder {
@@ -26,4 +26,4 @@ private:
   void destroy();
 };
 
-} // namespace bcast
+} // namespace tx_af

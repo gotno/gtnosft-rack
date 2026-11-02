@@ -15,7 +15,7 @@
 struct bCast;
 struct bCastConfig;
 
-namespace bcast {
+namespace tx_af {
 
 // drains the module's ring, resamples to 48 kHz, frames, encodes and sends.
 // owned by the module; never touches the engine.
@@ -73,4 +73,4 @@ private:
   void emitFrame(const float* pcm);
 };
 
-} // namespace bcast
+} // namespace tx_af
