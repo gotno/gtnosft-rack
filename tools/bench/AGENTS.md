@@ -1,37 +1,51 @@
-# Notes for coding agents: overlay bench
+# Benchmark tooling
 
+Python clients and analysis for ctrl and Tx; see the [root instructions](../../AGENTS.md).
 Read `README.md` here first. It covers usage and what each metric means.
 `PERFLOG.md` records what has been optimized, the measured results, and what's
 left. These notes cover the workflow and the mistakes made before.
 
-## Building
+## Commands
 
-- From WSL, build with `./build-wsl.sh` from the repo root (not plain `make`).
-  Add `BENCH=1` for instrumentation. The user builds the Windows plugin with
-  `./build-msys.sh BENCH=1` and runs the benchmarks themselves.
-- Switching `BENCH` forces a full rebuild.
-- `nm -C plugin.so | grep -c bench::` is 0 for a normal build and nonzero
-  for a bench build. After working on bench code, rebuild the normal build so
-  you can confirm it still compiles without instrumentation.
+Run these commands from `tools/bench/` unless stated otherwise.
+
+- On Linux/WSL, set up missing dependencies with `python3 -m venv .venv` and
+  `.venv/bin/pip install -r requirements.txt`; see `README.md` for Windows.
+- Run `python3 -m unittest -v test_audio_analysis`; select one case with
+  `python3 -m unittest -v test_audio_analysis.PacketTests.test_round_trip`.
+- For an offline overlay smoke test, start `.venv/bin/python mock_server.py --port 17225`
+  (long-running), then after it is ready run `.venv/bin/python overlay_bench.py run
+  --host 127.0.0.1 --port 17225 --duration 1 --idle 0.3 --warmup 0`.
+  The client binds UDP 7746 on all interfaces; check that it is free first.
+- Test `audio_bench.py` with `mock_server.py --audio` (managed) or
+  `--audio-to 127.0.0.1:7747` (passive). Always pass `--host 127.0.0.1` in
+  managed mode.
+- The user builds the Windows plugin with `./build-msys.sh BENCH=1` and runs
+  the benchmarks themselves (build from the repository root).
+- Switching `BENCH` forces a full rebuild. After working on bench code, rebuild
+  the normal build so you can confirm it still compiles without instrumentation.
+- From the repository root on Linux, `nm -C plugin.so | grep -c 'bench::'` is 0
+  for a normal build and nonzero for a bench build; `grep` exits 1 when it is 0.
 
 ## Instrumentation conventions
 
-- Wrap every bench-only statement in `BENCH(...)` (`src/bench/Bench.hpp`).
-  Put routes in the `BENCH(...)` block near the top of
-  `OscReceiver::generateRoutes`.
+- Guard benchmark-only production call sites with `BENCH(...)` from
+  `../../src/bench/Bench.hpp`; dedicated benchmark implementation files use
+  `GTNOSFT_BENCH` guards.
+- Put routes in the `BENCH(...)` block of `OscReceiver::generateRoutes` in
+  `../../src/osc/OscReceiver.cpp`.
 - A trace passes through the pipeline's `bench::Stage` values in enum order.
-  Spans are pairs of stages in `bench::submit` (`src/bench/Bench.cpp`). If
+  Spans are pairs of stages in `bench::submit` (`../../src/bench/Bench.cpp`). If
   you add, rename or move a stage or span, update `STAGES`/`HEADLINE` in
   `overlay_bench.py` and the metrics table in `README.md`.
-- A/B toggles (`/bench/overlay_cache`, `/bench/prep_worker`,
-  `/bench/adaptive_retry`, `/bench/back_pressure`, `/bench/supersede`,
-  `/bench/heartbeat_direct`, `/bench/action_budget`, `/bench/chunk_pacing`) take an int,
-  apply on the UI thread through an action, and reply on `<route>/ack` with
-  `BenchToggleAckBundler`. The client sets each toggle at the start of a run,
-  turns it back on at the end, and records it in the result's `args`. Add new
-  variants the same way so they can be compared within one Rack session.
+- Accept an integer for each A/B toggle, apply the change through a UI-thread
+  action, and reply using `BenchToggleAckBundler` on the route's `/ack` suffix.
+- When adding a client toggle, update `TOGGLE_ROUTES`, the separate setup/restore
+  loop and CLI arguments in `overlay_bench.py`; the client restores disabled
+  toggles and records its arguments. Not every server toggle is wired into the
+  clients.
 
-## Measuring
+## Measuring and testing
 
 - **Compare within one Rack session** using the toggles. Results from
   different sessions are not comparable. A laptop on battery throttles every
@@ -40,27 +54,18 @@ left. These notes cover the workflow and the mistakes made before.
   environment before the code.
 - Tail latencies are only valid with the client running natively on Windows.
   WSL's default UDP buffer cap causes chunk drops and retries.
-- The user's result files (`win3x_*.json`, gitignored) are the history of
-  the optimization work. Leave them in place.
-
-## Testing client changes
-
-- Run `mock_server.py` and always pass `--host 127.0.0.1`. Without `--host`,
-  the client discovers the user's live Rack through `/announce` or the WSL
-  gateway.
-- Run long-lived servers in an async shell and stop them with the shell tool.
-  Don't kill them with `kill $PID`.
+- Without `--host`, the client discovers the user's live Rack through
+  `/announce` or the WSL gateway. Stop the mock server you started after testing.
 - python-osc can't build empty blobs, so build those by hand in tests.
-
-## Audio bench
-
-- Test `audio_bench.py` with `mock_server.py --audio` (managed) or
-  `--audio-to 127.0.0.1:7747` (passive). Always pass `--host 127.0.0.1` in
-  managed mode.
 - Run `test_audio_analysis.py` after changing `audio_analysis.py`.
-- `tests/run.sh` covers the C++ packet, encoder and pacer.
 
-## Process
+## Boundaries
 
-- Don't commit; the user commits.
-- Propose changes and ask about design choices before making large ones.
+- Never: The user's result files (`win3x_*.json`, gitignored) are the history of
+  the optimization work. Leave them in place.
+- Never: Don't commit; the user commits.
+- Ask first: Propose changes and ask about design choices before making large ones.
+
+## Further reading
+
+- [Usage and metrics](README.md) and [optimization history](PERFLOG.md).
