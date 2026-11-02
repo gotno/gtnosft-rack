@@ -465,18 +465,18 @@ Arguments:
 
 ---
 
-### Audio (bCast expander)
+### Audio (Tx expander)
 
-A bCast module placed directly left or right of OSCctrl is managed by it.
+A Tx module placed directly left or right of OSCctrl is managed by it.
 Its own host/port settings are ignored while managed, and it only
-streams when the registered client asks. The preset is shared: the bCast's
+streams when the registered client asks. The preset is shared: the Tx's
 knob or menu and `/set/audio/preset` all change it, and a change made in Rack
 is announced with `/set/audio_stream`. Audio goes over its own UDP
 socket, not OSC (see "Audio packet format").
 
 #### `/set/audio_stream <moduleId> <streamId> <presetId> <enabled> <epoch>`
 **Direction:** Server → Client
-**Purpose:** Describe the managed bCast's stream
+**Purpose:** Describe the managed Tx's stream
 **Arguments:**
   - `int64` moduleId
   - `int32` streamId (read as uint32; matches the packet header)
@@ -485,10 +485,10 @@ socket, not OSC (see "Audio packet format").
   - `int32` epoch (per-instance random u16 seed; may lag the packets by one;
     packets are authoritative)
 
-**Sent:** on registration, when a bCast attaches or detaches (detach sends
+**Sent:** on registration, when a Tx attaches or detaches (detach sends
 enabled 0), after each successful `/set/audio/*` request, when the preset is
 changed in Rack, and re-announced
-every ~2 s (2 heartbeats) to the connected client while a bCast is managed.
+every ~2 s (2 heartbeats) to the connected client while a Tx is managed.
 The re-announce is idempotent: a repeated identical announce must not restart
 playback. It recovers a reconnecting client, a lost offer, or a lost enable
 ack.
@@ -502,7 +502,7 @@ ack.
   - `int32` port (UDP port the client listens on, normally 7747)
 
 **Response:** `/set/audio/enabled/ack <moduleId> <enabled> <success>`
-(`int64`, `int32`, `int32`). Fails if the module isn't the managed bCast or
+(`int64`, `int32`, `int32`). Fails if the module isn't the managed Tx or
 no client is registered.
 
 **Usage:**

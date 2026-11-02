@@ -44,7 +44,7 @@ AUDIO_MODULE_ID = 4242
 
 
 class AudioSender:
-    """Fake bCast: a 1 kHz PCM sine (Uncompressed preset, 5 ms frames)."""
+    """Fake Tx: a 1 kHz PCM sine (Uncompressed preset, 5 ms frames)."""
 
     def __init__(self, dest):
         self.dest = dest
@@ -109,9 +109,9 @@ def main():
     ap.add_argument("--chunk-drop-rate", type=float, default=0.02,
                     help="fraction of texture chunks never sent")
     ap.add_argument("--audio-to", metavar="HOST:PORT",
-                    help="also send a fake standalone bCast stream here")
+                    help="also send a fake standalone Tx stream here")
     ap.add_argument("--audio", action="store_true",
-                    help="act as OSCctrl with a managed bCast next to it")
+                    help="act as OSCctrl with a managed Tx next to it")
     args = ap.parse_args()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -122,7 +122,7 @@ def main():
     if args.audio_to:
         host, port = args.audio_to.rsplit(":", 1)
         AudioSender((host, int(port))).start()
-        print(f"sending fake bCast audio to {host}:{port}", flush=True)
+        print(f"sending fake Tx audio to {host}:{port}", flush=True)
     managed = None  # AudioSender while a client has enabled the managed stream
 
     def audio_stream_msg(enabled):

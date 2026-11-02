@@ -1146,7 +1146,7 @@ def main():
     )
     run.add_argument(
         "--no-chunk-pacing", dest="chunk_pacing", action="store_false",
-        help="don't pace texture chunks for a managed bCast audio stream",
+        help="don't pace texture chunks for a managed Tx audio stream",
     )
     run.add_argument(
         "--drop", type=float, default=0.0, metavar="P",

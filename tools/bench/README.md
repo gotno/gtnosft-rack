@@ -67,7 +67,7 @@ texture requests even while the server's prep and send queues hold more than
 a UI frame of work (by default they wait and keep coalescing).
 `--no-supersede` keeps sending (and resending) an older frame after a newer
 frame of the same texture and size is ready. `--no-chunk-pacing` turns off
-pacing of texture chunks for a managed bCast audio stream. The client sets all six states at the start of every run and turns them back on when the run finishes, so all variants can use the same
+pacing of texture chunks for a managed Tx audio stream. The client sets all six states at the start of every run and turns them back on when the run finishes, so all variants can use the same
 `BENCH=1` build. Prefer comparing variants within one Rack session: power
 state (e.g. a laptop on battery) shifts every stage between sessions.
 
@@ -296,7 +296,7 @@ Other metrics:
 
 ## Audio bench
 
-`audio_bench.py` tests a bCast audio stream without Unreal. It receives the
+`audio_bench.py` tests a Tx audio stream without Unreal. It receives the
 stream the way RackSim does, on its own socket and thread, and measures
 arrival timing, loss, reordering, clock drift and what a fixed-target jitter
 buffer at the preset's target would have done. Opus presets need `opuslib` and
@@ -307,10 +307,10 @@ the libopus shared library (`--wav` and `--analyze` decode them).
 .venv/bin/python audio_bench.py compare before.json after.json
 ```
 
-- **Passive** (`--passive`): only listens. Point a standalone bCast at this
+- **Passive** (`--passive`): only listens. Point a standalone Tx at this
   machine's IP, port 7747 (`--audio-port` changes it).
 - **Managed** (default): connects to OSCctrl like `overlay_bench.py` (same
-  `--host`/`--port` discovery), finds the bCast placed directly next to it,
+  `--host`/`--port` discovery), finds the Tx placed directly next to it,
   optionally selects `--preset ID`, enables the stream to this machine, and
   sends `/audio/stats` from the simulated buffer. It disables the stream when
   the run ends.
@@ -319,7 +319,7 @@ the libopus shared library (`--wav` and `--analyze` decode them).
   with and once with `--no-chunk-pacing`, then `compare`, to see what pacing
   the texture chunks does to the audio. Needs a `BENCH=1` build.
 - **Glitch check:** `--analyze` decodes the last epoch and looks for glitches
-  and dropouts in the left channel. Patch a VCO sine into bCast.
+  and dropouts in the left channel. Patch a VCO sine into Tx.
 - **Recording:** `--wav PATH` writes the decoded audio.
 - **Simulated loss:** `--drop P` discards that fraction of audio packets after
   they arrive.

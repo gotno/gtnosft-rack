@@ -30,13 +30,13 @@ EngineClock::~EngineClock() {
     thread.join();
   } else {
     // stuck on the engine lock because we're being deleted under it
-    WARN("bCast: engine clock thread busy at teardown, detaching");
+    WARN("Tx: engine clock thread busy at teardown, detaching");
     thread.detach();
   }
 }
 
 void EngineClock::run(std::shared_ptr<State> state, rack::Context* context, rack::engine::Module* module) {
-  rack::system::setThreadName("bCast clock");
+  rack::system::setThreadName("Tx clock");
   rack::contextSet(context);
 
   BlockClock pacer;

@@ -1,4 +1,4 @@
-# bCast: streaming Rack audio to RackSim over Wi-Fi
+# Tx: streaming Rack audio to RackSim over Wi-Fi
 
 ## Goal
 
@@ -9,7 +9,7 @@ placed next to it. Presets set the balance between latency and quality.
 
 The work covers three codebases:
 
-1. Rack plugin (`gtnosft-rack`): the bCast module, OSCctrl integration,
+1. Rack plugin (`gtnosft-rack`): the Tx module, OSCctrl integration,
    and texture chunk pacing.
 2. UE client (`RackSim`, UE 5.6, Win64 and Quest/Android): the receiver,
    jitter buffer, and playback.
@@ -25,7 +25,7 @@ The work covers three codebases:
 | Codec | Opus (CELT, `OPUS_APPLICATION_RESTRICTED_LOWDELAY`), or 16-bit PCM. |
 | Loss protection | Packet-level redundancy: each packet also carries the previous frames. Opus in-band FEC is SILK-only, so it doesn't help music. |
 | Direction | Send only (Rack to UE). The packet format leaves room for a return path. |
-| Engine timing | bCast can be the engine's master module and clock it in real time ("Master audio module" in its menu). It claims master while streaming if no audio module has it, because Rack's fallback clock runs slow and the client then underruns. |
+| Engine timing | Tx can be the engine's master module and clock it in real time ("Master audio module" in its menu). It claims master while streaming if no audio module has it, because Rack's fallback clock runs slow and the client then underruns. |
 | Clock drift | Absorbed on the client by adaptive resampling. |
 | Relationship to OSCctrl | Standalone module that becomes managed when adjacent to OSCctrl. |
 | Controls | Presets only. An Advanced submenu is a follow-up. |
@@ -54,12 +54,12 @@ wire.
 
 ## Rack side
 
-### bCast module (`src/bCast.{hpp,cpp}`)
+### Tx module (`src/Tx.{hpp,cpp}`)
 
 - **Panel:** 5HP, laid out like Audio-2. Inputs L and R (R is normalled to
   L), level knob (0–2, squared gain, as in Audio-2), 6-segment VU meter per
   channel, a snapping preset knob, and a status light: off when idle, green when streaming
-  standalone, blue when managed by OSCctrl. New `res/bCast.svg`.
+  standalone, blue when managed by OSCctrl. New `res/Tx.svg`.
 - **Context menu:**
   - DC blocker (default on).
   - Enabled (standalone).
@@ -72,7 +72,7 @@ wire.
   enable and destination are not saved, so a module detached from OSCctrl goes back to
   its saved standalone settings.
 - **Registration:** `plugin.json` gets the model, and `plugin.cpp/hpp` add
-  `modelbCast`.
+  `modelTx`.
 
 ### Threads and data flow
 
@@ -103,7 +103,7 @@ into dsp::RingBuffer       redundancy ─► send
   re-enabling, resets the encoder, sample rate converter, accumulator, ring
   and history, and increments `epoch`. The sample rate change is detected in
   `onSampleRateChange`, which sets an atomic flag.
-- **Config:** a mutex-protected `bCastConfig { enabled, managed, host,
+- **Config:** a mutex-protected `TxConfig { enabled, managed, host,
   port, preset }`, with a version counter. It's written on the UI thread (by
   the menu or by OSCctrl actions) and read once per streamer wakeup. The
   engine thread never takes the lock.
@@ -123,7 +123,7 @@ therefore runs on the UI thread, where module pointers are stable (modules
 are only deleted on the UI thread).
 
 - **Detection:** `OSCctrlWidget::step()` checks `module->leftExpander.module`
-  and `rightExpander.module` for `modelbCast`. It tracks one managed
+  and `rightExpander.module` for `modelTx`. It tracks one managed
   module id. On a change, it:
   - **attach:** sets the config to `managed = true` and `enabled = false`
     (until the client asks), then sends `/set/audio_stream`;
@@ -198,7 +198,7 @@ The header is 20 bytes, little-endian:
 | 0 | u8[2] | magic | `'R','A'` |
 | 2 | u8 | version | 1 |
 | 3 | u8 | flags | 0 (reserved) |
-| 4 | u32 | streamId | Lower 32 bits of the bCast module id |
+| 4 | u32 | streamId | Lower 32 bits of the Tx module id |
 | 8 | u16 | epoch | Incremented on every stream reset |
 | 10 | u8 | codec | 0 = PCM s16le, 1 = Opus |
 | 11 | u8 | channels | 2 |
@@ -211,7 +211,7 @@ Then `frameCount` × `{ u16 length, u8[length] }`, newest first: seq,
 seq−1, …
 
 A frame's 48 kHz timestamp is `seq × frameSamples` within an epoch. Seq starts
-at 0; epoch starts at a random value per bCast instance. All presets fit in one datagram of 1232 bytes or less.
+at 0; epoch starts at a random value per Tx instance. All presets fit in one datagram of 1232 bytes or less.
 
 ### OSC control (managed mode only)
 
@@ -304,7 +304,7 @@ at 0; epoch starts at a random value per bCast instance. All presets fit in one 
 - The existing `INTERNET` permission covers the new socket.
 - RackSim needs OSCctrl to run at all, so it only plays streams that
   OSCctrl manages; it starts listening in response to `/set/audio_stream`.
-  A standalone bCast is for the test client and other receivers.
+  A standalone Tx is for the test client and other receivers.
 
 ### Tests
 
@@ -328,7 +328,7 @@ result and compare code.
   `/set/audio_stream`, sends `/set/audio/enabled 1 <port>`, and reports
   `/audio/stats` every 500 ms from its own simulated jitter buffer at the
   preset target.
-- **`--passive`:** listens only, for a standalone bCast.
+- **`--passive`:** listens only, for a standalone Tx.
 - **Metrics:**
   - arrival jitter (p50/p95/p99) and the largest gap between packets
   - loss, reordering, duplicates, and frames recovered by redundancy
@@ -343,7 +343,7 @@ result and compare code.
   - `--preset ID`: managed mode only.
   - `--duration`, `--label`, `--json`, and `compare` (shared).
   - `--wav PATH`: decodes (Opus through optional `opuslib`) and records.
-  - `--analyze`: with a sine wave patched into bCast, finds the
+  - `--analyze`: with a sine wave patched into Tx, finds the
     frequency and counts discontinuities and dropouts in the decoded
     signal.
 - `shell.nix` and `requirements.txt`: add `opuslib` (optional) and `libopus`.
@@ -354,7 +354,7 @@ result and compare code.
 
 1. **CI:** lin-x64, win-x64, mac-x64 and mac-arm64 all build with libopus.
 2. **Local (WSL):** run `audio_bench --passive --host 127.0.0.1` against a
-   standalone bCast with every preset. Expect 0 loss and no glitches from
+   standalone Tx with every preset. Expect 0 loss and no glitches from
    `--analyze`. Then do the same in managed mode with OSCctrl.
 3. **Wi-Fi:** Rack on Windows, bench on a second machine. Run every preset
    with `--overlays 3` and `--overlays 16`, A/B on `/bench/chunk_pacing`.
@@ -370,6 +370,6 @@ result and compare code.
 - Advanced settings: frame size, bitrate, redundancy, jitter target.
 - A client UI for enabling the stream and choosing a preset.
 - Placing virtual speakers in UE (positioned, with attenuation).
-- Mixing several bCast streams on the client.
+- Mixing several Tx streams on the client.
 - A return path (UE → Rack audio).
 - Audio/visual sync timestamps for overlays.

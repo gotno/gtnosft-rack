@@ -1,5 +1,5 @@
 #include "AudioStreamer.hpp"
-#include "../bCast.hpp"
+#include "../Tx.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -22,7 +22,7 @@ void AudioStreamer::run() {
   int seenRate = -1;
 
   while (running.load()) {
-    bCastSnapshot snap = module->getSnapshot();
+    TxSnapshot snap = module->getSnapshot();
     int rate = (int)std::lround(module->engineSampleRate.load());
 
     if (snap.version != seenVersion || rate != seenRate) {
@@ -56,7 +56,7 @@ void AudioStreamer::setStreaming(bool on) {
   }
 }
 
-void AudioStreamer::reset(const bCastConfig& config, int rate) {
+void AudioStreamer::reset(const TxConfig& config, int rate) {
   // process() may land one more frame after the clear; it's harmless
   setStreaming(false);
   module->ring.clear();
@@ -79,7 +79,7 @@ void AudioStreamer::reset(const bCastConfig& config, int rate) {
   if (!wantOpen) return;
 
   if (!encoder.reset(preset)) {
-    WARN("bCast %u: can't create the encoder for preset %d", streamId, preset.id);
+    WARN("Tx %u: can't create the encoder for preset %d", streamId, preset.id);
     module->sendFailing = true;
     wantOpen = false;
     return;
@@ -96,7 +96,7 @@ bool AudioStreamer::openSocket() {
   lastOpenAttempt = clock::now();
   if (socket.open(host, port)) {
     INFO(
-      "bCast %u: streaming %s to %s:%d, epoch %u%s",
+      "Tx %u: streaming %s to %s:%d, epoch %u%s",
       streamId, preset.name, host.c_str(), port, (unsigned)epoch,
       socket.priorityMarked() ? "" : " (no priority marking)"
     );
@@ -107,7 +107,7 @@ bool AudioStreamer::openSocket() {
 
   if (!openWarned) {
     WARN(
-      "bCast %u: can't open %s:%d: %s",
+      "Tx %u: can't open %s:%d: %s",
       streamId, host.c_str(), port, socket.lastError().c_str()
     );
     openWarned = true;
@@ -149,7 +149,7 @@ void AudioStreamer::emitFrame(const float* pcm) {
   int bytes = encoder.encode(pcm, frame.data(), (int)frame.size());
   if (bytes < 0) {
     // the seq still advances, so the client sees the gap and conceals it
-    WARN("bCast %u: encode failed at seq %u", streamId, seq);
+    WARN("Tx %u: encode failed at seq %u", streamId, seq);
     history.clear();
     ++seq;
     return;

@@ -1,4 +1,4 @@
-"""Pure helpers for bCast audio streams: packet parsing, arrival statistics,
+"""Pure helpers for Tx audio streams: packet parsing, arrival statistics,
 a simulated jitter buffer and sine checks. No sockets; audio_bench.py does
 the I/O.
 

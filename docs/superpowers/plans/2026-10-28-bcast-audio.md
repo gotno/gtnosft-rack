@@ -1,19 +1,19 @@
-# bCast network audio Implementation Plan
+# Tx network audio Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stream stereo audio from a new Rack module, bCast, to the RackSim
-Unreal client over LAN Wi-Fi. bCast works standalone and as an OSCctrl
+**Goal:** Stream stereo audio from a new Rack module, Tx, to the RackSim
+Unreal client over LAN Wi-Fi. Tx works standalone and as an OSCctrl
 expander. The plan also adds a Python test client that verifies the Rack side
 without UE.
 
 **Architecture:**
 
-- **Engine thread:** bCast's `process()` pushes frames into a lock-free ring.
+- **Engine thread:** Tx's `process()` pushes frames into a lock-free ring.
 - **Streamer thread:** a per-module thread resamples to 48 kHz, encodes each
   frame (Opus or PCM), adds redundant frames, and sends binary UDP packets to
   port 7747 with DSCP EF.
-- **OSCctrl:** when bCast sits next to OSCctrl, OSCctrl manages it over OSC
+- **OSCctrl:** when Tx sits next to OSCctrl, OSCctrl manages it over OSC
   and paces texture chunk sends based on the client's audio stats.
 - **RackSim:** receives packets on its own thread, then plays them through an
   adaptive jitter buffer in a `USynthComponent`.
@@ -35,7 +35,7 @@ without UE.
 ## Global Constraints
 
 - **Rack-side naming:**
-  - Rack-side names use **bCast**: module slug `bCast`, model `modelbCast`,
+  - Rack-side names use **Tx**: module slug `Tx`, model `modelTx`,
     C++ namespace `tx_af`, files in `src/audio/`.
   - The UE side keeps **NetAudio**: `RSNetAudio*` and the `RackSim.NetAudio.*`
     tests.
@@ -154,8 +154,8 @@ The spec's intent is unchanged in each case.
 | `src/audio/AudioEncoder.{hpp,cpp}` | create | Opus/PCM frame encoder |
 | `src/audio/UdpAudioSocket.{hpp,cpp}` | create | UDP socket with DSCP/qWAVE |
 | `src/audio/AudioStreamer.{hpp,cpp}` | create | streamer thread |
-| `src/audio/bCast.{hpp,cpp}` | create | module, widget, menu, config API |
-| `res/bCast.svg` | create | panel |
+| `src/audio/Tx.{hpp,cpp}` | create | module, widget, menu, config API |
+| `res/Tx.svg` | create | panel |
 | `src/plugin.{hpp,cpp}`, `plugin.json` | modify | registration |
 | `src/osc/ChunkPacer.{hpp,cpp}` | create | token bucket and AIMD |
 | `src/osc/OscSender.{hpp,cpp}` | modify | pacer in `processQueue`, `directHost()` |
@@ -1097,7 +1097,7 @@ Expected: `ModuleNotFoundError: No module named 'audio_analysis'`.
 - [ ] **Step 3: Implement `tools/bench/audio_analysis.py`**
 
 ```python
-"""Pure helpers for bCast audio streams: packet parsing, arrival statistics,
+"""Pure helpers for Tx audio streams: packet parsing, arrival statistics,
 a simulated jitter buffer and sine checks. No sockets; audio_bench.py does
 the I/O.
 
@@ -1498,7 +1498,7 @@ In `main()` add:
 ```python
     run.add_argument(
         "--no-chunk-pacing", dest="chunk_pacing", action="store_false",
-        help="don't pace texture chunks for a managed bCast audio stream",
+        help="don't pace texture chunks for a managed Tx audio stream",
     )
 ```
 
@@ -1522,7 +1522,7 @@ AUDIO_MODULE_ID = 4242
 
 
 class AudioSender:
-    """Fake bCast: a 1 kHz PCM sine (Uncompressed preset, 5 ms frames)."""
+    """Fake Tx: a 1 kHz PCM sine (Uncompressed preset, 5 ms frames)."""
 
     def __init__(self, dest):
         self.dest = dest
@@ -1569,9 +1569,9 @@ In `main()`, add the arguments:
 
 ```python
     ap.add_argument("--audio-to", metavar="HOST:PORT",
-                    help="also send a fake standalone bCast stream here")
+                    help="also send a fake standalone Tx stream here")
     ap.add_argument("--audio", action="store_true",
-                    help="act as OSCctrl with a managed bCast next to it")
+                    help="act as OSCctrl with a managed Tx next to it")
 ```
 
 After `print(f"mock OSCctrl listening ...")`:
@@ -1580,7 +1580,7 @@ After `print(f"mock OSCctrl listening ...")`:
     if args.audio_to:
         host, port = args.audio_to.rsplit(":", 1)
         AudioSender((host, int(port))).start()
-        print(f"sending fake bCast audio to {host}:{port}", flush=True)
+        print(f"sending fake Tx audio to {host}:{port}", flush=True)
     managed = None  # AudioSender while a client has enabled the managed stream
 
     def audio_stream_msg(enabled):
@@ -1628,11 +1628,11 @@ the canned report list.
 
 ```python
 #!/usr/bin/env python3
-"""bCast audio stream test client.
+"""Tx audio stream test client.
 
 Managed (default): registers with OSCctrl like RackSim does, enables the
-bCast next to it, and reports /audio/stats from a simulated jitter buffer.
---passive: only listens, for a standalone bCast pointed at this machine.
+Tx next to it, and reports /audio/stats from a simulated jitter buffer.
+--passive: only listens, for a standalone Tx pointed at this machine.
 
 See README.md ("audio bench").
 """
@@ -1763,7 +1763,7 @@ class AudioClient(Client):
     def wait_stream(self, timeout):
         if not self.wait_for(lambda: self.audio_streams, timeout):
             raise BenchError(
-                "no /set/audio_stream. is a bCast placed directly next to OSCctrl?"
+                "no /set/audio_stream. is a Tx placed directly next to OSCctrl?"
             )
         return next(iter(self.audio_streams.values()))
 
@@ -1851,7 +1851,7 @@ def cmd_run(args):
             connect(client, args)
             stream_info = client.wait_stream(5)
             module_id = stream_info["module_id"]
-            print(f"bCast module {module_id}, stream {stream_info['stream_id']}")
+            print(f"Tx module {module_id}, stream {stream_info['stream_id']}")
             if args.preset is not None:
                 client.request("/set/audio/preset", module_id, ("i", args.preset))
             client.request("/set/audio/enabled", module_id, ("i", 1), ("i", args.audio_port))
@@ -2034,12 +2034,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(required=True)
 
-    run = sub.add_parser("run", help="measure a bCast stream")
+    run = sub.add_parser("run", help="measure a Tx stream")
     run.add_argument("--host", help="OSCctrl host (default: discover)")
     run.add_argument("--port", type=int, default=7225, help="OSCctrl listen port")
     run.add_argument("--discover-timeout", type=float, default=3.0)
     run.add_argument("-v", "--verbose", action="store_true")
-    run.add_argument("--passive", action="store_true", help="only listen (standalone bCast)")
+    run.add_argument("--passive", action="store_true", help="only listen (standalone Tx)")
     run.add_argument("--audio-port", type=int, default=DEFAULT_AUDIO_PORT)
     run.add_argument("--preset", type=int, choices=range(len(aa.PRESETS)),
                      help="request this preset (managed)")
@@ -2055,7 +2055,7 @@ def main():
                      help="turn texture chunk pacing off for this run")
     run.add_argument("--wav", help="decode the last epoch and write it here")
     run.add_argument("--analyze", action="store_true",
-                     help="with a sine patched into bCast, count glitches and dropouts")
+                     help="with a sine patched into Tx, count glitches and dropouts")
     run.add_argument("--label", default="")
     run.add_argument("--json")
     run.set_defaults(func=cmd_run)
@@ -2116,7 +2116,7 @@ cd tools/bench && .venv/bin/python audio_bench.py run --host 127.0.0.1 --duratio
 ```
 
 Expected:
-- the output shows `bCast module 4242, stream 4242` and `chunk pacing: on`;
+- the output shows `Tx module 4242, stream 4242` and `chunk pacing: on`;
 - about 600 packets and 0 lost;
 - the mock prints `audio stats ...` lines about every 500 ms.
 
@@ -2171,10 +2171,10 @@ opuslib>=3.0
 - Add a top-level section `## Audio bench` after the overlay `## Metrics`
   section, covering:
   - what it measures;
-  - passive mode (point a standalone bCast at this machine's IP, port 7747);
-  - managed mode (bCast next to OSCctrl);
+  - passive mode (point a standalone Tx at this machine's IP, port 7747);
+  - managed mode (Tx next to OSCctrl);
   - `--overlays N` for A/B with `--no-chunk-pacing`;
-  - `--analyze` (patch a VCO sine into bCast);
+  - `--analyze` (patch a VCO sine into Tx);
   - `--wav`.
 - Add a metrics table:
 
@@ -2207,11 +2207,11 @@ opuslib>=3.0
 
 ---
 
-## Task 6: bCast module, panel and registration
+## Task 6: Tx module, panel and registration
 
 **Files:**
-- Create: `src/audio/bCast.hpp`, `src/audio/bCast.cpp`
-- Create: `tools/panel/tx_af_panel.py`, `res/bCast.svg` (generated)
+- Create: `src/audio/Tx.hpp`, `src/audio/Tx.cpp`
+- Create: `tools/panel/tx_af_panel.py`, `res/Tx.svg` (generated)
 - Create (stub, filled in by Task 7): `src/audio/AudioStreamer.hpp`, `src/audio/AudioStreamer.cpp`
 - Modify: `src/plugin.hpp`, `src/plugin.cpp`, `plugin.json`
 
@@ -2219,11 +2219,11 @@ opuslib>=3.0
 - Consumes: `tx_af::PRESETS`, `presetById`, `isValidPreset`, `DEFAULT_PRESET`
   (Task 2, `Presets.hpp`) and `DEFAULT_PORT` (Task 2, `Packet.hpp`).
 - Produces (global namespace):
-  - `struct bCastConfig { bool enabled; std::string host; int port; int preset; }`
+  - `struct TxConfig { bool enabled; std::string host; int port; int preset; }`
     with a defaulted `operator==`.
-  - `struct bCastClientStats { int underruns, lost, recovered; float jitterMs, bufferMs; bool valid; }`
-  - `struct bCastSnapshot { bCastConfig config; bool managed; uint64_t version; }`
-  - `struct bCast : Module` with:
+  - `struct TxClientStats { int underruns, lost, recovered; float jitterMs, bufferMs; bool valid; }`
+  - `struct TxSnapshot { TxConfig config; bool managed; uint64_t version; }`
+  - `struct Tx : Module` with:
     - `LEVEL_PARAM`, `LEFT_INPUT`, `RIGHT_INPUT`, `STATUS_LIGHT` (RGB, 3),
       `VU_LIGHTS` (12);
     - streamer-facing state: `ring`, `streaming`, `engineSampleRate`,
@@ -2233,7 +2233,7 @@ opuslib>=3.0
       `standaloneConfig()`, `setStandalone(fn)`, `setManaged(bool)`,
       `setManagedEnabled(bool, host, port)`, `setManagedPreset(int)`,
       `setClientStats(stats)`, `clientStats()`.
-  - `extern Model* modelbCast` (in `plugin.hpp`).
+  - `extern Model* modelTx` (in `plugin.hpp`).
 
 Notes (additions to the deviations list):
 - **Panel labels are glyph paths.** Rack's SVG renderer can't draw text, and
@@ -2241,7 +2241,7 @@ Notes (additions to the deviations list):
   label widget would never reach RackSim's panel texture, so
   `tools/panel/tx_af_panel.py` turns the labels into paths with fontTools.
 - **OSCctrl surrogates.** `util::makeConnectedModuleWidget` adds a fresh
-  `bCast` to the engine for some texture renders. Its default config is
+  `Tx` to the engine for some texture renders. Its default config is
   disabled, so its streamer thread idles (one 20 ms wakeup) and sends
   nothing.
 
@@ -2251,7 +2251,7 @@ Notes (additions to the deviations list):
 
 ```python
 #!/usr/bin/env python3
-"""Writes res/bCast.svg. Rack's SVG renderer has no text support, and
+"""Writes res/Tx.svg. Rack's SVG renderer has no text support, and
 OSCctrl's panel renders show only the SVG, so the labels are glyph paths.
 
   python tools/panel/tx_af_panel.py [--font PATH] [--out PATH]
@@ -2270,7 +2270,7 @@ INK = "#1e1e1e"
 
 # (text, centre x, centre y, cap height in mm)
 LABELS = [
-    ("bCast", 12.7, 7.5, 3.6),
+    ("Tx", 12.7, 7.5, 3.6),
     ("LEVEL", 12.7, 57.5, 2.0),
     ("L", 12.7, 82.5, 2.0),
     ("R", 12.7, 98.5, 2.0),
@@ -2296,7 +2296,7 @@ def text_path(font, text, cx, cy, cap_mm):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--font", type=pathlib.Path, default=DEFAULT_FONT)
-    ap.add_argument("--out", type=pathlib.Path, default=ROOT / "res" / "bCast.svg")
+    ap.add_argument("--out", type=pathlib.Path, default=ROOT / "res" / "Tx.svg")
     args = ap.parse_args()
     font = TTFont(args.font)
 
@@ -2329,7 +2329,7 @@ python3 -m venv /tmp/panel-venv && /tmp/panel-venv/bin/pip -q install fonttools
 rm -rf /tmp/panel-venv
 ```
 
-Expected: `wrote .../res/bCast.svg`, about 16 KB, starting with
+Expected: `wrote .../res/Tx.svg`, about 16 KB, starting with
 `<svg ... width="25.4mm" height="128.5mm" viewBox="0 0 25.4 128.5">`.
 
 - [ ] **Step 2: Stub the streamer so the module compiles**
@@ -2339,18 +2339,18 @@ Task 7 replaces both files. `src/audio/AudioStreamer.hpp`:
 ```cpp
 #pragma once
 
-struct bCast;
+struct Tx;
 
 namespace tx_af {
 
 class AudioStreamer {
 public:
-  explicit AudioStreamer(bCast* module) : module(module) {}
+  explicit AudioStreamer(Tx* module) : module(module) {}
   void start() {}
   void stop() {}
 
 private:
-  bCast* module;
+  Tx* module;
 };
 
 }
@@ -2362,7 +2362,7 @@ private:
 #include "audio/AudioStreamer.hpp"
 ```
 
-- [ ] **Step 3: Write `src/audio/bCast.hpp`**
+- [ ] **Step 3: Write `src/audio/Tx.hpp`**
 
 ```cpp
 #pragma once
@@ -2379,17 +2379,17 @@ private:
 
 namespace tx_af { class AudioStreamer; }
 
-struct bCastConfig {
+struct TxConfig {
   bool enabled = false;
   std::string host = "127.0.0.1";
   int port = tx_af::DEFAULT_PORT;
   int preset = tx_af::DEFAULT_PRESET;
 
-  bool operator==(const bCastConfig&) const = default;
+  bool operator==(const TxConfig&) const = default;
 };
 
 // the client's latest /audio/stats, cumulative counts
-struct bCastClientStats {
+struct TxClientStats {
   int underruns = 0;
   int lost = 0;
   int recovered = 0;
@@ -2398,13 +2398,13 @@ struct bCastClientStats {
   bool valid = false;
 };
 
-struct bCastSnapshot {
-  bCastConfig config;
+struct TxSnapshot {
+  TxConfig config;
   bool managed = false;
   uint64_t version = 0;
 };
 
-struct bCast : Module {
+struct Tx : Module {
   enum ParamId { LEVEL_PARAM, PARAMS_LEN };
   enum InputId { LEFT_INPUT, RIGHT_INPUT, INPUTS_LEN };
   enum OutputId { OUTPUTS_LEN };
@@ -2421,8 +2421,8 @@ struct bCast : Module {
   std::atomic<bool> sendFailing{false};
   bool dcFilterEnabled = true;
 
-  bCast();
-  ~bCast() override;
+  Tx();
+  ~Tx() override;
 
   void process(const ProcessArgs& args) override;
   void onAdd(const AddEvent& e) override;
@@ -2435,16 +2435,16 @@ struct bCast : Module {
 
   // config API, any thread. version bumps whenever the effective config
   // (standalone, or managed while attached to OSCctrl) changes
-  bCastSnapshot snapshot();
+  TxSnapshot snapshot();
   bool isManaged() const { return managed.load(); }
-  bCastConfig standaloneConfig();
-  void setStandalone(const std::function<void(bCastConfig&)>& edit);
+  TxConfig standaloneConfig();
+  void setStandalone(const std::function<void(TxConfig&)>& edit);
   // attaching starts managed mode disabled; the client enables it
   void setManaged(bool on);
   void setManagedEnabled(bool enabled, const std::string& host, int port);
   void setManagedPreset(int preset);
-  void setClientStats(const bCastClientStats& stats);
-  bCastClientStats clientStats();
+  void setClientStats(const TxClientStats& stats);
+  TxClientStats clientStats();
 
 private:
   dsp::RCFilter dcFilters[2];
@@ -2452,36 +2452,36 @@ private:
   dsp::ClockDivider lightDivider;
 
   std::mutex configMutex;
-  bCastConfig standalone;
-  bCastConfig managedConfig;
+  TxConfig standalone;
+  TxConfig managedConfig;
   std::atomic<bool> managed{false};  // written under configMutex
   uint64_t version = 0;
-  bCastClientStats stats;
+  TxClientStats stats;
 
   std::unique_ptr<tx_af::AudioStreamer> streamer;
 
-  const bCastConfig& effective() const { return managed ? managedConfig : standalone; }
+  const TxConfig& effective() const { return managed ? managedConfig : standalone; }
   // runs change under the lock and bumps version if the effective config moved
   void update(const std::function<void()>& change);
   void stopStreamer();
 };
 
-struct bCastWidget : ModuleWidget {
-  bCastWidget(bCast* module);
+struct TxWidget : ModuleWidget {
+  TxWidget(Tx* module);
   void appendContextMenu(Menu* menu) override;
 };
 ```
 
-- [ ] **Step 4: Write `src/audio/bCast.cpp`**
+- [ ] **Step 4: Write `src/audio/Tx.cpp`**
 
 ```cpp
-#include "audio/bCast.hpp"
+#include "audio/Tx.hpp"
 #include "audio/AudioStreamer.hpp"
 
 #include <cmath>
 #include <cstdlib>
 
-bCast::bCast() {
+Tx::Tx() {
   config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
   configParam(LEVEL_PARAM, 0.f, 2.f, 1.f, "Level", " dB", -10, 40);
   configInput(LEFT_INPUT, "Left");
@@ -2491,31 +2491,31 @@ bCast::bCast() {
   for (auto& f : dcFilters) f.setCutoffFreq(10.f / 48000.f);
 }
 
-bCast::~bCast() {
+Tx::~Tx() {
   stopStreamer();
 }
 
-void bCast::stopStreamer() {
+void Tx::stopStreamer() {
   if (!streamer) return;
   streamer->stop();
   streamer.reset();
 }
 
-void bCast::onAdd(const AddEvent& e) {
+void Tx::onAdd(const AddEvent& e) {
   if (!streamer) streamer = std::make_unique<tx_af::AudioStreamer>(this);
   streamer->start();
 }
 
-void bCast::onRemove(const RemoveEvent& e) {
+void Tx::onRemove(const RemoveEvent& e) {
   stopStreamer();
 }
 
-void bCast::onSampleRateChange(const SampleRateChangeEvent& e) {
+void Tx::onSampleRateChange(const SampleRateChangeEvent& e) {
   for (auto& f : dcFilters) f.setCutoffFreq(10.f * e.sampleTime);
   engineSampleRate = e.sampleRate;
 }
 
-void bCast::process(const ProcessArgs& args) {
+void Tx::process(const ProcessArgs& args) {
   const float gain = std::pow(params[LEVEL_PARAM].getValue(), 2.f);
   const bool rightConnected = inputs[RIGHT_INPUT].isConnected();
 
@@ -2559,28 +2559,28 @@ void bCast::process(const ProcessArgs& args) {
   }
 }
 
-void bCast::update(const std::function<void()>& change) {
+void Tx::update(const std::function<void()>& change) {
   std::lock_guard<std::mutex> lock(configMutex);
-  bCastConfig before = effective();
+  TxConfig before = effective();
   change();
   if (!(effective() == before)) ++version;
 }
 
-bCastSnapshot bCast::snapshot() {
+TxSnapshot Tx::snapshot() {
   std::lock_guard<std::mutex> lock(configMutex);
   return {effective(), managed.load(), version};
 }
 
-bCastConfig bCast::standaloneConfig() {
+TxConfig Tx::standaloneConfig() {
   std::lock_guard<std::mutex> lock(configMutex);
   return standalone;
 }
 
-void bCast::setStandalone(const std::function<void(bCastConfig&)>& edit) {
+void Tx::setStandalone(const std::function<void(TxConfig&)>& edit) {
   update([&]() { edit(standalone); });
 }
 
-void bCast::setManaged(bool on) {
+void Tx::setManaged(bool on) {
   update([&]() {
     if (on && !managed) {
       managedConfig.enabled = false;
@@ -2590,7 +2590,7 @@ void bCast::setManaged(bool on) {
   });
 }
 
-void bCast::setManagedEnabled(bool enabled, const std::string& host, int port) {
+void Tx::setManagedEnabled(bool enabled, const std::string& host, int port) {
   update([&]() {
     if (!managed) return;
     managedConfig.enabled = enabled;
@@ -2601,25 +2601,25 @@ void bCast::setManagedEnabled(bool enabled, const std::string& host, int port) {
   });
 }
 
-void bCast::setManagedPreset(int preset) {
+void Tx::setManagedPreset(int preset) {
   update([&]() {
     if (managed && tx_af::isValidPreset(preset)) managedConfig.preset = preset;
   });
 }
 
-void bCast::setClientStats(const bCastClientStats& s) {
+void Tx::setClientStats(const TxClientStats& s) {
   std::lock_guard<std::mutex> lock(configMutex);
   stats = s;
   stats.valid = true;
 }
 
-bCastClientStats bCast::clientStats() {
+TxClientStats Tx::clientStats() {
   std::lock_guard<std::mutex> lock(configMutex);
   return stats;
 }
 
-json_t* bCast::dataToJson() {
-  bCastConfig c = standaloneConfig();
+json_t* Tx::dataToJson() {
+  TxConfig c = standaloneConfig();
   json_t* rootJ = json_object();
   json_object_set_new(rootJ, "dcFilter", json_boolean(dcFilterEnabled));
   json_object_set_new(rootJ, "enabled", json_boolean(c.enabled));
@@ -2629,9 +2629,9 @@ json_t* bCast::dataToJson() {
   return rootJ;
 }
 
-void bCast::dataFromJson(json_t* rootJ) {
+void Tx::dataFromJson(json_t* rootJ) {
   if (json_t* j = json_object_get(rootJ, "dcFilter")) dcFilterEnabled = json_boolean_value(j);
-  setStandalone([&](bCastConfig& c) {
+  setStandalone([&](TxConfig& c) {
     if (json_t* j = json_object_get(rootJ, "enabled")) c.enabled = json_boolean_value(j);
     if (json_t* j = json_object_get(rootJ, "preset")) {
       int preset = (int)json_integer_value(j);
@@ -2666,9 +2666,9 @@ struct ConfigField : ui::TextField {
 
 }
 
-bCastWidget::bCastWidget(bCast* module) {
+TxWidget::TxWidget(Tx* module) {
   setModule(module);
-  setPanel(createPanel(asset::plugin(pluginInstance, "res/bCast.svg")));
+  setPanel(createPanel(asset::plugin(pluginInstance, "res/Tx.svg")));
 
   addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
   addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
@@ -2678,12 +2678,12 @@ bCastWidget::bCastWidget(bCast* module) {
   ));
 
   addChild(createLightCentered<MediumLight<RedGreenBlueLight>>(
-    mm2px(Vec(12.7, 16)), module, bCast::STATUS_LIGHT
+    mm2px(Vec(12.7, 16)), module, Tx::STATUS_LIGHT
   ));
 
   for (int c = 0; c < 2; ++c) {
     float x = c == 0 ? 8.7f : 16.7f;
-    int base = bCast::VU_LIGHTS + c * 6;
+    int base = Tx::VU_LIGHTS + c * 6;
     addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(x, 26)), module, base));
     for (int row = 1; row <= 2; ++row)
       addChild(createLightCentered<SmallLight<YellowLight>>(
@@ -2695,13 +2695,13 @@ bCastWidget::bCastWidget(bCast* module) {
       ));
   }
 
-  addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(12.7, 66)), module, bCast::LEVEL_PARAM));
-  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.7, 90)), module, bCast::LEFT_INPUT));
-  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.7, 106)), module, bCast::RIGHT_INPUT));
+  addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(12.7, 66)), module, Tx::LEVEL_PARAM));
+  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.7, 90)), module, Tx::LEFT_INPUT));
+  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(12.7, 106)), module, Tx::RIGHT_INPUT));
 }
 
-void bCastWidget::appendContextMenu(Menu* menu) {
-  bCast* module = getModule<bCast>();
+void TxWidget::appendContextMenu(Menu* menu) {
+  Tx* module = getModule<Tx>();
   if (!module) return;
 
   menu->addChild(new MenuSeparator);
@@ -2709,7 +2709,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
   menu->addChild(new MenuSeparator);
 
   if (module->isManaged()) {
-    bCastSnapshot snap = module->snapshot();
+    TxSnapshot snap = module->snapshot();
     menu->addChild(createMenuLabel("Managed by OSCctrl"));
     menu->addChild(createMenuLabel(
       snap.config.enabled
@@ -2719,7 +2719,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
     menu->addChild(createMenuLabel(
       string::f("Preset: %s", tx_af::presetById(snap.config.preset).name)
     ));
-    bCastClientStats s = module->clientStats();
+    TxClientStats s = module->clientStats();
     if (s.valid) {
       menu->addChild(createMenuLabel(string::f(
         "Client: %d underruns, %d lost, %d recovered", s.underruns, s.lost, s.recovered
@@ -2731,18 +2731,18 @@ void bCastWidget::appendContextMenu(Menu* menu) {
       menu->addChild(createMenuLabel("No client stats yet"));
     }
   } else {
-    bCastConfig config = module->standaloneConfig();
+    TxConfig config = module->standaloneConfig();
 
     menu->addChild(createBoolMenuItem("Stream", "",
       [=]() { return module->standaloneConfig().enabled; },
-      [=](bool on) { module->setStandalone([&](bCastConfig& c) { c.enabled = on; }); }
+      [=](bool on) { module->setStandalone([&](TxConfig& c) { c.enabled = on; }); }
     ));
 
     std::vector<std::string> labels;
     for (const tx_af::Preset& p : tx_af::PRESETS) labels.push_back(p.name);
     menu->addChild(createIndexSubmenuItem("Preset", labels,
       [=]() { return (size_t)module->standaloneConfig().preset; },
-      [=](size_t i) { module->setStandalone([&](bCastConfig& c) { c.preset = (int)i; }); }
+      [=](size_t i) { module->setStandalone([&](TxConfig& c) { c.preset = (int)i; }); }
     ));
 
     menu->addChild(createMenuLabel("Destination host (Enter to apply)"));
@@ -2751,7 +2751,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
     hostField->commit = [=](const std::string& text) {
       std::string host = string::trim(text);
       if (host.empty()) return;
-      module->setStandalone([&](bCastConfig& c) { c.host = host; });
+      module->setStandalone([&](TxConfig& c) { c.host = host; });
     };
     menu->addChild(hostField);
 
@@ -2762,7 +2762,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
       char* end = nullptr;
       long port = std::strtol(text.c_str(), &end, 10);
       if (end == text.c_str() || port <= 0 || port > 65535) return;
-      module->setStandalone([&](bCastConfig& c) { c.port = (int)port; });
+      module->setStandalone([&](TxConfig& c) { c.port = (int)port; });
     };
     menu->addChild(portField);
   }
@@ -2771,7 +2771,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
     menu->addChild(createMenuLabel(string::f("Dropped %u frames (ring full)", dropped)));
 }
 
-Model* modelbCast = createModel<bCast, bCastWidget>("bCast");
+Model* modelTx = createModel<Tx, TxWidget>("Tx");
 ```
 
 - [ ] **Step 5: Register the model**
@@ -2779,13 +2779,13 @@ Model* modelbCast = createModel<bCast, bCastWidget>("bCast");
 `src/plugin.hpp`, after `extern Model* modelOSCctrl;`:
 
 ```cpp
-extern Model* modelbCast;
+extern Model* modelTx;
 ```
 
 `src/plugin.cpp`, after `p->addModel(modelOSCctrl);`:
 
 ```cpp
-	p->addModel(modelbCast);
+	p->addModel(modelTx);
 ```
 
 `plugin.json`: append to `"modules"`. Leave the user's `"version"` change
@@ -2793,8 +2793,8 @@ alone.
 
 ```json
     {
-      "slug": "bCast",
-      "name": "bCast",
+      "slug": "Tx",
+      "name": "Tx",
       "description": "Streams stereo audio to a network client",
       "tags": ["External", "Utility"]
     }
@@ -2806,7 +2806,7 @@ Run: `./build-wsl.sh -j8 2>&1 | tail -20`
 Expected: links `plugin.so` with no errors or new warnings from `src/audio/`.
 
 Then confirm the model is exported:
-`nm -C plugin.so | grep -c modelbCast` (expected: at least 1).
+`nm -C plugin.so | grep -c modelTx` (expected: at least 1).
 
 - [ ] **Step 7: Hand off for a visual check**
 
@@ -2831,13 +2831,13 @@ The user builds with `./build-msys.sh -j8`, opens Rack, and checks:
   - `AudioEncoder` (Task 3);
   - `PacketHeader`, `writePacket`, `maxFrameBytes`, `MAX_DATAGRAM`,
     `EncodedFrame` (Task 2);
-  - from `bCast` (Task 6): `ring`, `streaming`, `engineSampleRate`, `epoch`,
+  - from `Tx` (Task 6): `ring`, `streaming`, `engineSampleRate`, `epoch`,
     `sendFailing`, `snapshot()`, `streamId()`.
 - Produces:
   - `tx_af::UdpAudioSocket`: `open(host, port)`, `close()`,
     `send(data, size)`, `isOpen()`, `priorityMarked()`, `lastError()`;
   - `tx_af::setHighResolutionTimer(bool)`;
-  - `tx_af::AudioStreamer(bCast*)`: `start()`, `stop()` (idempotent,
+  - `tx_af::AudioStreamer(Tx*)`: `start()`, `stop()` (idempotent,
     joins).
 
 Behaviour:
@@ -3080,8 +3080,8 @@ void setHighResolutionTimer(bool on) {
 #include <thread>
 #include <vector>
 
-struct bCast;
-struct bCastConfig;
+struct Tx;
+struct TxConfig;
 
 namespace tx_af {
 
@@ -3089,7 +3089,7 @@ namespace tx_af {
 // Owned by the module; never touches the engine.
 class AudioStreamer {
 public:
-  explicit AudioStreamer(bCast* module) : module(module) {}
+  explicit AudioStreamer(Tx* module) : module(module) {}
   ~AudioStreamer() { stop(); }
   AudioStreamer(const AudioStreamer&) = delete;
   AudioStreamer& operator=(const AudioStreamer&) = delete;
@@ -3101,7 +3101,7 @@ private:
   using clock = std::chrono::steady_clock;
   static constexpr int FAILING_AFTER = 50;
 
-  bCast* module;
+  Tx* module;
   std::atomic<bool> running{false};
   std::thread thread;
 
@@ -3129,7 +3129,7 @@ private:
   std::vector<uint8_t> datagram;
 
   void run();
-  void reset(const bCastConfig& config, int rate);
+  void reset(const TxConfig& config, int rate);
   void setStreaming(bool on);
   bool openSocket();
   void pump();
@@ -3143,7 +3143,7 @@ private:
 
 ```cpp
 #include "audio/AudioStreamer.hpp"
-#include "audio/bCast.hpp"
+#include "audio/Tx.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -3166,7 +3166,7 @@ void AudioStreamer::run() {
   int seenRate = -1;
 
   while (running.load()) {
-    bCastSnapshot snap = module->snapshot();
+    TxSnapshot snap = module->snapshot();
     int rate = (int)std::lround(module->engineSampleRate.load());
 
     if (snap.version != seenVersion || rate != seenRate) {
@@ -3200,7 +3200,7 @@ void AudioStreamer::setStreaming(bool on) {
   }
 }
 
-void AudioStreamer::reset(const bCastConfig& config, int rate) {
+void AudioStreamer::reset(const TxConfig& config, int rate) {
   // process() may land one more frame after the clear; it's harmless
   setStreaming(false);
   module->ring.clear();
@@ -3223,7 +3223,7 @@ void AudioStreamer::reset(const bCastConfig& config, int rate) {
   if (!wantOpen) return;
 
   if (!encoder.reset(preset)) {
-    WARN("bCast %u: can't create the encoder for preset %d", streamId, preset.id);
+    WARN("Tx %u: can't create the encoder for preset %d", streamId, preset.id);
     module->sendFailing = true;
     wantOpen = false;
     return;
@@ -3239,7 +3239,7 @@ bool AudioStreamer::openSocket() {
   lastOpenAttempt = clock::now();
   if (socket.open(host, port)) {
     INFO(
-      "bCast %u: streaming %s to %s:%d, epoch %u%s",
+      "Tx %u: streaming %s to %s:%d, epoch %u%s",
       streamId, preset.name, host.c_str(), port, (unsigned)epoch,
       socket.priorityMarked() ? "" : " (no priority marking)"
     );
@@ -3248,7 +3248,7 @@ bool AudioStreamer::openSocket() {
     return true;
   }
   if (!openWarned) {
-    WARN("bCast %u: can't open %s:%d: %s", streamId, host.c_str(), port, socket.lastError().c_str());
+    WARN("Tx %u: can't open %s:%d: %s", streamId, host.c_str(), port, socket.lastError().c_str());
     openWarned = true;
   }
   module->sendFailing = true;
@@ -3287,7 +3287,7 @@ void AudioStreamer::emitFrame(const float* pcm) {
   int bytes = encoder.encode(pcm, frame.data(), (int)frame.size());
   if (bytes < 0) {
     // the seq still advances, so the client sees the gap and conceals it
-    WARN("bCast %u: encode failed at seq %u", streamId, seq);
+    WARN("Tx %u: encode failed at seq %u", streamId, seq);
     history.clear();
     ++seq;
     return;
@@ -3334,14 +3334,14 @@ the user runs it. If `qos2.h` or `libqwave.a` is missing from the
 toolchain, guard the qWAVE block with `#if __has_include(<qos2.h>)`, drop
 `-lqwave`, and note that Windows sends go unmarked.
 
-- [ ] **Step 6: Live check with a standalone bCast (the user runs it)**
+- [ ] **Step 6: Live check with a standalone Tx (the user runs it)**
 
 The user runs Rack on Windows, so this step runs `audio_bench.py`
 natively on Windows (see `tools/bench/AGENTS.md`):
-1. Patch Fundamental VCO SIN into bCast L, level at 0 dB. Set the
+1. Patch Fundamental VCO SIN into Tx L, level at 0 dB. Set the
    destination host to `127.0.0.1` and the port to 7747, and turn on
    Stream. The status light goes green.
-2. For each preset (switch it from the bCast menu between runs):
+2. For each preset (switch it from the Tx menu between runs):
    `python audio_bench.py run --passive --preset ID --duration 10 --analyze --wav preset-ID.wav --json passive-ID.json`.
 3. Expected for every preset:
    - 0 lost, 0 reordered, 0 duplicates;
@@ -3351,7 +3351,7 @@ natively on Windows (see `tools/bench/AGENTS.md`):
    - sine at the VCO frequency with 0 dropouts. Glitches: 0 for preset 3
      (PCM). For Opus, any glitch should be explained by listening to the
      `.wav`;
-   - no `bCast ... can't open` lines in Rack's `log.txt`, plus one
+   - no `Tx ... can't open` lines in Rack's `log.txt`, plus one
      `streaming ... epoch N` line per preset switch.
 4. Change the engine sample rate (for example to 96 kHz). The epoch goes up,
    and a fresh passive run passes the same checks.
@@ -3736,9 +3736,9 @@ In `pacer_jitter_trouble` the four 1 ms reports set the 10 s minimum, so
 **Interfaces:**
 - Consumes:
   - `ChunkPacer` (Task 8);
-  - from `bCast` (Task 6): `setManaged`, `setManagedEnabled`,
+  - from `Tx` (Task 6): `setManaged`, `setManagedEnabled`,
     `setManagedPreset`, `setClientStats`, `snapshot`, `streamId`, `epoch`;
-  - `modelbCast`;
+  - `modelTx`;
   - the Python client from Task 5, for verification.
 - Produces:
   - `OscSender::pacer` and `OscSender::directHost()`;
@@ -3753,7 +3753,7 @@ In `pacer_jitter_trouble` the four 1 ms reports set the 10 s minimum, so
     `audio.client.jitter_ms` (sample).
 
 Threading:
-- Everything that touches a `bCast` runs on the UI thread through
+- Everything that touches a `Tx` runs on the UI thread through
   `enqueueAction`, the same as the param routes. `APP->engine->getModule`
   finds the module by id, so no thread holds a raw expander pointer across
   frames.
@@ -3771,7 +3771,7 @@ Threading:
 
 #include "Bundler.hpp"
 
-// /set/audio_stream: the bCast expander's stream, for the client to play
+// /set/audio_stream: the Tx expander's stream, for the client to play
 struct AudioStreamBundler : Bundler {
   AudioStreamBundler(
     int64_t moduleId,
@@ -3945,16 +3945,16 @@ wait.
 
 - [ ] **Step 3: Add the expander management to `OSCctrlWidget`**
 
-`src/OSCctrl.hpp`: add `struct bCast;` next to the other forward
+`src/OSCctrl.hpp`: add `struct Tx;` next to the other forward
 declarations. In `struct OSCctrlWidget`, after `void appendContextMenu(Menu* menu) override;`,
 add:
 
 ```cpp
-  // a bCast directly left or right of the primary OSCctrl. UI thread only
+  // a Tx directly left or right of the primary OSCctrl. UI thread only
   int64_t managedAudioId = -1;
-  bCast* managedAudio();
+  Tx* managedAudio();
   void stepAudioExpander();
-  // /set/audio_stream for the managed bCast, when a client is registered
+  // /set/audio_stream for the managed Tx, when a client is registered
   void announceAudioStream();
   // UI thread: a client registered, or stopped answering heartbeats
   void onClientRegistered();
@@ -3964,7 +3964,7 @@ add:
 `src/OSCctrl.cpp`: add includes:
 
 ```cpp
-#include "audio/bCast.hpp"
+#include "audio/Tx.hpp"
 #include "osc/Bundler/AudioBundlers.hpp"
 ```
 
@@ -3980,17 +3980,17 @@ At the top of `OSCctrlWidget::~OSCctrlWidget()`, after
 ```cpp
   // hand the expander back to its own settings
   if (isPrimaryOSCctrl) {
-    if (bCast* audio = managedAudio()) audio->setManaged(false);
+    if (Tx* audio = managedAudio()) audio->setManaged(false);
   }
 ```
 
 Add, after `OSCctrlWidget::step()`:
 
 ```cpp
-bCast* OSCctrlWidget::managedAudio() {
+Tx* OSCctrlWidget::managedAudio() {
   if (managedAudioId < 0) return nullptr;
   Module* m = APP->engine->getModule(managedAudioId);
-  return (m && m->model == modelbCast) ? static_cast<bCast*>(m) : nullptr;
+  return (m && m->model == modelTx) ? static_cast<Tx*>(m) : nullptr;
 }
 
 void OSCctrlWidget::stepAudioExpander() {
@@ -3998,7 +3998,7 @@ void OSCctrlWidget::stepAudioExpander() {
   for (int64_t id : {module->leftExpander.moduleId, module->rightExpander.moduleId}) {
     if (id < 0) continue;
     Module* m = APP->engine->getModule(id);
-    if (m && m->model == modelbCast) {
+    if (m && m->model == modelTx) {
       foundId = id;
       break;
     }
@@ -4006,7 +4006,7 @@ void OSCctrlWidget::stepAudioExpander() {
   if (foundId == managedAudioId) return;
 
   if (managedAudioId >= 0) {
-    if (bCast* old = managedAudio()) old->setManaged(false);
+    if (Tx* old = managedAudio()) old->setManaged(false);
     osctx->pacer.setActive(false, std::chrono::steady_clock::now());
     if (!osctx->isBroadcasting())
       osctx->enqueueBundler(new AudioStreamBundler(
@@ -4015,7 +4015,7 @@ void OSCctrlWidget::stepAudioExpander() {
   }
 
   managedAudioId = foundId;
-  if (bCast* audio = managedAudio()) {
+  if (Tx* audio = managedAudio()) {
     audio->setManaged(true);
     announceAudioStream();
   }
@@ -4023,9 +4023,9 @@ void OSCctrlWidget::stepAudioExpander() {
 
 void OSCctrlWidget::announceAudioStream() {
   if (!osctx || osctx->isBroadcasting()) return;
-  bCast* audio = managedAudio();
+  Tx* audio = managedAudio();
   if (!audio) return;
-  bCastSnapshot snap = audio->snapshot();
+  TxSnapshot snap = audio->snapshot();
   osctx->enqueueBundler(new AudioStreamBundler(
     audio->id,
     audio->streamId(),
@@ -4036,13 +4036,13 @@ void OSCctrlWidget::announceAudioStream() {
 }
 
 void OSCctrlWidget::onClientRegistered() {
-  if (bCast* audio = managedAudio()) audio->setManagedEnabled(false, "", 0);
+  if (Tx* audio = managedAudio()) audio->setManagedEnabled(false, "", 0);
   osctx->pacer.setActive(false, std::chrono::steady_clock::now());
   announceAudioStream();
 }
 
 void OSCctrlWidget::onClientGone() {
-  if (bCast* audio = managedAudio()) audio->setManagedEnabled(false, "", 0);
+  if (Tx* audio = managedAudio()) audio->setManagedEnabled(false, "", 0);
   osctx->pacer.setActive(false, std::chrono::steady_clock::now());
 }
 ```
@@ -4056,7 +4056,7 @@ and both clients key their resets on the packets.
 `src/osc/OscReceiver.cpp`: add includes after `#include "../texture/Renderer.hpp"`:
 
 ```cpp
-#include "../audio/bCast.hpp"
+#include "../audio/Tx.hpp"
 #include "Bundler/AudioBundlers.hpp"
 ```
 
@@ -4106,7 +4106,7 @@ After the `/set/param/value` route:
       int32_t port = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
-        bCast* audio = ctrl->managedAudio();
+        Tx* audio = ctrl->managedAudio();
         bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
           && (!enabled || (port > 0 && port < 65536));
         if (ok) {
@@ -4128,7 +4128,7 @@ After the `/set/param/value` route:
       int32_t preset = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
-        bCast* audio = ctrl->managedAudio();
+        Tx* audio = ctrl->managedAudio();
         bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
           && tx_af::isValidPreset(preset);
         if (ok) audio->setManagedPreset(preset);
@@ -4152,10 +4152,10 @@ After the `/set/param/value` route:
       stats.bufferMs = (args++)->AsFloat();
 
       ctrl->enqueueAction([=, this]() {
-        bCast* audio = ctrl->managedAudio();
+        Tx* audio = ctrl->managedAudio();
         if (!audio || audio->id != moduleId || osctx->isBroadcasting()) return;
 
-        bCastClientStats clientStats;
+        TxClientStats clientStats;
         clientStats.underruns = stats.underruns;
         clientStats.lost = stats.lost;
         clientStats.recovered = stats.recovered;
@@ -4185,16 +4185,16 @@ acceptable for the bench, because stats only stop when the client does.
 Add a section before `## Typical Usage Flow`:
 
 ````markdown
-### Audio (bCast expander)
+### Audio (Tx expander)
 
-A bCast module placed directly left or right of OSCctrl is managed by it.
+A Tx module placed directly left or right of OSCctrl is managed by it.
 Its own host/port/preset settings are ignored while managed, and it only
 streams when the registered client asks. Audio goes over its own UDP
 socket, not OSC (see "Audio packet format").
 
 #### `/set/audio_stream <moduleId> <streamId> <presetId> <enabled> <epoch>`
 **Direction:** Server → Client
-**Purpose:** Describe the managed bCast's stream
+**Purpose:** Describe the managed Tx's stream
 **Arguments:**
   - `int64` moduleId
   - `int32` streamId (read as uint32; matches the packet header)
@@ -4202,7 +4202,7 @@ socket, not OSC (see "Audio packet format").
   - `int32` enabled (0/1)
   - `int32` epoch (may lag the packets by one; packets are authoritative)
 
-**Sent:** on registration, when a bCast attaches or detaches (detach sends
+**Sent:** on registration, when a Tx attaches or detaches (detach sends
 enabled 0), and after each successful `/set/audio/*` request.
 
 #### `/set/audio/enabled <moduleId> <enabled> <port>`
@@ -4214,7 +4214,7 @@ enabled 0), and after each successful `/set/audio/*` request.
   - `int32` port (UDP port the client listens on, normally 7747)
 
 **Response:** `/set/audio/enabled/ack <moduleId> <enabled> <success>`
-(`int64`, `int32`, `int32`). Fails if the module isn't the managed bCast or
+(`int64`, `int32`, `int32`). Fails if the module isn't the managed Tx or
 no client is registered.
 
 **Usage:**
@@ -4285,7 +4285,7 @@ Expected:
 
 - [ ] **Step 7: Live check, managed (the user runs it on Windows, BENCH build)**
 
-The user builds with `./build-msys.sh -j8 BENCH=1` and places a bCast
+The user builds with `./build-msys.sh -j8 BENCH=1` and places a Tx
 directly right of OSCctrl, with a VCO into it. Then, from a native Windows
 shell in `tools/bench`:
 1. `python audio_bench.py run --duration 10 --preset 3 --analyze --json m3.json`.
@@ -4293,7 +4293,7 @@ shell in `tools/bench`:
    - the client discovers Rack and finds the stream;
    - the light turns blue at 30% and then full blue while streaming;
    - 0 lost and 0 glitches;
-   - the bCast menu shows "Managed by OSCctrl" and the client stats;
+   - the Tx menu shows "Managed by OSCctrl" and the client stats;
    - at the end the stream is disabled (dim blue).
 2. Repeat for presets 0, 1 and 2. Expect 0 lost with clean sine analysis.
 3. `python audio_bench.py run --duration 20 --overlays 8 --json pace-on.json`
@@ -4301,7 +4301,7 @@ shell in `tools/bench`:
    `python audio_bench.py compare pace-off.json pace-on.json`. On wired
    localhost, pacing rarely triggers, so expect `server.pacing_rate_mbps`
    0 in both and overlay fps within noise. Wi-Fi A/B comes in Task 14.
-4. Drag bCast away from OSCctrl mid-run. The client gets
+4. Drag Tx away from OSCctrl mid-run. The client gets
    `/set/audio_stream ... enabled 0`, and the light goes to standalone
    (off, or green if Stream was on in its own menu).
 5. Stop the client without cleanup (Ctrl+C twice). After the heartbeat
@@ -4472,7 +4472,7 @@ The user builds RackSim. Expected: a compile error,
 
 #include "CoreMinimal.h"
 
-// bCast's UDP audio format. See gtnosft-rack API.md, "Audio packet format".
+// Tx's UDP audio format. See gtnosft-rack API.md, "Audio packet format".
 namespace RSNetAudio {
   constexpr int32 SampleRate = 48000;
   constexpr int32 Channels = 2;
@@ -4708,7 +4708,7 @@ float Sine(int64 SampleIndex) {
   return 0.5f * FMath::Sin(2.0 * UE_DOUBLE_PI * 1000.0 * SampleIndex / 48000.0);
 }
 
-// Simulates a bCast stream through a network into a jitter buffer pulled
+// Simulates a Tx stream through a network into a jitter buffer pulled
 // by an audio device (48 kHz in 256-frame blocks unless set).
 struct FSim {
   RSNetAudio::ECodec Codec = RSNetAudio::ECodec::PCM;
@@ -5539,7 +5539,7 @@ with the mock server's 1 kHz sine.
 class FSocket;
 class FRunnableThread;
 
-// Receives bCast packets on its own thread and queues them for the audio
+// Receives Tx packets on its own thread and queues them for the audio
 // render thread. Never touches UObjects.
 class RACKSIM_API FRSAudioReceiver : public FRunnable {
 public:
@@ -5723,7 +5723,7 @@ when the synth isn't pulling (stopped, or the app is suspended); the next
 
 #include "RSNetAudioComponent.generated.h"
 
-// Plays one bCast stream: stereo, not positioned in the world.
+// Plays one Tx stream: stereo, not positioned in the world.
 UCLASS()
 class RACKSIM_API URSNetAudioComponent : public USynthComponent {
   GENERATED_BODY()
@@ -5826,7 +5826,7 @@ int32 URSNetAudioComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples) {
 
 class URSNetAudioComponent;
 
-// Plays a bCast stream. Placing virtual speakers later means moving this
+// Plays a Tx stream. Placing virtual speakers later means moving this
 // actor and enabling attenuation on its component.
 UCLASS()
 class RACKSIM_API ARSNetAudioSpeaker : public AActor {
@@ -5891,7 +5891,7 @@ TWeakObjectPtr<ARSNetAudioSpeaker> GDebugSpeaker;
 
 FAutoConsoleCommandWithWorldAndArgs GNetAudioDebugPlay(
   TEXT("rs.NetAudio.DebugPlay"),
-  TEXT("rs.NetAudio.DebugPlay <streamId>: play a bCast stream without OSCctrl (testing)"),
+  TEXT("rs.NetAudio.DebugPlay <streamId>: play a Tx stream without OSCctrl (testing)"),
   FConsoleCommandWithWorldAndArgsDelegate::CreateLambda(
     [](const TArray<FString>& Args, UWorld* World) {
       if (!World || Args.Num() < 1) return;
@@ -6195,7 +6195,7 @@ After `void AckLightSubscription(int64 ModuleId, bool Success);`:
 
 ```cpp
 
-  // bCast audio (managed by OSCctrl)
+  // Tx audio (managed by OSCctrl)
   void HandleAudioStream(
     int64 ModuleId,
     uint32 StreamId,
@@ -6245,7 +6245,7 @@ Includes, after `#include "Comms/TextureRequestManager.h"`:
 static TAutoConsoleVariable<int32> CVarNetAudioPreset(
   TEXT("rs.NetAudio.Preset"),
   RSNetAudio::DefaultPresetId,
-  TEXT("bCast latency preset: 0 lowest latency, 1 balanced, 2 robust, 3 uncompressed"),
+  TEXT("Tx latency preset: 0 lowest latency, 1 balanced, 2 robust, 3 uncompressed"),
   ECVF_Default
 );
 ```
@@ -6293,7 +6293,7 @@ void ACommunicationsManager::HandleAudioStream(
   int32 Epoch
 ) {
   if (!bEnabled) {
-    // An offer: on registration, on attach, or for a bCast that just
+    // An offer: on registration, on attach, or for a Tx that just
     // detached. Ask for it. A detached module fails the request, and the
     // failed ack stops playback.
     if (AudioState != EAudioState::Idle) StopAudio();
@@ -6399,22 +6399,22 @@ and the 10 `RackSim.NetAudio` tests still pass.
 
 - [ ] **Step 6: Live check (the user runs it)**
 
-Rack on Windows (BENCH build from Task 9) with a VCO into a bCast directly
+Rack on Windows (BENCH build from Task 9) with a VCO into a Tx directly
 right of OSCctrl. RackSim in PIE, then on Quest:
 1. Connect. Expect:
-   - the bCast light goes full blue and the VCO is audible within about 1 s;
-   - the bCast menu shows "Managed by OSCctrl" and a client stats line that
+   - the Tx light goes full blue and the VCO is audible within about 1 s;
+   - the Tx menu shows "Managed by OSCctrl" and a client stats line that
      updates about twice a second: 0 underruns, jitter of a few ms, buffer
      near 40 ms.
 2. `rs.NetAudio.Preset 0`, then 2, then 3. Each time, expect a short gap,
-   the bCast menu shows the new preset, and the stats buffer moves to about
+   the Tx menu shows the new preset, and the stats buffer moves to about
    20, 80 and 20 ms. `rs.NetAudio.Preset 1` restores Balanced.
 3. Open several overlays while listening. Audio stays clean; on Wi-Fi the
    stats may show jitter, but no repeated underruns.
-4. Drag bCast away from OSCctrl. Expect silence within about 1 s, a
+4. Drag Tx away from OSCctrl. Expect silence within about 1 s, a
    `NetAudio: Rack refused stream` warning in the log, and the light off (or
    green if Stream is on in its own menu). Drag it back: audio returns.
-5. Delete bCast, then undo: audio returns (the undo restores the module id).
+5. Delete Tx, then undo: audio returns (the undo restores the module id).
 6. Quit Rack. After the heartbeat timeout, RackSim shows the connection
    lost, the speaker is destroyed, and port 7747 is free (reconnecting to a
    restarted Rack plays again).
@@ -6472,7 +6472,7 @@ Rerun until all four pass.
 - [ ] **Step 2: Wi-Fi A/B (the user runs it, client on Wi-Fi)**
 
 Rack runs on the usual PC. `audio_bench.py` runs on a laptop on the same
-Wi-Fi network the Quest uses, with a sine into bCast and a Scope with
+Wi-Fi network the Quest uses, with a sine into Tx and a Scope with
 overlays. Same session, alternating runs, each 60 s:
 
 ```bat
@@ -6514,10 +6514,10 @@ Expected: 10 tests pass.
 - [ ] **Step 4: Quest playback and latency (the user runs it)**
 
 1. **Soak:** 10 minutes of normal use on Quest (patching, overlays open,
-   moving around). Expect no audible dropouts, and the bCast menu's
+   moving around). Expect no audible dropouts, and the Tx menu's
    underrun count stays at 0 or grows only during visible Wi-Fi trouble.
 2. **Latency:** patch a 1 Hz click (a clock or a short envelope) into both
-   bCast and a Core Audio-2 module playing on the PC's speakers. Put a
+   Tx and a Core Audio-2 module playing on the PC's speakers. Put a
    phone recording next to the PC speaker and the Quest. In Audacity,
    measure the offset between each pair of clicks over 10 clicks. Quest
    latency = offset + the PC output latency (Rack's block size ÷ rate,
@@ -6543,9 +6543,9 @@ Expected: 10 tests pass.
 patches", filled in from Steps 2 and 4:
 
 ```markdown
-## Audio (bCast)
+## Audio (Tx)
 
-bCast streams Opus or PCM over its own UDP socket, marked DSCP EF / WMM
+Tx streams Opus or PCM over its own UDP socket, marked DSCP EF / WMM
 voice (see `API.md`, "Audio packet format"). Texture chunks share the
 Wi-Fi link, so OSCctrl paces them from the client's `/audio/stats`
 (`ChunkPacer`: AIMD on underruns, losses and jitter spikes; unlimited when

@@ -14,7 +14,7 @@ class OscSender;
 class OscReceiver;
 class ChunkedManager;
 class SubscriptionManager;
-struct bCast;
+struct Tx;
 
 typedef std::function<void(void)> Action;
 
@@ -79,7 +79,7 @@ struct OSCctrlWidget : ModuleWidget {
 
   int64_t managedAudioId = -1;
   int announcedAudioPreset = -1;
-  bCast* getManagedAudio();
+  Tx* getManagedAudio();
   void stepAudioExpander();
   void announceAudioStream();
 

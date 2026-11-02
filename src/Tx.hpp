@@ -12,17 +12,17 @@
 
 namespace tx_af { class AudioStreamer; class EngineClock; }
 
-struct bCastConfig {
+struct TxConfig {
   bool enabled = false;
   std::string host = "127.0.0.1";
   int port = tx_af::DEFAULT_PORT;
   int preset = tx_af::DEFAULT_PRESET;
 
-  bool operator==(const bCastConfig&) const = default;
+  bool operator==(const TxConfig&) const = default;
 };
 
 // the client's latest /audio/stats, cumulative counts
-struct bCastClientStats {
+struct TxClientStats {
   int underruns = 0;
   int lost = 0;
   int recovered = 0;
@@ -31,13 +31,13 @@ struct bCastClientStats {
   bool valid = false;
 };
 
-struct bCastSnapshot {
-  bCastConfig config;
+struct TxSnapshot {
+  TxConfig config;
   bool managed = false;
   uint64_t version = 0;
 };
 
-struct bCast : Module {
+struct Tx : Module {
   enum ParamId { LEVEL_PARAM, PRESET_PARAM, PARAMS_LEN };
   enum InputId { LEFT_INPUT, RIGHT_INPUT, INPUTS_LEN };
   enum OutputId { OUTPUTS_LEN };
@@ -54,8 +54,8 @@ struct bCast : Module {
   std::atomic<bool> sendFailing{false};
   bool dcFilterEnabled = true;
 
-  bCast();
-  ~bCast() override;
+  Tx();
+  ~Tx() override;
 
   void process(const ProcessArgs& args) override;
   void onAdd(const AddEvent& e) override;
@@ -66,11 +66,11 @@ struct bCast : Module {
 
   uint32_t streamId() const { return (uint32_t)id; }
 
-  bCastSnapshot getSnapshot();
+  TxSnapshot getSnapshot();
 
   bool isManaged() const { return managed.load(); }
-  bCastConfig getStandaloneConfig();
-  void setStandalone(const std::function<void(bCastConfig&)>& editConfig);
+  TxConfig getStandaloneConfig();
+  void setStandalone(const std::function<void(TxConfig&)>& editConfig);
 
   void attachToOSCctrl();
   void detachFromOSCctrl();
@@ -81,8 +81,8 @@ struct bCast : Module {
   int getPreset() const { return presetCache.load(); }
   void setPreset(int preset);
 
-  void setClientStats(const bCastClientStats& newStats);
-  bCastClientStats getClientStats();
+  void setClientStats(const TxClientStats& newStats);
+  TxClientStats getClientStats();
 
   bool isMaster();
   void setMaster(bool master);
@@ -93,18 +93,18 @@ private:
   dsp::ClockDivider lightDivider;
 
   std::mutex configMutex;
-  bCastConfig standaloneConfig;
-  bCastConfig managedConfig;
+  TxConfig standaloneConfig;
+  TxConfig managedConfig;
   std::atomic<bool> managed{false};  // written under configMutex
   uint64_t version = 0;
-  bCastClientStats stats;
+  TxClientStats stats;
   std::atomic<int> presetCache{tx_af::DEFAULT_PRESET};
   int lastPresetKnobValue = -1;  // engine thread
 
   std::unique_ptr<tx_af::AudioStreamer> streamer;
   std::unique_ptr<tx_af::EngineClock> engineClock;
 
-  const bCastConfig& getEffectiveConfig() const {
+  const TxConfig& getEffectiveConfig() const {
     return managed ? managedConfig : standaloneConfig;
   }
   // runs change under the lock and bumps version if the effective config moved
@@ -113,8 +113,8 @@ private:
   void syncPresetKnob();
 };
 
-struct bCastWidget : ModuleWidget {
-  bCastWidget(bCast* module);
+struct TxWidget : ModuleWidget {
+  TxWidget(Tx* module);
   void step() override;
   void appendContextMenu(Menu* menu) override;
 };

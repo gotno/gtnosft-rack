@@ -28,7 +28,7 @@
 
 #include "../texture/Catalog.hpp"
 #include "../texture/Renderer.hpp"
-#include "../bCast.hpp"
+#include "../Tx.hpp"
 #include "Bundler/AudioBundlers.hpp"
 
 OscReceiver::OscReceiver(
@@ -630,7 +630,7 @@ void OscReceiver::generateRoutes() {
       int32_t port = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
-        bCast* audio = ctrl->getManagedAudio();
+        Tx* audio = ctrl->getManagedAudio();
         bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
           && (!enabled || (port > 0 && port < 65536));
         if (ok) {
@@ -652,7 +652,7 @@ void OscReceiver::generateRoutes() {
       int32_t preset = (args++)->AsInt32();
 
       ctrl->enqueueAction([=, this]() {
-        bCast* audio = ctrl->getManagedAudio();
+        Tx* audio = ctrl->getManagedAudio();
         bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
           && tx_af::isValidPreset(preset);
         if (ok) audio->setPreset(preset);
@@ -676,10 +676,10 @@ void OscReceiver::generateRoutes() {
       stats.bufferMs = (args++)->AsFloat();
 
       ctrl->enqueueAction([=, this]() {
-        bCast* audio = ctrl->getManagedAudio();
+        Tx* audio = ctrl->getManagedAudio();
         if (!audio || audio->id != moduleId || osctx->isBroadcasting()) return;
 
-        bCastClientStats clientStats;
+        TxClientStats clientStats;
         clientStats.underruns = stats.underruns;
         clientStats.lost = stats.lost;
         clientStats.recovered = stats.recovered;

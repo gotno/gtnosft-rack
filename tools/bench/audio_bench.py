@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""bCast audio stream test client.
+"""Tx audio stream test client.
 
 Managed (default): registers with OSCctrl like RackSim does, enables the
-bCast next to it, and reports /audio/stats from a simulated jitter buffer.
---passive: only listens, for a standalone bCast pointed at this machine.
+Tx next to it, and reports /audio/stats from a simulated jitter buffer.
+--passive: only listens, for a standalone Tx pointed at this machine.
 
 See README.md ("audio bench").
 """
@@ -134,7 +134,7 @@ class AudioClient(Client):
     def wait_stream(self, timeout):
         if not self.wait_for(lambda: self.audio_streams, timeout):
             raise BenchError(
-                "no /set/audio_stream. is a bCast placed directly next to OSCctrl?"
+                "no /set/audio_stream. is a Tx placed directly next to OSCctrl?"
             )
         return next(iter(self.audio_streams.values()))
 
@@ -222,7 +222,7 @@ def cmd_run(args):
             connect(client, args)
             stream_info = client.wait_stream(5)
             module_id = stream_info["module_id"]
-            print(f"bCast module {module_id}, stream {stream_info['stream_id']}")
+            print(f"Tx module {module_id}, stream {stream_info['stream_id']}")
             if args.preset is not None:
                 client.request("/set/audio/preset", module_id, ("i", args.preset))
             client.request("/set/audio/enabled", module_id, ("i", 1), ("i", args.audio_port))
@@ -405,12 +405,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(required=True)
 
-    run = sub.add_parser("run", help="measure a bCast stream")
+    run = sub.add_parser("run", help="measure a Tx stream")
     run.add_argument("--host", help="OSCctrl host (default: discover)")
     run.add_argument("--port", type=int, default=7225, help="OSCctrl listen port")
     run.add_argument("--discover-timeout", type=float, default=3.0)
     run.add_argument("-v", "--verbose", action="store_true")
-    run.add_argument("--passive", action="store_true", help="only listen (standalone bCast)")
+    run.add_argument("--passive", action="store_true", help="only listen (standalone Tx)")
     run.add_argument("--audio-port", type=int, default=DEFAULT_AUDIO_PORT)
     run.add_argument("--preset", type=int, choices=range(len(aa.PRESETS)),
                      help="request this preset (managed)")
@@ -426,7 +426,7 @@ def main():
                      help="turn texture chunk pacing off for this run")
     run.add_argument("--wav", help="decode the last epoch and write it here")
     run.add_argument("--analyze", action="store_true",
-                     help="with a sine patched into bCast, count glitches and dropouts")
+                     help="with a sine patched into Tx, count glitches and dropouts")
     run.add_argument("--label", default="")
     run.add_argument("--json")
     run.set_defaults(func=cmd_run)

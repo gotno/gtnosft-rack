@@ -20,10 +20,10 @@
       "tags": ["Utility"]
     },
     {
-      "slug": "bCast",
-      "name": "bCast",
-      "description": "Streams stereo audio to a network client",
-      "tags": ["External", "Utility"]
+      "slug": "Tx",
+      "name": "Tx",
+      "description": "A network audio transmitter",
+      "tags": ["External, Utility"]
     }
   ]
 }

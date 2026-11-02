@@ -311,9 +311,9 @@ failures. Remaining UI cost: `module_structure` 3.1 s over 104 structures
 through the queue (`/set/param`, cables) waits behind the backlog during
 the storm.
 
-## Audio (bCast)
+## Audio (Tx)
 
-bCast streams Opus or PCM over its own UDP socket, marked DSCP EF / WMM
+Tx streams Opus or PCM over its own UDP socket, marked DSCP EF / WMM
 voice (see `API.md`, "Audio packet format"). Texture chunks share the
 Wi-Fi link, so OSCctrl paces them from the client's `/audio/stats`
 (`ChunkPacer`: AIMD on underruns, losses and jitter spikes; unlimited when

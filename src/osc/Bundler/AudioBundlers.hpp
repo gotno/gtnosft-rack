@@ -2,7 +2,7 @@
 
 #include "Bundler.hpp"
 
-// /set/audio_stream: the bCast expander's stream, for the client to play
+// /set/audio_stream: the Tx expander's stream, for the client to play
 struct AudioStreamBundler : Bundler {
   AudioStreamBundler(
     int64_t moduleId,

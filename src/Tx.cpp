@@ -1,11 +1,11 @@
-#include "bCast.hpp"
+#include "Tx.hpp"
 #include "audio/AudioStreamer.hpp"
 #include "audio/EngineClock.hpp"
 
 #include <cmath>
 #include <cstdlib>
 
-bCast::bCast() {
+Tx::Tx() {
   config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
   configParam(LEVEL_PARAM, 0.f, 2.f, 1.f, "Level", " dB", -10, 40);
@@ -36,16 +36,16 @@ bCast::bCast() {
   engineClock = std::make_unique<tx_af::EngineClock>(this);
 }
 
-bCast::~bCast() {
+Tx::~Tx() {
   engineClock.reset();
   stopStreamer();
 }
 
-bool bCast::isMaster() {
+bool Tx::isMaster() {
   return APP->engine->getMasterModule() == this;
 }
 
-void bCast::setMaster(bool master) {
+void Tx::setMaster(bool master) {
   if (master) {
     APP->engine->setMasterModule(this);
   } else if (isMaster()) {
@@ -53,27 +53,27 @@ void bCast::setMaster(bool master) {
   }
 }
 
-void bCast::stopStreamer() {
+void Tx::stopStreamer() {
   if (!streamer) return;
   streamer->stop();
   streamer.reset();
 }
 
-void bCast::onAdd(const AddEvent& e) {
+void Tx::onAdd(const AddEvent& e) {
   if (!streamer) streamer = std::make_unique<tx_af::AudioStreamer>(this);
   streamer->start();
 }
 
-void bCast::onRemove(const RemoveEvent& e) {
+void Tx::onRemove(const RemoveEvent& e) {
   stopStreamer();
 }
 
-void bCast::onSampleRateChange(const SampleRateChangeEvent& e) {
+void Tx::onSampleRateChange(const SampleRateChangeEvent& e) {
   for (auto& filter : dcFilters) filter.setCutoffFreq(10.f * e.sampleTime);
   engineSampleRate = e.sampleRate;
 }
 
-void bCast::process(const ProcessArgs& args) {
+void Tx::process(const ProcessArgs& args) {
   const float gain = std::pow(params[LEVEL_PARAM].getValue(), 2.f);
   const bool rightConnected = inputs[RIGHT_INPUT].isConnected();
 
@@ -153,7 +153,7 @@ void bCast::process(const ProcessArgs& args) {
   }
 }
 
-void bCast::syncPresetKnob() {
+void Tx::syncPresetKnob() {
   int currentKnobValue = (int)std::round(params[PRESET_PARAM].getValue());
   int currentPreset = getPreset();
 
@@ -168,15 +168,15 @@ void bCast::syncPresetKnob() {
   lastPresetKnobValue = currentPreset;
 }
 
-void bCast::updateConfig(const std::function<void()>& update) {
+void Tx::updateConfig(const std::function<void()>& update) {
   std::lock_guard<std::mutex> lock(configMutex);
-  bCastConfig priorConfig = getEffectiveConfig();
+  TxConfig priorConfig = getEffectiveConfig();
   update();
   presetCache = getEffectiveConfig().preset;
   if (!(getEffectiveConfig() == priorConfig)) ++version;
 }
 
-void bCast::setPreset(int preset) {
+void Tx::setPreset(int preset) {
   updateConfig([&]() {
     if (!tx_af::isValidPreset(preset)) return;
     standaloneConfig.preset = preset;
@@ -184,21 +184,21 @@ void bCast::setPreset(int preset) {
   });
 }
 
-bCastSnapshot bCast::getSnapshot() {
+TxSnapshot Tx::getSnapshot() {
   std::lock_guard<std::mutex> lock(configMutex);
   return {getEffectiveConfig(), managed.load(), version};
 }
 
-bCastConfig bCast::getStandaloneConfig() {
+TxConfig Tx::getStandaloneConfig() {
   std::lock_guard<std::mutex> lock(configMutex);
   return standaloneConfig;
 }
 
-void bCast::setStandalone(const std::function<void(bCastConfig&)>& editConfig) {
+void Tx::setStandalone(const std::function<void(TxConfig&)>& editConfig) {
   updateConfig([&]() { editConfig(standaloneConfig); });
 }
 
-void bCast::attachToOSCctrl() {
+void Tx::attachToOSCctrl() {
   updateConfig([&]() {
     if (managed) return;
     managedConfig.enabled = false;
@@ -208,11 +208,11 @@ void bCast::attachToOSCctrl() {
   });
 }
 
-void bCast::detachFromOSCctrl() {
+void Tx::detachFromOSCctrl() {
   updateConfig([&]() { managed = false; });
 }
 
-void bCast::setManagedStreamEnabled(bool enabled, const std::string& host, int port) {
+void Tx::setManagedStreamEnabled(bool enabled, const std::string& host, int port) {
   updateConfig([&]() {
     if (!managed) return;
     managedConfig.enabled = enabled;
@@ -223,19 +223,19 @@ void bCast::setManagedStreamEnabled(bool enabled, const std::string& host, int p
   });
 }
 
-void bCast::setClientStats(const bCastClientStats& newStats) {
+void Tx::setClientStats(const TxClientStats& newStats) {
   std::lock_guard<std::mutex> lock(configMutex);
   stats = newStats;
   stats.valid = true;
 }
 
-bCastClientStats bCast::getClientStats() {
+TxClientStats Tx::getClientStats() {
   std::lock_guard<std::mutex> lock(configMutex);
   return stats;
 }
 
-json_t* bCast::dataToJson() {
-  bCastConfig c = getStandaloneConfig();
+json_t* Tx::dataToJson() {
+  TxConfig c = getStandaloneConfig();
   json_t* rootJ = json_object();
   json_object_set_new(rootJ, "dcFilter", json_boolean(dcFilterEnabled));
   json_object_set_new(rootJ, "enabled", json_boolean(c.enabled));
@@ -245,11 +245,11 @@ json_t* bCast::dataToJson() {
   return rootJ;
 }
 
-void bCast::dataFromJson(json_t* rootJ) {
+void Tx::dataFromJson(json_t* rootJ) {
   if (json_t* j = json_object_get(rootJ, "dcFilter"))
     dcFilterEnabled = json_boolean_value(j);
 
-  setStandalone([&](bCastConfig& cfg) {
+  setStandalone([&](TxConfig& cfg) {
     if (json_t* j = json_object_get(rootJ, "enabled"))
       cfg.enabled = json_boolean_value(j);
     if (json_t* j = json_object_get(rootJ, "preset")) {
@@ -284,27 +284,27 @@ struct ConfigField : ui::TextField {
 
 }
 
-bCastWidget::bCastWidget(bCast* module) {
+TxWidget::TxWidget(Tx* module) {
   setModule(module);
-  setPanel(createPanel(asset::plugin(pluginInstance, "res/bCast.svg")));
+  setPanel(createPanel(asset::plugin(pluginInstance, "res/Tx.svg")));
 
   RectangleLight<RedGreenBlueLight>* statusLight =
     createLight<RectangleLight<RedGreenBlueLight>>(
       mm2px(Vec(10.68, 20.369)),
       module,
-      bCast::STATUS_LIGHT
+      Tx::STATUS_LIGHT
     );
   statusLight->box.size = mm2px(Vec(4.f, 1.f));
   statusLight->bgColor = rack::color::fromHexString("#00b16a");
   addChild(statusLight);
 
   addChild(createLight<TinyLight<RedGreenBlueLight>>(
-    mm2px(Vec(17.091, 87.928)), module, bCast::QUALITY_LIGHT
+    mm2px(Vec(17.091, 87.928)), module, Tx::QUALITY_LIGHT
   ));
 
   for (int c = 0; c < 2; ++c) {
     float x = c == 0 ? 9.691f : 15.709f;
-    int base = bCast::VU_LIGHTS + c * 6;
+    int base = Tx::VU_LIGHTS + c * 6;
 
     float y = 27.899f;
     float rowStep = 5.297f;
@@ -324,22 +324,22 @@ bCastWidget::bCastWidget(bCast* module) {
       );
   }
 
-  addParam(createParamCentered<Davies1900hLargeWhiteKnob>(mm2px(Vec(12.7, 73.862)), module, bCast::LEVEL_PARAM));
+  addParam(createParamCentered<Davies1900hLargeWhiteKnob>(mm2px(Vec(12.7, 73.862)), module, Tx::LEVEL_PARAM));
 
   BefacoTinyKnob* presetKnob =
-    createParamCentered<BefacoTinyKnob>(mm2px(Vec(12.7, 91.1)), module, bCast::PRESET_PARAM);
+    createParamCentered<BefacoTinyKnob>(mm2px(Vec(12.7, 91.1)), module, Tx::PRESET_PARAM);
   presetKnob->minAngle = -0.333 * M_PI;
   presetKnob->maxAngle = 0.333 * M_PI;
   addParam(presetKnob);
 
-  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.285, 102.859)), module, bCast::LEFT_INPUT));
-  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(18.122, 102.859)), module, bCast::RIGHT_INPUT));
+  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.285, 102.859)), module, Tx::LEFT_INPUT));
+  addInput(createInputCentered<PJ301MPort>(mm2px(Vec(18.122, 102.859)), module, Tx::RIGHT_INPUT));
 }
 
-void bCastWidget::step() {
+void TxWidget::step() {
   ModuleWidget::step();
 
-  bCast* module = getModule<bCast>();
+  Tx* module = getModule<Tx>();
   if (!module) return;
 
   engine::Engine* engine = APP->engine;
@@ -351,8 +351,8 @@ void bCastWidget::step() {
     engine->setSuggestedSampleRate(tx_af::SAMPLE_RATE);
 }
 
-void bCastWidget::appendContextMenu(Menu* menu) {
-  bCast* module = getModule<bCast>();
+void TxWidget::appendContextMenu(Menu* menu) {
+  Tx* module = getModule<Tx>();
   if (!module) return;
 
   menu->addChild(new MenuSeparator);
@@ -371,14 +371,14 @@ void bCastWidget::appendContextMenu(Menu* menu) {
   menu->addChild(new MenuSeparator);
 
   if (module->isManaged()) {
-    bCastSnapshot snap = module->getSnapshot();
+    TxSnapshot snap = module->getSnapshot();
     menu->addChild(createMenuLabel("Managed mode"));
     menu->addChild(createMenuLabel(
       snap.config.enabled
         ? string::f("Streaming to %s:%d", snap.config.host.c_str(), snap.config.port)
         : "Not streaming"
     ));
-    bCastClientStats s = module->getClientStats();
+    TxClientStats s = module->getClientStats();
     if (s.valid) {
       menu->addChild(createMenuLabel(string::f(
         "Client: %d underruns, %d lost, %d recovered", s.underruns, s.lost, s.recovered
@@ -390,11 +390,11 @@ void bCastWidget::appendContextMenu(Menu* menu) {
       menu->addChild(createMenuLabel("No client stats yet"));
     }
   } else {
-    bCastConfig config = module->getStandaloneConfig();
+    TxConfig config = module->getStandaloneConfig();
 
     menu->addChild(createBoolMenuItem("Stream enabled", "",
       [=]() { return module->getStandaloneConfig().enabled; },
-      [=](bool on) { module->setStandalone([&](bCastConfig& c) { c.enabled = on; }); }
+      [=](bool on) { module->setStandalone([&](TxConfig& c) { c.enabled = on; }); }
     ));
 
     menu->addChild(createMenuLabel("Destination host (Enter to apply)"));
@@ -403,7 +403,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
     hostField->commit = [=](const std::string& text) {
       std::string host = string::trim(text);
       if (host.empty()) return;
-      module->setStandalone([&](bCastConfig& c) { c.host = host; });
+      module->setStandalone([&](TxConfig& c) { c.host = host; });
     };
     menu->addChild(hostField);
 
@@ -414,7 +414,7 @@ void bCastWidget::appendContextMenu(Menu* menu) {
       char* end = nullptr;
       long port = std::strtol(text.c_str(), &end, 10);
       if (end == text.c_str() || port <= 0 || port > 65535) return;
-      module->setStandalone([&](bCastConfig& c) { c.port = (int)port; });
+      module->setStandalone([&](TxConfig& c) { c.port = (int)port; });
     };
     menu->addChild(portField);
   }
@@ -423,4 +423,4 @@ void bCastWidget::appendContextMenu(Menu* menu) {
     menu->addChild(createMenuLabel(string::f("Dropped %u frames (ring full)", dropped)));
 }
 
-Model* modelbCast = createModel<bCast, bCastWidget>("bCast");
+Model* modelTx = createModel<Tx, TxWidget>("Tx");

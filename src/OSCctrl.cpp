@@ -5,7 +5,7 @@
 #include "osc/ChunkedManager.hpp"
 #include "osc/SubscriptionManager.hpp"
 #include "osc/Bundler/ModuleCacheGuard.hpp"
-#include "bCast.hpp"
+#include "Tx.hpp"
 #include "osc/Bundler/AudioBundlers.hpp"
 #include "texture/Renderer.hpp"
 #include "util/Util.hpp"
@@ -130,7 +130,7 @@ OSCctrlWidget::~OSCctrlWidget() {
 
   // hand the expander back to its own settings
   if (isPrimaryOSCctrl) {
-    if (bCast* audio = getManagedAudio()) audio->detachFromOSCctrl();
+    if (Tx* audio = getManagedAudio()) audio->detachFromOSCctrl();
   }
 
   // order is important:
@@ -182,10 +182,10 @@ void OSCctrlWidget::step() {
   )
 }
 
-bCast* OSCctrlWidget::getManagedAudio() {
+Tx* OSCctrlWidget::getManagedAudio() {
   if (managedAudioId < 0) return nullptr;
   Module* m = APP->engine->getModule(managedAudioId);
-  return (m && m->model == modelbCast) ? static_cast<bCast*>(m) : nullptr;
+  return (m && m->model == modelTx) ? static_cast<Tx*>(m) : nullptr;
 }
 
 void OSCctrlWidget::stepAudioExpander() {
@@ -195,20 +195,20 @@ void OSCctrlWidget::stepAudioExpander() {
     if (id < 0) continue;
 
     Module* m = APP->engine->getModule(id);
-    if (m && m->model == modelbCast) {
+    if (m && m->model == modelTx) {
       foundId = id;
       break;
     }
   }
 
   if (foundId == managedAudioId) {
-    bCast* audio = getManagedAudio();
+    Tx* audio = getManagedAudio();
     if (audio && audio->getPreset() != announcedAudioPreset) announceAudioStream();
     return;
   }
 
   if (managedAudioId >= 0) {
-    if (bCast* old = getManagedAudio()) old->detachFromOSCctrl();
+    if (Tx* old = getManagedAudio()) old->detachFromOSCctrl();
 
     osctx->pacer.setActive(false, std::chrono::steady_clock::now());
 
@@ -226,7 +226,7 @@ void OSCctrlWidget::stepAudioExpander() {
 
   managedAudioId = foundId;
 
-  if (bCast* audio = getManagedAudio()) {
+  if (Tx* audio = getManagedAudio()) {
     audio->attachToOSCctrl();
     announceAudioStream();
   }
@@ -235,10 +235,10 @@ void OSCctrlWidget::stepAudioExpander() {
 void OSCctrlWidget::announceAudioStream() {
   if (!osctx || osctx->isBroadcasting()) return;
 
-  bCast* audio = getManagedAudio();
+  Tx* audio = getManagedAudio();
   if (!audio) return;
 
-  bCastSnapshot snapshot = audio->getSnapshot();
+  TxSnapshot snapshot = audio->getSnapshot();
   announcedAudioPreset = snapshot.config.preset;
   osctx->enqueueBundler(
     new AudioStreamBundler(
@@ -252,14 +252,14 @@ void OSCctrlWidget::announceAudioStream() {
 }
 
 void OSCctrlWidget::onClientRegistered() {
-  if (bCast* audio = getManagedAudio())
+  if (Tx* audio = getManagedAudio())
     audio->setManagedStreamEnabled(false, "", 0);
   osctx->pacer.setActive(false, std::chrono::steady_clock::now());
   announceAudioStream();
 }
 
 void OSCctrlWidget::onClientGone() {
-  if (bCast* audio = getManagedAudio())
+  if (Tx* audio = getManagedAudio())
     audio->setManagedStreamEnabled(false, "", 0);
   osctx->pacer.setActive(false, std::chrono::steady_clock::now());
 }

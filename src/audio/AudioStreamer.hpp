@@ -12,8 +12,8 @@
 #include <thread>
 #include <vector>
 
-struct bCast;
-struct bCastConfig;
+struct Tx;
+struct TxConfig;
 
 namespace tx_af {
 
@@ -21,7 +21,7 @@ namespace tx_af {
 // owned by the module; never touches the engine.
 class AudioStreamer {
 public:
-  explicit AudioStreamer(bCast* module) : module(module) {}
+  explicit AudioStreamer(Tx* module) : module(module) {}
   ~AudioStreamer() { stop(); }
   AudioStreamer(const AudioStreamer&) = delete;
   AudioStreamer& operator=(const AudioStreamer&) = delete;
@@ -33,7 +33,7 @@ private:
   using clock = std::chrono::steady_clock;
   static constexpr int FAILING_AFTER = 50;
 
-  bCast* module;
+  Tx* module;
   std::atomic<bool> running{false};
   std::thread thread;
 
@@ -66,7 +66,7 @@ private:
   std::vector<uint8_t> datagram;
 
   void run();
-  void reset(const bCastConfig& config, int rate);
+  void reset(const TxConfig& config, int rate);
   void setStreaming(bool on);
   bool openSocket();
   void pump();
