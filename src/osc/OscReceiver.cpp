@@ -136,12 +136,10 @@ void OscReceiver::startHeartbeat() {
       missedHeartbeats = 0;
       osctx->setBroadcasting();
 
+      subman->stop();
       osctx->clearQueues();
 
-      subman->reset();
-      ModuleParamsBundler::params.clear();
-
-      ctrl->enqueueAction([this]() { ctrl->onClientGone(); }, "audio");
+      ctrl->enqueueAction([this]() { ctrl->onClientGone(); }, "client_gone");
     }
   });
 

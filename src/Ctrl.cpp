@@ -259,6 +259,9 @@ void CtrlWidget::onClientRegistered() {
 }
 
 void CtrlWidget::onClientGone() {
+  subman->reset();
+  announcedAudioPreset = -1;
+
   if (Tx* audio = getManagedAudio())
     audio->setManagedStreamEnabled(false, "", 0);
   osctx->pacer.setActive(false, std::chrono::steady_clock::now());

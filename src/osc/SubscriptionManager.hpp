@@ -1,6 +1,7 @@
 #include "rack.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <vector>
 
 class CtrlWidget;
@@ -16,6 +17,9 @@ struct SubscriptionManager {
   ~SubscriptionManager();
 
   void start();
+  // safe from any thread: stops tick() from posting more updates
+  void stop();
+  // UI thread only: clears subscriptions and their caches
   void reset();
   void tick();
 
@@ -27,7 +31,7 @@ private:
   OscSender* osctx{NULL};
   ChunkedManager* chunkman{NULL};
 
-  bool running{false};
+  std::atomic<bool> running{false};
 
   std::vector<int64_t> moduleLightSubs;
 };

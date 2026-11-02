@@ -24,17 +24,18 @@ void SubscriptionManager::tick() {
   osctx->submitLights(new ModuleLightsBundler(moduleLightSubs));
 }
 
+void SubscriptionManager::stop() {
+  running = false;
+}
+
 void SubscriptionManager::reset() {
   moduleLightSubs.clear();
-  running = false;
 
+  // drop any update tick() posted while stop() landed
   osctx->drainMailboxes();
 
-  // clear cache after any other enqueued items
-  ctrl->enqueueAction([]() {
-    ModuleLightsBundler::lights.clear();
-    // ModuleParamsBundler::params.clear();
-  }, "subscription_reset");
+  ModuleLightsBundler::lights.clear();
+  ModuleParamsBundler::params.clear();
 }
 
 bool SubscriptionManager::subscribeModuleLights(int64_t moduleId) {
