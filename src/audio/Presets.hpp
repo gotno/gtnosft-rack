@@ -28,9 +28,9 @@ constexpr int CHANNELS = 2;
 constexpr int DEFAULT_PRESET = 1;
 
 constexpr Preset PRESETS[] = {
-  {0, "Lowest latency", Codec::Opus, 240, 192000, 0, 20, 10, 60},
-  {1, "Balanced", Codec::Opus, 480, 160000, 1, 40, 20, 120},
-  {2, "High quality", Codec::Opus, 960, 160000, 2, 80, 40, 200},
+  {0, "Opus, Lowest latency", Codec::Opus, 240, 192000, 0, 20, 10, 60},
+  {1, "Opus, Balanced", Codec::Opus, 480, 160000, 1, 40, 20, 120},
+  {2, "Opus, Highest quality", Codec::Opus, 960, 160000, 2, 80, 40, 200},
   {3, "Uncompressed", Codec::Pcm, 240, 0, 0, 20, 10, 60},
 };
 constexpr int PRESET_COUNT = sizeof(PRESETS) / sizeof(PRESETS[0]);
