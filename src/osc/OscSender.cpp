@@ -206,6 +206,35 @@ void OscSender::drainMailboxes() {
   post(lightsMailbox, nullptr);
 }
 
+void OscSender::clearQueues() {
+  drainMailboxes();
+  post(heartbeatMailbox, nullptr);
+
+  std::queue<Bundler*> droppedPriority;
+  std::queue<QueuedChunk> droppedChunks;
+  {
+    std::lock_guard<std::mutex> locker(qmutex);
+    std::swap(droppedPriority, priorityQueue);
+    std::swap(droppedChunks, chunkQueue);
+    queuedChunks.store(0, std::memory_order_relaxed);
+    updateOldestChunkQueuedAt();
+  }
+
+  // done() callbacks run outside qmutex
+  while (!droppedPriority.empty()) {
+    Bundler* bundler = droppedPriority.front();
+    droppedPriority.pop();
+    bundler->done();
+    delete bundler;
+  }
+  while (!droppedChunks.empty()) {
+    Bundler* bundler = droppedChunks.front().bundler;
+    droppedChunks.pop();
+    bundler->done();
+    delete bundler;
+  }
+}
+
 void OscSender::processQueue() {
   while (queueWorkerRunning) {
     std::unique_lock<std::mutex> locker(qmutex);

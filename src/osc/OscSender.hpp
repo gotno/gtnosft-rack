@@ -38,6 +38,7 @@ struct OscSender {
   void enqueueChunk(Bundler* bundler);
   void submitLights(Bundler* bundler);
   void drainMailboxes();
+  void clearQueues();
   // safe from any thread with a Rack context set. goes through its own
   // mailbox, ahead of everything else, so a backed-up queue can't delay it.
   // firedAt: when the heartbeat timer fired (bench builds only)

@@ -133,7 +133,10 @@ void OscReceiver::startHeartbeat() {
         bench::logReport();
       )
       lastHeartbeatRxTime = std::chrono::steady_clock::time_point::min();
+      missedHeartbeats = 0;
       osctx->setBroadcasting();
+
+      osctx->clearQueues();
 
       subman->reset();
       ModuleParamsBundler::params.clear();
@@ -145,7 +148,7 @@ void OscReceiver::startHeartbeat() {
   heartbeatInterval.start();
 }
 
-// anything thrown here would escape the listener thread and terminate Rack
+// overloaded to prevent throws from escaping the listener thread, killing Rack
 void OscReceiver::ProcessPacket(
   const char* data,
   int size,
