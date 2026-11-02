@@ -1,6 +1,6 @@
 #include "SubscriptionManager.hpp"
 
-#include "../OSCctrl.hpp"
+#include "../Ctrl.hpp"
 #include "OscSender.hpp"
 #include "ChunkedManager.hpp"
 
@@ -8,7 +8,7 @@
 #include "Bundler/ModuleParamsBundler.hpp"
 
 SubscriptionManager::SubscriptionManager(
-  OSCctrlWidget* _ctrl, OscSender* _osctx, ChunkedManager* _chunkman
+  CtrlWidget* _ctrl, OscSender* _osctx, ChunkedManager* _chunkman
 ): ctrl(_ctrl), osctx(_osctx), chunkman(_chunkman) {}
 
 SubscriptionManager::~SubscriptionManager() {}

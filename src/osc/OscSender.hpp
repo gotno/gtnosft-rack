@@ -17,7 +17,7 @@
 #include <string>
 #include "../bench/Bench.hpp"
 
-class OSCctrlWidget;
+class CtrlWidget;
 struct Bundler;
 class ChunkedImage;
 
@@ -27,10 +27,10 @@ enum class SendMode {
 };
 
 struct OscSender {
-  OscSender(OSCctrlWidget* _ctrl);
+  OscSender(CtrlWidget* _ctrl);
   ~OscSender();
 
-  OSCctrlWidget* ctrl;
+  CtrlWidget* ctrl;
 
   // everything except image chunks. sent ahead of queued chunks
   void enqueueBundler(Bundler* bundler);

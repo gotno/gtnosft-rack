@@ -14,8 +14,8 @@
   "changelogUrl": "",
   "modules": [
     {
-      "slug": "OSCctrl",
-      "name": "OSCctrl",
+      "slug": "Ctrl",
+      "name": "ctrl",
       "description": "An OSC-based API for Rack simulations",
       "tags": ["Utility"]
     },

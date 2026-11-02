@@ -198,7 +198,7 @@ void Tx::setStandalone(const std::function<void(TxConfig&)>& editConfig) {
   updateConfig([&]() { editConfig(standaloneConfig); });
 }
 
-void Tx::attachToOSCctrl() {
+void Tx::attachToCtrl() {
   updateConfig([&]() {
     if (managed) return;
     managedConfig.enabled = false;
@@ -208,7 +208,7 @@ void Tx::attachToOSCctrl() {
   });
 }
 
-void Tx::detachFromOSCctrl() {
+void Tx::detachFromCtrl() {
   updateConfig([&]() { managed = false; });
 }
 

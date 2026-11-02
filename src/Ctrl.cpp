@@ -1,4 +1,4 @@
-#include "OSCctrl.hpp"
+#include "Ctrl.hpp"
 
 #include "osc/OscSender.hpp"
 #include "osc/OscReceiver.hpp"
@@ -11,7 +11,7 @@
 #include "util/Util.hpp"
 #include "bench/Bench.hpp"
 
-OSCctrl::OSCctrl() {
+Ctrl::Ctrl() {
   config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
   configLight(TX_LIGHT, "TX");
@@ -25,7 +25,7 @@ OSCctrl::OSCctrl() {
   lightDivider.setDivision(16);
 }
 
-void OSCctrl::process(const ProcessArgs& args) {
+void Ctrl::process(const ProcessArgs& args) {
   if (lightDivider.process()) {
     if (broadcasting) {
       lights[TX_LIGHT].setBrightnessSmooth(
@@ -64,9 +64,9 @@ void OSCctrl::process(const ProcessArgs& args) {
   }
 }
 
-OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
+CtrlWidget::CtrlWidget(Ctrl* module) {
   setModule(module);
-  setPanel(createPanel(asset::plugin(pluginInstance, "res/OSCctrl.svg")));
+  setPanel(createPanel(asset::plugin(pluginInstance, "res/Ctrl.svg")));
 
   rack::math::Vec tx_light_size(2.f, 1.f);
   rack::math::Vec hb_light_size(4.f, 1.f);
@@ -76,7 +76,7 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
     createLight<RectangleLight<WhiteLight>>(
       mm2px(Vec(14.220, 20.369)),
       module,
-      OSCctrl::TX_LIGHT
+      Ctrl::TX_LIGHT
     );
   txLight->box.size = mm2px(tx_light_size);
   txLight->bgColor = lightBgColor;
@@ -86,7 +86,7 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
     createLight<RectangleLight<WhiteLight>>(
       mm2px(Vec(9.220, 20.369)),
       module,
-      OSCctrl::HEARTBEAT_IN_LIGHT
+      Ctrl::HEARTBEAT_IN_LIGHT
     );
   hbInLight->box.size = mm2px(hb_light_size);
   hbInLight->bgColor = lightBgColor;
@@ -96,7 +96,7 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
     createLight<RectangleLight<WhiteLight>>(
       mm2px(Vec(17.220, 20.369)),
       module,
-      OSCctrl::HEARTBEAT_OUT_LIGHT
+      Ctrl::HEARTBEAT_OUT_LIGHT
     );
   hbOutLight->box.size = mm2px(hb_light_size);
   hbOutLight->bgColor = lightBgColor;
@@ -104,7 +104,7 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
 
   if (!module) return;
 
-  // cancel init if OSCctrl is already in the patch
+  // cancel init if Ctrl is already in the patch
   std::string thisPlugin = module->getModel()->plugin->slug;
   std::string thisModule = module->getModel()->slug;
   std::vector<int64_t> moduleIds = APP->engine->getModuleIds();
@@ -125,12 +125,12 @@ OSCctrlWidget::OSCctrlWidget(OSCctrl* module) {
   oscrx = new OscReceiver(this, osctx, chunkman, subman);
 }
 
-OSCctrlWidget::~OSCctrlWidget() {
-  bool isPrimaryOSCctrl = osctx != NULL;
+CtrlWidget::~CtrlWidget() {
+  bool isPrimaryCtrl = osctx != NULL;
 
   // hand the expander back to its own settings
-  if (isPrimaryOSCctrl) {
-    if (Tx* audio = getManagedAudio()) audio->detachFromOSCctrl();
+  if (isPrimaryCtrl) {
+    if (Tx* audio = getManagedAudio()) audio->detachFromCtrl();
   }
 
   // order is important:
@@ -144,11 +144,11 @@ OSCctrlWidget::~OSCctrlWidget() {
   if (subman) delete subman;
   if (chunkman) delete chunkman;
 
-  // clear static caches so a future OSCctrl instance starts with fresh state
-  if (isPrimaryOSCctrl) ModuleCacheGuard::clearAll();
+  // clear static caches so a future Ctrl instance starts with fresh state
+  if (isPrimaryCtrl) ModuleCacheGuard::clearAll();
 }
 
-void OSCctrlWidget::step() {
+void CtrlWidget::step() {
   BENCH(auto stepStart = bench::clock::now();)
   ModuleWidget::step();
   if (!module) return;
@@ -182,13 +182,13 @@ void OSCctrlWidget::step() {
   )
 }
 
-Tx* OSCctrlWidget::getManagedAudio() {
+Tx* CtrlWidget::getManagedAudio() {
   if (managedAudioId < 0) return nullptr;
   Module* m = APP->engine->getModule(managedAudioId);
   return (m && m->model == modelTx) ? static_cast<Tx*>(m) : nullptr;
 }
 
-void OSCctrlWidget::stepAudioExpander() {
+void CtrlWidget::stepAudioExpander() {
   int64_t foundId = -1;
 
   for (int64_t id : {module->leftExpander.moduleId, module->rightExpander.moduleId}) {
@@ -208,7 +208,7 @@ void OSCctrlWidget::stepAudioExpander() {
   }
 
   if (managedAudioId >= 0) {
-    if (Tx* old = getManagedAudio()) old->detachFromOSCctrl();
+    if (Tx* old = getManagedAudio()) old->detachFromCtrl();
 
     osctx->pacer.setActive(false, std::chrono::steady_clock::now());
 
@@ -227,12 +227,12 @@ void OSCctrlWidget::stepAudioExpander() {
   managedAudioId = foundId;
 
   if (Tx* audio = getManagedAudio()) {
-    audio->attachToOSCctrl();
+    audio->attachToCtrl();
     announceAudioStream();
   }
 }
 
-void OSCctrlWidget::announceAudioStream() {
+void CtrlWidget::announceAudioStream() {
   if (!osctx || osctx->isBroadcasting()) return;
 
   Tx* audio = getManagedAudio();
@@ -251,27 +251,27 @@ void OSCctrlWidget::announceAudioStream() {
   );
 }
 
-void OSCctrlWidget::onClientRegistered() {
+void CtrlWidget::onClientRegistered() {
   if (Tx* audio = getManagedAudio())
     audio->setManagedStreamEnabled(false, "", 0);
   osctx->pacer.setActive(false, std::chrono::steady_clock::now());
   announceAudioStream();
 }
 
-void OSCctrlWidget::onClientGone() {
+void CtrlWidget::onClientGone() {
   if (Tx* audio = getManagedAudio())
     audio->setManagedStreamEnabled(false, "", 0);
   osctx->pacer.setActive(false, std::chrono::steady_clock::now());
 }
 
-void OSCctrlWidget::enqueueAction(Action action, const char* tag) {
+void CtrlWidget::enqueueAction(Action action, const char* tag) {
   std::lock_guard<std::mutex> locker(actionMutex);
   actionQueue.push(
     QueuedAction{std::move(action), tag BENCH(, bench::clock::now())}
   );
 }
 
-void OSCctrlWidget::processActionQueue() {
+void CtrlWidget::processActionQueue() {
   {
     std::lock_guard<std::mutex> locker(actionMutex);
     while (!actionQueue.empty()) {
@@ -340,7 +340,7 @@ void OSCctrlWidget::processActionQueue() {
   )
 }
 
-void OSCctrlWidget::appendContextMenu(Menu* menu) {
+void CtrlWidget::appendContextMenu(Menu* menu) {
   BENCH(
     menu->addChild(new MenuSeparator);
 
@@ -381,7 +381,7 @@ void OSCctrlWidget::appendContextMenu(Menu* menu) {
                   gtnosft::util::makeModuleWidget(model);
                 if (!moduleWidget) {
                   WARN(
-                    "OSCctrl render failed to create widget for %s:%s",
+                    "ctrl render failed to create widget for %s:%s",
                     pluginSlug.c_str(),
                     moduleSlug.c_str()
                   );
@@ -395,7 +395,7 @@ void OSCctrlWidget::appendContextMenu(Menu* menu) {
 
                 if (!result.success()) {
                   WARN(
-                    "OSCctrl render failed for %lld-%s-%s-%s: %s",
+                    "ctrl render failed for %lld-%s-%s-%s: %s",
                     (long long)moduleId,
                     pluginSlug.c_str(),
                     moduleSlug.c_str(),
@@ -437,7 +437,7 @@ void OSCctrlWidget::appendContextMenu(Menu* menu) {
                 Renderer::renderOverlay(moduleId, Recipe(1024));
               if (!result.success()) {
                 WARN(
-                  "OSCctrl render failed for %lld-%s-%s-Overlay: %s",
+                  "ctrl render failed for %lld-%s-%s-Overlay: %s",
                   (long long)moduleId,
                   pluginSlug.c_str(),
                   moduleSlug.c_str(),
@@ -467,4 +467,4 @@ void OSCctrlWidget::appendContextMenu(Menu* menu) {
   ));
 }
 
-Model* modelOSCctrl = createModel<OSCctrl, OSCctrlWidget>("OSCctrl");
+Model* modelCtrl = createModel<Ctrl, CtrlWidget>("Ctrl");

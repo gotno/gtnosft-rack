@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal stand-in for OSCctrl, for testing overlay_bench.py without Rack.
+"""Minimal stand-in for ctrl, for testing overlay_bench.py without Rack.
 
 Answers just enough of the protocol for `overlay_bench.py run` to complete:
 registration and heartbeats, module stubs/state, the /bench/* routes (with a
@@ -103,7 +103,7 @@ def stat(name, count, mean, mn, p50, p95, p99, mx):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--port", type=int, default=7225, help="listen port (OSCctrl's)")
+    ap.add_argument("--port", type=int, default=7225, help="listen port (ctrl's)")
     ap.add_argument("--coalesce-rate", type=float, default=0.3,
                     help="fraction of /get/texture requests silently dropped")
     ap.add_argument("--chunk-drop-rate", type=float, default=0.02,
@@ -111,14 +111,14 @@ def main():
     ap.add_argument("--audio-to", metavar="HOST:PORT",
                     help="also send a fake standalone Tx stream here")
     ap.add_argument("--audio", action="store_true",
-                    help="act as OSCctrl with a managed Tx next to it")
+                    help="act as ctrl with a managed Tx next to it")
     args = ap.parse_args()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("127.0.0.1", args.port))
     client = None
     acks = packets_sent = 0  # since the last /bench/reset
-    print(f"mock OSCctrl listening on 127.0.0.1:{args.port}", flush=True)
+    print(f"mock ctrl listening on 127.0.0.1:{args.port}", flush=True)
     if args.audio_to:
         host, port = args.audio_to.rsplit(":", 1)
         AudioSender((host, int(port))).start()

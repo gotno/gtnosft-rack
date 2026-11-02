@@ -17,14 +17,14 @@
 #include "OscConstants.hpp"
 #include "../bench/Bench.hpp"
 
-class OSCctrlWidget;
+class CtrlWidget;
 class OscSender;
 class ChunkedManager;
 class SubscriptionManager;
 
 struct OscReceiver : public osc::OscPacketListener {
   OscReceiver(
-    OSCctrlWidget* _ctrl,
+    CtrlWidget* _ctrl,
     OscSender* oscSender,
     ChunkedManager* chunkedManager,
     SubscriptionManager* subscriptionManager
@@ -37,7 +37,7 @@ struct OscReceiver : public osc::OscPacketListener {
   BENCH(std::atomic<bool> heartbeatSkipsUi{true};)
 
 private:
-  OSCctrlWidget* ctrl;
+  CtrlWidget* ctrl;
   OscSender* osctx;
   ChunkedManager* chunkman;
   SubscriptionManager* subman;

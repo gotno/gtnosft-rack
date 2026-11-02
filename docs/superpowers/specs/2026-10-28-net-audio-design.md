@@ -4,12 +4,12 @@
 
 A simplified clone of Core's Audio-2 module that sends stereo audio from the
 Rack patch to the RackSim Unreal client over the LAN, not to a sound card.
-It works on its own, and works as an expander that OSCctrl manages when
+It works on its own, and works as an expander that ctrl manages when
 placed next to it. Presets set the balance between latency and quality.
 
 The work covers three codebases:
 
-1. Rack plugin (`gtnosft-rack`): the Tx module, OSCctrl integration,
+1. Rack plugin (`gtnosft-rack`): the Tx module, ctrl integration,
    and texture chunk pacing.
 2. UE client (`RackSim`, UE 5.6, Win64 and Quest/Android): the receiver,
    jitter buffer, and playback.
@@ -27,7 +27,7 @@ The work covers three codebases:
 | Direction | Send only (Rack to UE). The packet format leaves room for a return path. |
 | Engine timing | Tx can be the engine's master module and clock it in real time ("Master audio module" in its menu). It claims master while streaming if no audio module has it, because Rack's fallback clock runs slow and the client then underruns. |
 | Clock drift | Absorbed on the client by adaptive resampling. |
-| Relationship to OSCctrl | Standalone module that becomes managed when adjacent to OSCctrl. |
+| Relationship to ctrl | Standalone module that becomes managed when adjacent to ctrl. |
 | Controls | Presets only. An Advanced submenu is a follow-up. |
 | UE playback | Stereo, not positioned in the world. Speaker placement is a stretch goal. |
 | libopus (Rack) | Rack `DEPS` / `dep.mk` with cmake. Fall back to a git submodule if CI can't build it. |
@@ -59,7 +59,7 @@ wire.
 - **Panel:** 5HP, laid out like Audio-2. Inputs L and R (R is normalled to
   L), level knob (0–2, squared gain, as in Audio-2), 6-segment VU meter per
   channel, a snapping preset knob, and a status light: off when idle, green when streaming
-  standalone, blue when managed by OSCctrl. New `res/Tx.svg`.
+  standalone, blue when managed by ctrl. New `res/Tx.svg`.
 - **Context menu:**
   - DC blocker (default on).
   - Enabled (standalone).
@@ -69,7 +69,7 @@ wire.
     managed.
   - A stats line from the client's latest `/audio/stats` (managed only).
 - **Patch JSON:** `dcFilter`, `enabled`, `preset`, `host`, `port`. Managed
-  enable and destination are not saved, so a module detached from OSCctrl goes back to
+  enable and destination are not saved, so a module detached from ctrl goes back to
   its saved standalone settings.
 - **Registration:** `plugin.json` gets the model, and `plugin.cpp/hpp` add
   `modelTx`.
@@ -105,7 +105,7 @@ into dsp::RingBuffer       redundancy ─► send
   `onSampleRateChange`, which sets an atomic flag.
 - **Config:** a mutex-protected `TxConfig { enabled, managed, host,
   port, preset }`, with a version counter. It's written on the UI thread (by
-  the menu or by OSCctrl actions) and read once per streamer wakeup. The
+  the menu or by ctrl actions) and read once per streamer wakeup. The
   engine thread never takes the lock.
 - **DSCP:** `IP_TOS = 0xB8` (EF) via `setsockopt` on Linux and macOS. On
   Windows, best effort via qWAVE (`QOSCreateHandle`/`QOSAddSocketToFlow`,
@@ -115,14 +115,14 @@ into dsp::RingBuffer       redundancy ─► send
 - **Teardown:** the destructor stops and joins the streamer before the ring
   buffer and encoder are destroyed.
 
-### Expander management (OSCctrl)
+### Expander management (ctrl)
 
-OSCctrl's networking belongs to `OSCctrlWidget`, and inbound OSC already
+ctrl's networking belongs to `CtrlWidget`, and inbound OSC already
 reaches the UI thread through the widget's action queue. All management
 therefore runs on the UI thread, where module pointers are stable (modules
 are only deleted on the UI thread).
 
-- **Detection:** `OSCctrlWidget::step()` checks `module->leftExpander.module`
+- **Detection:** `CtrlWidget::step()` checks `module->leftExpander.module`
   and `rightExpander.module` for `modelTx`. It tracks one managed
   module id. On a change, it:
   - **attach:** sets the config to `managed = true` and `enabled = false`
@@ -131,15 +131,15 @@ are only deleted on the UI thread).
     exists, and restores its standalone config. Then it sends
     `/set/audio_stream` for the old id with `enabled = 0`.
 - **Client lifecycle:** when the client is lost (missed heartbeats) or
-  re-registers, OSCctrl sets `enabled = false` on the managed module. When
-  the client registers, OSCctrl sends `/set/audio_stream` if a managed
+  re-registers, ctrl sets `enabled = false` on the managed module. When
+  the client registers, ctrl sends `/set/audio_stream` if a managed
   module exists.
-- **Destination:** in managed mode, the host is OSCctrl's direct endpoint
+- **Destination:** in managed mode, the host is ctrl's direct endpoint
   (the client IP) and the port is the one the client sent in
   `/set/audio/enabled`.
 - **Routes:** `/set/audio/*` and `/audio/stats` run as UI actions that look
   the module up by id with `APP->engine->getModule`. If the module is
-  missing or not managed by this OSCctrl, `/set/*` routes reply with
+  missing or not managed by this ctrl, `/set/*` routes reply with
   failure, and stats are ignored.
 
 ### Texture chunk pacing (`OscSender`)
@@ -302,8 +302,8 @@ at 0; epoch starts at a random value per Tx instance. All presets fit in one dat
   buffer (`AndroidRuntimeSettings` `AudioCallbackBufferFrameSize`). If it
   dominates, lower it to 256 frames.
 - The existing `INTERNET` permission covers the new socket.
-- RackSim needs OSCctrl to run at all, so it only plays streams that
-  OSCctrl manages; it starts listening in response to `/set/audio_stream`.
+- RackSim needs ctrl to run at all, so it only plays streams that
+  ctrl manages; it starts listening in response to `/set/audio_stream`.
   A standalone Tx is for the test client and other receivers.
 
 ### Tests
@@ -324,7 +324,7 @@ UE automation tests in `Source/RackSim/Tests/RSJitterBufferTest.cpp` drive
 It reuses `overlay_bench.py`'s `Client`, `connect()`, `summarize()` and JSON
 result and compare code.
 
-- **Managed (default):** connects to OSCctrl, waits for
+- **Managed (default):** connects to ctrl, waits for
   `/set/audio_stream`, sends `/set/audio/enabled 1 <port>`, and reports
   `/audio/stats` every 500 ms from its own simulated jitter buffer at the
   preset target.
@@ -355,7 +355,7 @@ result and compare code.
 1. **CI:** lin-x64, win-x64, mac-x64 and mac-arm64 all build with libopus.
 2. **Local (WSL):** run `audio_bench --passive --host 127.0.0.1` against a
    standalone Tx with every preset. Expect 0 loss and no glitches from
-   `--analyze`. Then do the same in managed mode with OSCctrl.
+   `--analyze`. Then do the same in managed mode with ctrl.
 3. **Wi-Fi:** Rack on Windows, bench on a second machine. Run every preset
    with `--overlays 3` and `--overlays 16`, A/B on `/bench/chunk_pacing`.
    - **Target:** with pacing on, Balanced has 0 underruns at 16 overlays,

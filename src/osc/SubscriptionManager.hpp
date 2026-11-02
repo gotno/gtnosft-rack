@@ -3,13 +3,13 @@
 #include <algorithm>
 #include <vector>
 
-class OSCctrlWidget;
+class CtrlWidget;
 class OscSender;
 class ChunkedManager;
 
 struct SubscriptionManager {
   SubscriptionManager(
-    OSCctrlWidget* ctrl,
+    CtrlWidget* ctrl,
     OscSender* sender,
     ChunkedManager* chunkman
   );
@@ -23,7 +23,7 @@ struct SubscriptionManager {
   // void unsubscribeModuleLights(int64_t moduleId);
 
 private:
-  OSCctrlWidget* ctrl{NULL};
+  CtrlWidget* ctrl{NULL};
   OscSender* osctx{NULL};
   ChunkedManager* chunkman{NULL};
 

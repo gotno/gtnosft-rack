@@ -257,7 +257,7 @@ RenderResult Renderer::renderOverlay(
   rack::app::ModuleWidget* moduleWidget = APP->scene->rack->getModule(moduleId);
   if (!moduleWidget) return MODULE_NOT_FOUND("renderOverlay", moduleId);
 
-  if (moduleWidget->model->slug == "OSCctrl")
+  if (moduleWidget->model->slug == "Ctrl")
     return OVERLAY_BLOCKLISTED("renderOverlay", moduleId);
 
   auto cached = overlayCache.find(moduleId);

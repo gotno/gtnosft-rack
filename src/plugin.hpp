@@ -5,5 +5,5 @@ using namespace rack;
 
 extern Plugin* pluginInstance;
 
-extern Model* modelOSCctrl;
+extern Model* modelCtrl;
 extern Model* modelTx;

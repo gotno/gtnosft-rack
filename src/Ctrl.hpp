@@ -9,7 +9,7 @@
 #include <queue>
 #include <utility>
 
-struct OSCctrl;
+struct Ctrl;
 class OscSender;
 class OscReceiver;
 class ChunkedManager;
@@ -34,7 +34,7 @@ struct SceneAction : rack::widget::Widget {
   }
 };
 
-struct OSCctrl : Module {
+struct Ctrl : Module {
   enum ParamId {
     PARAMS_LEN
   };
@@ -61,18 +61,18 @@ struct OSCctrl : Module {
 
   rack::dsp::SchmittTrigger broadcastEchoThreshold;
 
-  OSCctrl();
+  Ctrl();
   void process(const ProcessArgs &args) override;
 };
 
-struct OSCctrlWidget : ModuleWidget {
+struct CtrlWidget : ModuleWidget {
   OscSender* osctx = NULL;
   OscReceiver* oscrx = NULL;
   ChunkedManager* chunkman = NULL;
   SubscriptionManager* subman = NULL;
 
-  OSCctrlWidget(OSCctrl* module);
-  ~OSCctrlWidget();
+  CtrlWidget(Ctrl* module);
+  ~CtrlWidget();
 
   virtual void step() override;
   void appendContextMenu(Menu* menu) override;

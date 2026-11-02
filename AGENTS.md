@@ -1,6 +1,6 @@
 # Notes for coding agents
 
-gtnosft-rack is a VCV Rack plugin. Its OSCctrl module exposes the patch over
+gtnosft-rack is a VCV Rack plugin. Its ctrl module exposes the patch over
 OSC/UDP: modules, params and lights, plus rendered textures (panels, overlays,
 knobs and so on) streamed to a client as QOI-compressed chunks.
 
@@ -14,7 +14,7 @@ knobs and so on) streamed to a client as QOI-compressed chunks.
 
 ## Map
 
-- `src/OSCctrl.cpp`: the module and widget. `OSCctrlWidget::step()` runs the
+- `src/Ctrl.cpp`: the module and widget. `CtrlWidget::step()` runs the
   UI-thread action queue that every render goes through.
 - `src/osc/`: receiver routes (`OscReceiver.cpp`), the sender thread, and
   chunked sends with retries and acks (`ChunkedManager`, `ChunkedSend/`).

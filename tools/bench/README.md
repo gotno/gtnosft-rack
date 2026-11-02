@@ -4,7 +4,7 @@ Measures the texture/overlay render round trip: from the moment a request is
 received to when its first chunk goes out and the client acks it. It also
 records Rack's frame time, per-texture stream fps, and overlay cache stats.
 
-## 1. Build OSCctrl with instrumentation
+## 1. Build ctrl with instrumentation
 
 ```sh
 ./build-msys.sh BENCH=1     # Windows build
@@ -48,7 +48,7 @@ The examples below use `.venv/bin/python`; on Windows use
 ## 3. Prepare a patch
 
 Save a fixed bench patch so runs are comparable, for example a Scope fed by an
-LFO with the Scope's inputs cabled. Open it in Rack and add an OSCctrl module.
+LFO with the Scope's inputs cabled. Open it in Rack and add a ctrl module.
 
 ## 4. Run
 
@@ -116,7 +116,7 @@ Size is set with `--height` (default 512), optionally with `--width`, or with
 
 ### Networking
 
-- The client binds UDP **7746** (OSCctrl's fixed TX port). Only one client can
+- The client binds UDP **7746** (ctrl's fixed TX port). Only one client can
   be registered at a time, so close any other client first. If another client
   stopped without disconnecting, wait about 5 s for its keepalive to time out.
 - The client finds the host from `/announce` broadcasts. If none arrive (for
@@ -150,7 +150,7 @@ see the metrics below.
 
 ### Testing the client without Rack
 
-`mock_server.py` stands in for OSCctrl with canned stats and small fake
+`mock_server.py` stands in for ctrl with canned stats and small fake
 frames. Use it to check client changes. The numbers it produces are fake.
 
 ```sh
@@ -194,7 +194,7 @@ Other metrics:
 
 - `frame.interval`: Rack's frame start-to-start time, including vsync. Compare
   the idle and stream values to see how much streaming costs the UI.
-- `frame.ctrl_step`: time spent in OSCctrl's `step()`, which includes the
+- `frame.ctrl_step`: time spent in ctrl's `step()`, which includes the
   renders.
 - `client.*`: latencies measured by the client. These include the network.
 - Counters:
@@ -243,7 +243,7 @@ Other metrics:
     they used up `ACTION_BUDGET` (8 ms) and carried the rest to the next
     frame. To compare with running the whole queue in one frame, turn off
     `/bench/action_budget` (int 0), or untick "Budget UI actions per frame"
-    in the OSCctrl menu.
+    in the ctrl menu.
 - `tx.priority_wait` (ms): non-chunk bundler enqueue → send start. Gauge
   `tx.priority_queue.depth`, with `.peak`.
 - Server heartbeats (direct mode, from the heartbeat timer):
@@ -259,7 +259,7 @@ Other metrics:
   - Heartbeats are sent straight from the heartbeat timer thread. To compare
     with the old path through the UI action queue, turn off
     `/bench/heartbeat_direct` (int 0), or untick "Heartbeats skip the UI
-    queue" in the OSCctrl menu. `heartbeat.ui_hop` only means something with
+    queue" in the ctrl menu. `heartbeat.ui_hop` only means something with
     it off.
 - Module widgets built for `/get/module_structure` (and panel renders):
   - tallies `connected_widget.create_module`, `.create_widget`, and
@@ -268,7 +268,7 @@ Other metrics:
     removing the module from the engine).
   - `module_structure.build_ms`: the whole bundler build. Builds over 50 ms
     are logged with their plugin and module slugs.
-- The OSCctrl context menu (bench builds) has "Reset bench" and "Dump bench
+- The ctrl context menu (bench builds) has "Reset bench" and "Dump bench
   report" (to the Rack log), for measuring with any client, e.g. resetting
   before connecting to a large patch and dumping after the initial burst of
   requests.
@@ -309,7 +309,7 @@ the libopus shared library (`--wav` and `--analyze` decode them).
 
 - **Passive** (`--passive`): only listens. Point a standalone Tx at this
   machine's IP, port 7747 (`--audio-port` changes it).
-- **Managed** (default): connects to OSCctrl like `overlay_bench.py` (same
+- **Managed** (default): connects to ctrl like `overlay_bench.py` (same
   `--host`/`--port` discovery), finds the Tx placed directly next to it,
   optionally selects `--preset ID`, enables the stream to this machine, and
   sends `/audio/stats` from the simulated buffer. It disables the stream when

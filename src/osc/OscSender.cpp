@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-#include "../OSCctrl.hpp"
+#include "../Ctrl.hpp"
 #include "Bundler/Bundler.hpp"
 #include "Bundler/BroadcastHeartbeatBundler.hpp"
 #include "Bundler/DirectHeartbeatBundler.hpp"
@@ -12,7 +12,7 @@
 #include "../util/Network.hpp"
 #include "../bench/Bench.hpp"
 
-OscSender::OscSender(OSCctrlWidget* _ctrl): ctrl(_ctrl),
+OscSender::OscSender(CtrlWidget* _ctrl): ctrl(_ctrl),
   msgBuffer(new char[MSG_BUFFER_SIZE]),
   pstream(osc::OutboundPacketStream(msgBuffer, MSG_BUFFER_SIZE)) {
 
@@ -20,7 +20,7 @@ OscSender::OscSender(OSCctrlWidget* _ctrl): ctrl(_ctrl),
   if (Network::calculate_broadcast_address(broadcast_ip)) {
     broadcastEndpoint = IpEndpointName(broadcast_ip.c_str(), TX_PORT);
   } else {
-    WARN("OSCctrl unable to determine network broadcast address!");
+    WARN("ctrl unable to determine network broadcast address!");
   }
   setBroadcasting();
   startQueueWorker();
@@ -56,7 +56,7 @@ osc::OutboundPacketStream OscSender::makeMessage(const std::string& address) {
 }
 
 void OscSender::setBroadcasting() {
-  OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+  Ctrl* module = dynamic_cast<Ctrl*>(ctrl->module);
   module->broadcasting = true;
 
   std::unique_lock<std::mutex> locker(qmutex);
@@ -69,7 +69,7 @@ bool OscSender::isBroadcasting() {
 }
 
 void OscSender::setDirect(char* ip) {
-  OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+  Ctrl* module = dynamic_cast<Ctrl*>(ctrl->module);
   module->broadcasting = false;
 
   std::unique_lock<std::mutex> locker(qmutex);
@@ -86,7 +86,7 @@ std::string OscSender::getDirectHostIp() {
 }
 
 void OscSender::sendHeartbeat(BENCH(bench::time_point firedAt)) {
-  OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+  Ctrl* module = dynamic_cast<Ctrl*>(ctrl->module);
 
   Bundler* heartbeat;
   if (isBroadcasting()) {
@@ -157,7 +157,7 @@ void OscSender::stopQueueWorker() {
 
 void OscSender::enqueueBundler(Bundler* bundler) {
   if (!isBroadcasting()) {
-    OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+    Ctrl* module = dynamic_cast<Ctrl*>(ctrl->module);
     module->txPulse.trigger();
   }
 
@@ -172,7 +172,7 @@ void OscSender::enqueueBundler(Bundler* bundler) {
 
 void OscSender::enqueueChunk(Bundler* bundler) {
   if (!isBroadcasting()) {
-    OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+    Ctrl* module = dynamic_cast<Ctrl*>(ctrl->module);
     module->txPulse.trigger();
   }
 

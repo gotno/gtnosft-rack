@@ -5,7 +5,7 @@
 
 #include "OscReceiver.hpp"
 
-#include "../OSCctrl.hpp"
+#include "../Ctrl.hpp"
 #include "OscSender.hpp"
 #include "ChunkedManager.hpp"
 #include "SubscriptionManager.hpp"
@@ -32,7 +32,7 @@
 #include "Bundler/AudioBundlers.hpp"
 
 OscReceiver::OscReceiver(
-  OSCctrlWidget* _ctrl,
+  CtrlWidget* _ctrl,
   OscSender* oscSender,
   ChunkedManager* chunkedManager,
   SubscriptionManager* subscriptionManager
@@ -69,7 +69,7 @@ void OscReceiver::startListener() {
     return;
   }
 
-  INFO("OSCctrl started OSC receiver on port %d", activePort);
+  INFO("ctrl started OSC receiver on port %d", activePort);
 }
 
 void OscReceiver::endListener() {
@@ -401,7 +401,7 @@ void OscReceiver::generateRoutes() {
   routes.emplace(
     "/keepalive",
     [&, this](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
-      OSCctrl* module = dynamic_cast<OSCctrl*>(ctrl->module);
+      Ctrl* module = dynamic_cast<Ctrl*>(ctrl->module);
       module->hbInPulse.trigger();
 
       std::scoped_lock<std::mutex> lock(heartbeatMutex);

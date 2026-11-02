@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tx audio stream test client.
 
-Managed (default): registers with OSCctrl like RackSim does, enables the
+Managed (default): registers with ctrl like RackSim does, enables the
 Tx next to it, and reports /audio/stats from a simulated jitter buffer.
 --passive: only listens, for a standalone Tx pointed at this machine.
 
@@ -134,7 +134,7 @@ class AudioClient(Client):
     def wait_stream(self, timeout):
         if not self.wait_for(lambda: self.audio_streams, timeout):
             raise BenchError(
-                "no /set/audio_stream. is a Tx placed directly next to OSCctrl?"
+                "no /set/audio_stream. is a Tx placed directly next to ctrl?"
             )
         return next(iter(self.audio_streams.values()))
 
@@ -406,8 +406,8 @@ def main():
     sub = parser.add_subparsers(required=True)
 
     run = sub.add_parser("run", help="measure a Tx stream")
-    run.add_argument("--host", help="OSCctrl host (default: discover)")
-    run.add_argument("--port", type=int, default=7225, help="OSCctrl listen port")
+    run.add_argument("--host", help="ctrl host (default: discover)")
+    run.add_argument("--port", type=int, default=7225, help="ctrl listen port")
     run.add_argument("--discover-timeout", type=float, default=3.0)
     run.add_argument("-v", "--verbose", action="store_true")
     run.add_argument("--passive", action="store_true", help="only listen (standalone Tx)")

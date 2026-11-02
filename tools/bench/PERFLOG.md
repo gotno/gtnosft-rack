@@ -261,7 +261,7 @@ reached 8.9 s; `heartbeat.send_wait` (sender queue) stayed under 0.2 ms.
 **Fix:** heartbeats now have their own sender mailbox, sent ahead of
 everything else, and the heartbeat timer thread fills it directly (it sets
 the Rack context first, for `APP`). The `/register` heartbeat still goes
-through the UI queue. A/B: `/bench/heartbeat_direct`, or the OSCctrl menu.
+through the UI queue. A/B: `/bench/heartbeat_direct`, or the ctrl menu.
 
 | Run | `heartbeat.gap` max | `heartbeat.latency` max | Result |
 |---|---|---|---|
@@ -296,7 +296,7 @@ whole burst at once (445 actions, 1.8 s).
 
 **Fix:** `processActionQueue` runs queued actions in order until 8 ms of the
 frame is used (`ACTION_BUDGET`, at least one action per frame) and carries
-the rest over. A/B: `/bench/action_budget`, or the OSCctrl menu.
+the rest over. A/B: `/bench/action_budget`, or the ctrl menu.
 
 | Run | worst frame | `frame.ctrl_step` p99 | `ui.action_wait` p50 / max | `texture.queue_wait` p50 / max |
 |---|---|---|---|---|
@@ -315,7 +315,7 @@ the storm.
 
 Tx streams Opus or PCM over its own UDP socket, marked DSCP EF / WMM
 voice (see `API.md`, "Audio packet format"). Texture chunks share the
-Wi-Fi link, so OSCctrl paces them from the client's `/audio/stats`
+Wi-Fi link, so ctrl paces them from the client's `/audio/stats`
 (`ChunkPacer`: AIMD on underruns, losses and jitter spikes; unlimited when
 clean). A/B: `/bench/chunk_pacing`, or `audio_bench.py --no-chunk-pacing`.
 

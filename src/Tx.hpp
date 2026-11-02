@@ -72,8 +72,8 @@ struct Tx : Module {
   TxConfig getStandaloneConfig();
   void setStandalone(const std::function<void(TxConfig&)>& editConfig);
 
-  void attachToOSCctrl();
-  void detachFromOSCctrl();
+  void attachToCtrl();
+  void detachFromCtrl();
 
   void setManagedStreamEnabled(bool enabled, const std::string& host, int port);
 

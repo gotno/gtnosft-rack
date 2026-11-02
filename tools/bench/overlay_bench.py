@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Overlay render benchmark client for OSCctrl.
+"""Overlay render benchmark client for ctrl.
 
 Requires the plugin to be built with benchmark instrumentation
 (`./build-wsl.sh BENCH=1` / `./build-msys.sh BENCH=1`). See README.md.
@@ -185,7 +185,7 @@ class Client:
             self.sock.bind(("0.0.0.0", CLIENT_PORT))
         except OSError as e:
             raise BenchError(
-                f"can't bind UDP {CLIENT_PORT} ({e}). is another OSCctrl client running?"
+                f"can't bind UDP {CLIENT_PORT} ({e}). is another ctrl client running?"
             )
         self.sock.settimeout(0.2)
         # Linux reports double the usable size
@@ -372,7 +372,7 @@ class Client:
         print(f"listening for /announce on :{CLIENT_PORT} for {timeout:.0f}s...")
         if self.wait_for(lambda: self.announce is not None, timeout):
             a = self.announce
-            print(f"  found OSCctrl at {a['host']}:{a['port']} (patch: {a['patch']})")
+            print(f"  found ctrl at {a['host']}:{a['port']} (patch: {a['patch']})")
             return a["host"], a["port"]
         return None
 
@@ -1090,8 +1090,8 @@ def main():
     sub = parser.add_subparsers(required=True)
 
     def add_connection_args(p):
-        p.add_argument("--host", help="OSCctrl host (default: discover, then WSL Windows host)")
-        p.add_argument("--port", type=int, default=DEFAULT_SERVER_PORT, help="OSCctrl listen port")
+        p.add_argument("--host", help="ctrl host (default: discover, then WSL Windows host)")
+        p.add_argument("--port", type=int, default=DEFAULT_SERVER_PORT, help="ctrl listen port")
         p.add_argument("--discover-timeout", type=float, default=3.0)
         p.add_argument("-v", "--verbose", action="store_true")
 

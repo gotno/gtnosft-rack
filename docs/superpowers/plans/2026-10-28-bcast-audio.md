@@ -3,7 +3,7 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stream stereo audio from a new Rack module, Tx, to the RackSim
-Unreal client over LAN Wi-Fi. Tx works standalone and as an OSCctrl
+Unreal client over LAN Wi-Fi. Tx works standalone and as an ctrl
 expander. The plan also adds a Python test client that verifies the Rack side
 without UE.
 
@@ -13,7 +13,7 @@ without UE.
 - **Streamer thread:** a per-module thread resamples to 48 kHz, encodes each
   frame (Opus or PCM), adds redundant frames, and sends binary UDP packets to
   port 7747 with DSCP EF.
-- **OSCctrl:** when Tx sits next to OSCctrl, OSCctrl manages it over OSC
+- **ctrl:** when Tx sits next to ctrl, ctrl manages it over OSC
   and paces texture chunk sends based on the client's audio stats.
 - **RackSim:** receives packets on its own thread, then plays them through an
   adaptive jitter buffer in a `USynthComponent`.
@@ -161,7 +161,7 @@ The spec's intent is unchanged in each case.
 | `src/osc/OscSender.{hpp,cpp}` | modify | pacer in `processQueue`, `directHost()` |
 | `src/osc/Bundler/AudioBundlers.{hpp,cpp}` | create | `/set/audio_stream` and acks |
 | `src/osc/OscReceiver.cpp` | modify | audio routes, bench toggle, client lifecycle hooks |
-| `src/OSCctrl.{hpp,cpp}` | modify | expander detection and management |
+| `src/Ctrl.{hpp,cpp}` | modify | expander detection and management |
 | `API.md` | modify | binary format and routes |
 | `tools/bench/audio_analysis.py`, `test_audio_analysis.py` | create | pure analysis and tests |
 | `tools/bench/audio_bench.py` | create | test client |
@@ -186,7 +186,7 @@ The spec's intent is unchanged in each case.
 
 ```
 1 deps+harness ─► 2 packet ─► 3 encoder ─┐
-4 py analysis ─► 5 py client             ├─► 6 module ─► 7 streamer ─► 9 OSCctrl ─► 14 verify
+4 py analysis ─► 5 py client             ├─► 6 module ─► 7 streamer ─► 9 ctrl ─► 14 verify
 8 pacer ──────────────────────────────────────────────────────────────┘                ▲
 10 UE protocol ─► 11 jitter buffer ─► 12 receiver/component ─► 13 comms ─────────────────┘
 ```
@@ -1571,10 +1571,10 @@ In `main()`, add the arguments:
     ap.add_argument("--audio-to", metavar="HOST:PORT",
                     help="also send a fake standalone Tx stream here")
     ap.add_argument("--audio", action="store_true",
-                    help="act as OSCctrl with a managed Tx next to it")
+                    help="act as ctrl with a managed Tx next to it")
 ```
 
-After `print(f"mock OSCctrl listening ...")`:
+After `print(f"mock ctrl listening ...")`:
 
 ```python
     if args.audio_to:
@@ -1630,7 +1630,7 @@ the canned report list.
 #!/usr/bin/env python3
 """Tx audio stream test client.
 
-Managed (default): registers with OSCctrl like RackSim does, enables the
+Managed (default): registers with ctrl like RackSim does, enables the
 Tx next to it, and reports /audio/stats from a simulated jitter buffer.
 --passive: only listens, for a standalone Tx pointed at this machine.
 
@@ -1763,7 +1763,7 @@ class AudioClient(Client):
     def wait_stream(self, timeout):
         if not self.wait_for(lambda: self.audio_streams, timeout):
             raise BenchError(
-                "no /set/audio_stream. is a Tx placed directly next to OSCctrl?"
+                "no /set/audio_stream. is a Tx placed directly next to ctrl?"
             )
         return next(iter(self.audio_streams.values()))
 
@@ -2035,8 +2035,8 @@ def main():
     sub = parser.add_subparsers(required=True)
 
     run = sub.add_parser("run", help="measure a Tx stream")
-    run.add_argument("--host", help="OSCctrl host (default: discover)")
-    run.add_argument("--port", type=int, default=7225, help="OSCctrl listen port")
+    run.add_argument("--host", help="ctrl host (default: discover)")
+    run.add_argument("--port", type=int, default=7225, help="ctrl listen port")
     run.add_argument("--discover-timeout", type=float, default=3.0)
     run.add_argument("-v", "--verbose", action="store_true")
     run.add_argument("--passive", action="store_true", help="only listen (standalone Tx)")
@@ -2172,7 +2172,7 @@ opuslib>=3.0
   section, covering:
   - what it measures;
   - passive mode (point a standalone Tx at this machine's IP, port 7747);
-  - managed mode (Tx next to OSCctrl);
+  - managed mode (Tx next to ctrl);
   - `--overlays N` for A/B with `--no-chunk-pacing`;
   - `--analyze` (patch a VCO sine into Tx);
   - `--wav`.
@@ -2240,7 +2240,7 @@ Notes (additions to the deviations list):
   `Renderer::renderPanel` hides every widget child except the panel. A
   label widget would never reach RackSim's panel texture, so
   `tools/panel/tx_af_panel.py` turns the labels into paths with fontTools.
-- **OSCctrl surrogates.** `util::makeConnectedModuleWidget` adds a fresh
+- **ctrl surrogates.** `util::makeConnectedModuleWidget` adds a fresh
   `Tx` to the engine for some texture renders. Its default config is
   disabled, so its streamer thread idles (one 20 ms wakeup) and sends
   nothing.
@@ -2252,7 +2252,7 @@ Notes (additions to the deviations list):
 ```python
 #!/usr/bin/env python3
 """Writes res/Tx.svg. Rack's SVG renderer has no text support, and
-OSCctrl's panel renders show only the SVG, so the labels are glyph paths.
+ctrl's panel renders show only the SVG, so the labels are glyph paths.
 
   python tools/panel/tx_af_panel.py [--font PATH] [--out PATH]
 """
@@ -2434,7 +2434,7 @@ struct Tx : Module {
   uint32_t streamId() const { return (uint32_t)id; }
 
   // config API, any thread. version bumps whenever the effective config
-  // (standalone, or managed while attached to OSCctrl) changes
+  // (standalone, or managed while attached to ctrl) changes
   TxSnapshot snapshot();
   bool isManaged() const { return managed.load(); }
   TxConfig standaloneConfig();
@@ -2710,7 +2710,7 @@ void TxWidget::appendContextMenu(Menu* menu) {
 
   if (module->isManaged()) {
     TxSnapshot snap = module->snapshot();
-    menu->addChild(createMenuLabel("Managed by OSCctrl"));
+    menu->addChild(createMenuLabel("Managed mode"));
     menu->addChild(createMenuLabel(
       snap.config.enabled
         ? string::f("Streaming to %s:%d", snap.config.host.c_str(), snap.config.port)
@@ -2776,13 +2776,13 @@ Model* modelTx = createModel<Tx, TxWidget>("Tx");
 
 - [ ] **Step 5: Register the model**
 
-`src/plugin.hpp`, after `extern Model* modelOSCctrl;`:
+`src/plugin.hpp`, after `extern Model* modelctrl;`:
 
 ```cpp
 extern Model* modelTx;
 ```
 
-`src/plugin.cpp`, after `p->addModel(modelOSCctrl);`:
+`src/plugin.cpp`, after `p->addModel(modelctrl);`:
 
 ```cpp
 	p->addModel(modelTx);
@@ -3724,13 +3724,13 @@ In `pacer_jitter_trouble` the four 1 ms reports set the 10 s minimum, so
 
 ---
 
-## Task 9: OSCctrl integration
+## Task 9: ctrl integration
 
 **Files:**
 - Create: `src/osc/Bundler/AudioBundlers.hpp`, `src/osc/Bundler/AudioBundlers.cpp`
 - Modify: `src/osc/OscSender.hpp`, `src/osc/OscSender.cpp`
 - Modify: `src/osc/OscReceiver.cpp`
-- Modify: `src/OSCctrl.hpp`, `src/OSCctrl.cpp`
+- Modify: `src/Ctrl.hpp`, `src/Ctrl.cpp`
 - Modify: `API.md`
 
 **Interfaces:**
@@ -3743,7 +3743,7 @@ In `pacer_jitter_trouble` the four 1 ms reports set the 10 s minimum, so
 - Produces:
   - `OscSender::pacer` and `OscSender::directHost()`;
   - `AudioStreamBundler` and `AudioAckBundler`;
-  - on `OSCctrlWidget`: `managedAudioId`, `managedAudio()`,
+  - on `CtrlWidget`: `managedAudioId`, `managedAudio()`,
     `stepAudioExpander()`, `announceAudioStream()`, `onClientRegistered()`,
     `onClientGone()`;
   - routes `/set/audio/enabled`, `/set/audio/preset`, `/audio/stats` and
@@ -3943,14 +3943,14 @@ queued, so the loop re-checks the mailboxes and the pacer.
 `stopQueueWorker` enqueues a noop priority bundler, which also ends a pacing
 wait.
 
-- [ ] **Step 3: Add the expander management to `OSCctrlWidget`**
+- [ ] **Step 3: Add the expander management to `CtrlWidget`**
 
-`src/OSCctrl.hpp`: add `struct Tx;` next to the other forward
-declarations. In `struct OSCctrlWidget`, after `void appendContextMenu(Menu* menu) override;`,
+`src/Ctrl.hpp`: add `struct Tx;` next to the other forward
+declarations. In `struct CtrlWidget`, after `void appendContextMenu(Menu* menu) override;`,
 add:
 
 ```cpp
-  // a Tx directly left or right of the primary OSCctrl. UI thread only
+  // a Tx directly left or right of the primary ctrl. UI thread only
   int64_t managedAudioId = -1;
   Tx* managedAudio();
   void stepAudioExpander();
@@ -3961,39 +3961,39 @@ add:
   void onClientGone();
 ```
 
-`src/OSCctrl.cpp`: add includes:
+`src/Ctrl.cpp`: add includes:
 
 ```cpp
 #include "audio/Tx.hpp"
 #include "osc/Bundler/AudioBundlers.hpp"
 ```
 
-In `OSCctrlWidget::step()`, after `processActionQueue();`:
+In `CtrlWidget::step()`, after `processActionQueue();`:
 
 ```cpp
   if (osctx) stepAudioExpander();
 ```
 
-At the top of `OSCctrlWidget::~OSCctrlWidget()`, after
-`bool isPrimaryOSCctrl = osctx != NULL;`:
+At the top of `CtrlWidget::~CtrlWidget()`, after
+`bool isPrimaryCtrl = osctx != NULL;`:
 
 ```cpp
   // hand the expander back to its own settings
-  if (isPrimaryOSCctrl) {
+  if (isPrimaryCtrl) {
     if (Tx* audio = managedAudio()) audio->setManaged(false);
   }
 ```
 
-Add, after `OSCctrlWidget::step()`:
+Add, after `CtrlWidget::step()`:
 
 ```cpp
-Tx* OSCctrlWidget::managedAudio() {
+Tx* CtrlWidget::managedAudio() {
   if (managedAudioId < 0) return nullptr;
   Module* m = APP->engine->getModule(managedAudioId);
   return (m && m->model == modelTx) ? static_cast<Tx*>(m) : nullptr;
 }
 
-void OSCctrlWidget::stepAudioExpander() {
+void CtrlWidget::stepAudioExpander() {
   int64_t foundId = -1;
   for (int64_t id : {module->leftExpander.moduleId, module->rightExpander.moduleId}) {
     if (id < 0) continue;
@@ -4021,7 +4021,7 @@ void OSCctrlWidget::stepAudioExpander() {
   }
 }
 
-void OSCctrlWidget::announceAudioStream() {
+void CtrlWidget::announceAudioStream() {
   if (!osctx || osctx->isBroadcasting()) return;
   Tx* audio = managedAudio();
   if (!audio) return;
@@ -4035,13 +4035,13 @@ void OSCctrlWidget::announceAudioStream() {
   ));
 }
 
-void OSCctrlWidget::onClientRegistered() {
+void CtrlWidget::onClientRegistered() {
   if (Tx* audio = managedAudio()) audio->setManagedEnabled(false, "", 0);
   osctx->pacer.setActive(false, std::chrono::steady_clock::now());
   announceAudioStream();
 }
 
-void OSCctrlWidget::onClientGone() {
+void CtrlWidget::onClientGone() {
   if (Tx* audio = managedAudio()) audio->setManagedEnabled(false, "", 0);
   osctx->pacer.setActive(false, std::chrono::steady_clock::now());
 }
@@ -4187,7 +4187,7 @@ Add a section before `## Typical Usage Flow`:
 ````markdown
 ### Audio (Tx expander)
 
-A Tx module placed directly left or right of OSCctrl is managed by it.
+A Tx module placed directly left or right of ctrl is managed by it.
 Its own host/port/preset settings are ignored while managed, and it only
 streams when the registered client asks. Audio goes over its own UDP
 socket, not OSC (see "Audio packet format").
@@ -4220,7 +4220,7 @@ no client is registered.
 **Usage:**
 - Registering again, or missing heartbeats, stops the stream. Re-enable it
   after `/register`.
-- While enabled, OSCctrl paces texture chunks from `/audio/stats`.
+- While enabled, ctrl paces texture chunks from `/audio/stats`.
 
 #### `/set/audio/preset <moduleId> <presetId>`
 **Direction:** Client → Server
@@ -4286,14 +4286,14 @@ Expected:
 - [ ] **Step 7: Live check, managed (the user runs it on Windows, BENCH build)**
 
 The user builds with `./build-msys.sh -j8 BENCH=1` and places a Tx
-directly right of OSCctrl, with a VCO into it. Then, from a native Windows
+directly right of ctrl, with a VCO into it. Then, from a native Windows
 shell in `tools/bench`:
 1. `python audio_bench.py run --duration 10 --preset 3 --analyze --json m3.json`.
    Expect:
    - the client discovers Rack and finds the stream;
    - the light turns blue at 30% and then full blue while streaming;
    - 0 lost and 0 glitches;
-   - the Tx menu shows "Managed by OSCctrl" and the client stats;
+   - the Tx menu shows "Managed mode" and the client stats;
    - at the end the stream is disabled (dim blue).
 2. Repeat for presets 0, 1 and 2. Expect 0 lost with clean sine analysis.
 3. `python audio_bench.py run --duration 20 --overlays 8 --json pace-on.json`
@@ -4301,7 +4301,7 @@ shell in `tools/bench`:
    `python audio_bench.py compare pace-off.json pace-on.json`. On wired
    localhost, pacing rarely triggers, so expect `server.pacing_rate_mbps`
    0 in both and overlay fps within noise. Wi-Fi A/B comes in Task 14.
-4. Drag Tx away from OSCctrl mid-run. The client gets
+4. Drag Tx away from ctrl mid-run. The client gets
    `/set/audio_stream ... enabled 0`, and the light goes to standalone
    (off, or green if Stream was on in its own menu).
 5. Stop the client without cleanup (Ctrl+C twice). After the heartbeat
@@ -5501,7 +5501,7 @@ see what the controller is doing. Most likely to need tuning:
   - `ARSNetAudioSpeaker : AActor` with the component as root:
     `bool Play(uint32 StreamId)` (listens on first use), `StopPlayback()`,
     `IsPlaying()`, `GetStats()`.
-  - Console commands for testing without OSCctrl: `rs.NetAudio.DebugPlay <streamId>`,
+  - Console commands for testing without ctrl: `rs.NetAudio.DebugPlay <streamId>`,
     `rs.NetAudio.DebugStats`, `rs.NetAudio.DebugStop`.
 
 Threads:
@@ -5884,14 +5884,14 @@ FRSJitterBuffer::FStats ARSNetAudioSpeaker::GetStats() const {
   return Audio->GetStats();
 }
 
-// Testing without OSCctrl, e.g. against `mock_server.py --audio-to`.
-// RackSim itself only plays streams that OSCctrl offers.
+// Testing without ctrl, e.g. against `mock_server.py --audio-to`.
+// RackSim itself only plays streams that ctrl offers.
 namespace {
 TWeakObjectPtr<ARSNetAudioSpeaker> GDebugSpeaker;
 
 FAutoConsoleCommandWithWorldAndArgs GNetAudioDebugPlay(
   TEXT("rs.NetAudio.DebugPlay"),
-  TEXT("rs.NetAudio.DebugPlay <streamId>: play a Tx stream without OSCctrl (testing)"),
+  TEXT("rs.NetAudio.DebugPlay <streamId>: play a Tx stream without ctrl (testing)"),
   FConsoleCommandWithWorldAndArgsDelegate::CreateLambda(
     [](const TArray<FString>& Args, UWorld* World) {
       if (!World || Args.Num() < 1) return;
@@ -6195,7 +6195,7 @@ After `void AckLightSubscription(int64 ModuleId, bool Success);`:
 
 ```cpp
 
-  // Tx audio (managed by OSCctrl)
+  // Tx audio (managed by ctrl)
   void HandleAudioStream(
     int64 ModuleId,
     uint32 StreamId,
@@ -6400,10 +6400,10 @@ and the 10 `RackSim.NetAudio` tests still pass.
 - [ ] **Step 6: Live check (the user runs it)**
 
 Rack on Windows (BENCH build from Task 9) with a VCO into a Tx directly
-right of OSCctrl. RackSim in PIE, then on Quest:
+right of ctrl. RackSim in PIE, then on Quest:
 1. Connect. Expect:
    - the Tx light goes full blue and the VCO is audible within about 1 s;
-   - the Tx menu shows "Managed by OSCctrl" and a client stats line that
+   - the Tx menu shows "Managed mode" and a client stats line that
      updates about twice a second: 0 underruns, jitter of a few ms, buffer
      near 40 ms.
 2. `rs.NetAudio.Preset 0`, then 2, then 3. Each time, expect a short gap,
@@ -6411,7 +6411,7 @@ right of OSCctrl. RackSim in PIE, then on Quest:
    20, 80 and 20 ms. `rs.NetAudio.Preset 1` restores Balanced.
 3. Open several overlays while listening. Audio stays clean; on Wi-Fi the
    stats may show jitter, but no repeated underruns.
-4. Drag Tx away from OSCctrl. Expect silence within about 1 s, a
+4. Drag Tx away from ctrl. Expect silence within about 1 s, a
    `NetAudio: Rack refused stream` warning in the log, and the light off (or
    green if Stream is on in its own menu). Drag it back: audio returns.
 5. Delete Tx, then undo: audio returns (the undo restores the module id).
@@ -6547,7 +6547,7 @@ patches", filled in from Steps 2 and 4:
 
 Tx streams Opus or PCM over its own UDP socket, marked DSCP EF / WMM
 voice (see `API.md`, "Audio packet format"). Texture chunks share the
-Wi-Fi link, so OSCctrl paces them from the client's `/audio/stats`
+Wi-Fi link, so ctrl paces them from the client's `/audio/stats`
 (`ChunkPacer`: AIMD on underruns, losses and jitter spikes; unlimited when
 clean). A/B: `/bench/chunk_pacing`, or `audio_bench.py --no-chunk-pacing`.
 

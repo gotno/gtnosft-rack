@@ -1,15 +1,15 @@
-# OSCctrl API Documentation
+# ctrl API Documentation
 
 ## Overview
 
-OSCctrl provides a bidirectional [OSC (Open Sound Control)](https://ccrma.stanford.edu/groups/osc/index.html) network API for controlling and monitoring VCV Rack, enabling remote control, state synchronization, and visual rendering of modules and their components.
+ctrl provides a bidirectional [OSC (Open Sound Control)](https://ccrma.stanford.edu/groups/osc/index.html) network API for controlling and monitoring VCV Rack, enabling remote control, state synchronization, and visual rendering of modules and their components.
 
 !! something about all messages being bundled
 
 ## Connection Flow
 ### 1. Discovery Phase (Broadcast Mode)
 
-OSCctrl starts in **broadcast mode**, broadcasting a message on the local network at regular intervals, announcing its presence and providing the information needed to register. In broadcast mode, the server has only a single route, `/register`.
+ctrl starts in **broadcast mode**, broadcasting a message on the local network at regular intervals, announcing its presence and providing the information needed to register. In broadcast mode, the server has only a single route, `/register`.
 
 #### Announcement
 
@@ -39,7 +39,7 @@ Once you've discovered the server, register to switch to **direct unicast mode**
 
 ### 3. Heartbeat Maintenance
 
-After registration, you may maintain the connection by sending periodic heartbeats. Once OSCctrl has received a heartbeat, it will start watching for subsequent heartbeats. If it misses 5 consecutive heartbeats, it will switch back to broadcast mode and cancel any subscriptions.
+After registration, you may maintain the connection by sending periodic heartbeats. Once ctrl has received a heartbeat, it will start watching for subsequent heartbeats. If it misses 5 consecutive heartbeats, it will switch back to broadcast mode and cancel any subscriptions.
 
 **Request:** `/keepalive`
 * (no arguments)
@@ -80,7 +80,7 @@ In direct unicast mode, switch connection monitoring on. The server will then wa
 ---
 ### Patch Management
 #### Patch info `/get/patch_info`
-Request current patch information. The OSCctrl module id can be useful for disambiguating never-saved patches or patches that share a filename.
+Request current patch information. The ctrl module id can be useful for disambiguating never-saved patches or patches that share a filename.
 
 **Request:** `/get/patch_info`
 * (no arguments)
@@ -89,7 +89,7 @@ Request current patch information. The OSCctrl module id can be useful for disam
 
 | index | type | contents | description |
 |---:|---|---|---|
-| 0 | int64 | OSCctrl id | module id of OSCctrl module |
+| 0 | int64 | ctrl id | module id of ctrl module |
 | 1 | string | filename | current patch filename (empty string for never-saved patch) |
 
 
@@ -121,7 +121,7 @@ Get the id, plugin slug, and module slug for each module in the patch.
 |---:|---|---|---|
 | 0 | int64 | module id | rack's unique module id for the module instance |
 | 1 | string | plugin slug | rack's unique library slug for the module's plugin, eg 'gotnosoft' |
-| 2 | string | module slug | rack's unique library slug for the module, eg 'OSCctrl' |
+| 2 | string | module slug | rack's unique library slug for the module, eg 'Ctrl' |
 ---
 
 ### Structure
@@ -132,7 +132,7 @@ Structure represents the general blueprint for a module and its params, ports an
 | index | type | contents | description |
 |---:|---|---|---|
 | 0 | string | plugin slug | rack's unique library slug for the module's plugin, eg 'gotnosoft' |
-| 1 | string | module slug | rack's unique library slug for the module, eg 'OSCctrl' |
+| 1 | string | module slug | rack's unique library slug for the module, eg 'Ctrl' |
 
 
 **Response:** Multiple messages describing the module and its parameters, ports, and lights.
@@ -143,7 +143,7 @@ Structure represents the general blueprint for a module and its params, ports an
 |---:|---|---|---|
 | 0 | int64 | structure id | unique id for this module structure definition, also sent with payloads for the module's params, ports, and lights |
 | 1 | string | plugin slug | rack's unique library slug for the module's plugin, eg 'gotnosoft' |
-| 2 | string | module slug | rack's unique library slug for the module, eg 'OSCctrl' |
+| 2 | string | module slug | rack's unique library slug for the module, eg 'Ctrl' |
 | 3 | float | size x | width of the module |
 | 4 | float | size y| height of the module |
 | 5 | int64 | panel texture id | unique id for requesting a render of this module's panel |
@@ -467,7 +467,7 @@ Arguments:
 
 ### Audio (Tx expander)
 
-A Tx module placed directly left or right of OSCctrl is managed by it.
+A Tx module placed directly left or right of ctrl is managed by it.
 Its own host/port settings are ignored while managed, and it only
 streams when the registered client asks. The preset is shared: the Tx's
 knob or menu and `/set/audio/preset` all change it, and a change made in Rack
@@ -508,7 +508,7 @@ no client is registered.
 **Usage:**
 - Registering again, or missing heartbeats, stops the stream. Re-enable it
   after `/register`.
-- While enabled, OSCctrl paces texture chunks from `/audio/stats`.
+- While enabled, ctrl paces texture chunks from `/audio/stats`.
 
 #### `/set/audio/preset <moduleId> <presetId>`
 **Direction:** Client → Server

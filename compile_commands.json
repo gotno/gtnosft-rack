@@ -76,12 +76,12 @@
       "-march=nehalem",
       "-c",
       "-o",
-      "build/src/OSCctrl.cpp.o",
-      "src/OSCctrl.cpp"
+      "build/src/Ctrl.cpp.o",
+      "src/Ctrl.cpp"
     ],
     "directory": "/home/ont/dev/rack/gtnosft-rack",
-    "file": "/home/ont/dev/rack/gtnosft-rack/src/OSCctrl.cpp",
-    "output": "/home/ont/dev/rack/gtnosft-rack/build/src/OSCctrl.cpp.o"
+    "file": "/home/ont/dev/rack/gtnosft-rack/src/Ctrl.cpp",
+    "output": "/home/ont/dev/rack/gtnosft-rack/build/src/Ctrl.cpp.o"
   },
   {
     "arguments": [
