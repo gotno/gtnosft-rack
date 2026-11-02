@@ -59,7 +59,7 @@ struct OSCctrl : Module {
 
   rack::dsp::ClockDivider lightDivider;
 
-  rack::dsp::SchmittTrigger bcastEchoThreshold;
+  rack::dsp::SchmittTrigger broadcastEchoThreshold;
 
   OSCctrl();
   void process(const ProcessArgs &args) override;

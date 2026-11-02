@@ -35,7 +35,7 @@ void OSCctrl::process(const ProcessArgs& args) {
       );
 
       bool delayedPulse =
-        bcastEchoThreshold.process(
+        broadcastEchoThreshold.process(
           1.f - lights[TX_LIGHT].getBrightness(),
           0.1f,
           0.3f
