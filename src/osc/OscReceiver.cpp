@@ -134,6 +134,7 @@ void OscReceiver::startHeartbeat() {
       )
       lastHeartbeatRxTime = std::chrono::steady_clock::time_point::min();
       missedHeartbeats = 0;
+      ++clientSession;
       osctx->setBroadcasting();
 
       subman->stop();
@@ -190,14 +191,35 @@ void OscReceiver::ProcessMessage(
   }
 }
 
+void OscReceiver::enqueueClientAction(
+  std::function<void()> action,
+  const char* tag
+) {
+  uint64_t session = clientSession.load();
+  ctrl->enqueueAction([this, session, action = std::move(action)]() {
+    if (session != clientSession.load()) return;
+    action();
+  }, tag);
+}
+
 void OscReceiver::renderPendingTexture(
   PendingTextureKey key,
-  std::shared_ptr<PendingTexture> pending
+  std::shared_ptr<PendingTexture> pending,
+  uint64_t session
 ) {
+  if (session != clientSession.load()) {
+    // drop it so a later request for the same key isn't coalesced into it
+    std::lock_guard<std::mutex> lock(pendingTexturesMutex);
+    auto it = pendingTextures.find(key);
+    if (it != pendingTextures.end() && it->second == pending)
+      pendingTextures.erase(it);
+    return;
+  }
+
   if (chunkman->backedUp()) {
     BENCH(bench::count("texture_requests.deferred");)
-    ctrl->enqueueAction([this, key, pending]() {
-      renderPendingTexture(key, pending);
+    ctrl->enqueueAction([this, key, pending, session]() {
+      renderPendingTexture(key, pending, session);
     }, "texture.deferred");
     return;
   }
@@ -384,6 +406,8 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName& remoteEndpoint) {
       if (!osctx->isBroadcasting()) return;
 
+      ++clientSession;
+
       char* ip = (char*)malloc(IpEndpointName::ADDRESS_STRING_LENGTH + 1);
       remoteEndpoint.AddressAsString(ip);
       osctx->setDirect(ip);
@@ -418,7 +442,7 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       (void)args;
 
-      ctrl->enqueueAction([this]() {
+      enqueueClientAction([this]() {
         osctx->enqueueBundler(new SettingsBundler());
       }, "settings");
     }
@@ -430,7 +454,7 @@ void OscReceiver::generateRoutes() {
       (void)args;
 
       int64_t ctrlId = ctrl->module->id;
-      ctrl->enqueueAction([=]() {
+      enqueueClientAction([=]() {
         osctx->enqueueBundler(new PatchInfoBundler(ctrlId));
       }, "patch_info");
     }
@@ -441,7 +465,7 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       (void)args;
 
-      ctrl->enqueueAction([&]() {
+      enqueueClientAction([&]() {
         osctx->enqueueBundler(new ModuleStubsBundler());
       }, "module_stubs");
     }
@@ -452,7 +476,7 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       (void)args;
 
-      ctrl->enqueueAction([&]() {
+      enqueueClientAction([&]() {
         osctx->enqueueBundler(new CablesBundler());
       }, "cables");
     }
@@ -464,7 +488,7 @@ void OscReceiver::generateRoutes() {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
 
-      ctrl->enqueueAction([this, pluginSlug, moduleSlug]() {
+      enqueueClientAction([this, pluginSlug, moduleSlug]() {
         ModuleStructureBundler* bundler =
           new ModuleStructureBundler(pluginSlug, moduleSlug);
         osctx->enqueueBundler(bundler);
@@ -527,8 +551,9 @@ void OscReceiver::generateRoutes() {
         BENCH(pending->trace = bench::begin(textureId, sequenceId);)
       }
 
-      ctrl->enqueueAction([this, key, pending]() {
-        renderPendingTexture(key, pending);
+      uint64_t session = clientSession.load();
+      ctrl->enqueueAction([this, key, pending, session]() {
+        renderPendingTexture(key, pending, session);
       }, "texture");
     }
   );
@@ -553,7 +578,7 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
 
-      ctrl->enqueueAction([this, moduleId]() {
+      enqueueClientAction([this, moduleId]() {
         osctx->enqueueBundler(
           new ModuleStateBundler(moduleId, ctrl->box)
         );
@@ -566,7 +591,7 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
 
-      ctrl->enqueueAction([this, moduleId]() {
+      enqueueClientAction([this, moduleId]() {
         std::vector<int64_t> moduleIds = {moduleId};
 
         osctx->enqueueBundler(
@@ -582,7 +607,7 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
 
-      ctrl->enqueueAction([this, moduleId]() {
+      enqueueClientAction([this, moduleId]() {
         bool success = subman->subscribeModuleLights(moduleId);
         LightSubscriptionAckBundler* bundler =
           new LightSubscriptionAckBundler(moduleId, success);
@@ -599,7 +624,7 @@ void OscReceiver::generateRoutes() {
       float value = (args++)->AsFloat();
       bool needsAck = (args++)->AsBool();
 
-      ctrl->enqueueAction([=, this]() {
+      enqueueClientAction([=, this]() {
         ParamAckBundler* bundler = [=]() -> ParamAckBundler* {
           ParamAckBundler* ack =
             new ParamAckBundler(moduleId, paramId);
@@ -632,7 +657,7 @@ void OscReceiver::generateRoutes() {
       bool enabled = (args++)->AsInt32() != 0;
       int32_t port = (args++)->AsInt32();
 
-      ctrl->enqueueAction([=, this]() {
+      enqueueClientAction([=, this]() {
         Tx* audio = ctrl->getManagedAudio();
         bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
           && (!enabled || (port > 0 && port < 65536));
@@ -654,7 +679,7 @@ void OscReceiver::generateRoutes() {
       int64_t moduleId = (args++)->AsInt64();
       int32_t preset = (args++)->AsInt32();
 
-      ctrl->enqueueAction([=, this]() {
+      enqueueClientAction([=, this]() {
         Tx* audio = ctrl->getManagedAudio();
         bool ok = audio && audio->id == moduleId && !osctx->isBroadcasting()
           && tx_af::isValidPreset(preset);
@@ -678,7 +703,7 @@ void OscReceiver::generateRoutes() {
       stats.jitterMs = (args++)->AsFloat();
       stats.bufferMs = (args++)->AsFloat();
 
-      ctrl->enqueueAction([=, this]() {
+      enqueueClientAction([=, this]() {
         Tx* audio = ctrl->getManagedAudio();
         if (!audio || audio->id != moduleId || osctx->isBroadcasting()) return;
 
@@ -717,7 +742,7 @@ void OscReceiver::generateRoutes() {
         returnId = (args++)->AsInt64();
       } catch (const osc::WrongArgumentTypeException& e) {}
 
-      ctrl->enqueueAction([=, this]() {
+      enqueueClientAction([=, this]() {
         CableAckBundler* bundler = [&]() -> CableAckBundler* {
           CableAckBundler* ack =
             new CableAckBundler(CableAckType::Add, returnId);
@@ -768,7 +793,7 @@ void OscReceiver::generateRoutes() {
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t cableId = (args++)->AsInt64();
 
-      ctrl->enqueueAction([=, this]() {
+      enqueueClientAction([=, this]() {
         CableAckBundler* bundler = [&]() -> CableAckBundler* {
           CableAckBundler* ack =
             new CableAckBundler(CableAckType::Remove);
@@ -792,7 +817,7 @@ void OscReceiver::generateRoutes() {
     "/patch/open",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       std::string path = (args++)->AsString();
-      ctrl->enqueueAction([&, path]() {
+      enqueueClientAction([&, path]() {
         SceneAction::Create([&, path]() {
           APP->patch->load(path);
           APP->patch->path = path;

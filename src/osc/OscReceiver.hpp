@@ -96,6 +96,12 @@ private:
   // action queue for the next frame if the send pipeline is backed up
   void renderPendingTexture(
     PendingTextureKey key,
-    std::shared_ptr<PendingTexture> pending
+    std::shared_ptr<PendingTexture> pending,
+    uint64_t session
   );
+
+  // bumped when a client registers or is gone,
+  // used to skip actions queued for an earlier session
+  std::atomic<uint64_t> clientSession{0};
+  void enqueueClientAction(std::function<void()> action, const char* tag);
 };
