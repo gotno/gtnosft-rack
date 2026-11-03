@@ -195,6 +195,9 @@ void OscReceiver::enqueueClientAction(
   std::function<void()> action,
   const char* tag
 ) {
+  // we don't have a client, ignore
+  if (osctx->isBroadcasting()) return;
+
   uint64_t session = clientSession.load();
   ctrl->enqueueAction([this, session, action = std::move(action)]() {
     if (session != clientSession.load()) return;
@@ -531,6 +534,9 @@ void OscReceiver::generateRoutes() {
 
       // optional int32 (width)
       if (args->IsInt32()) width = (args++)->AsInt32();
+
+      // we don't have a client, ignore
+      if (osctx->isBroadcasting()) return;
 
       PendingTextureKey key{textureId, scale, height, width};
       std::shared_ptr<PendingTexture> pending;

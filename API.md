@@ -43,6 +43,11 @@ the registering client's IP address on UDP port 7746. It continues listening
 on the port announced in `/announce`; a direct `/heartbeat` is sent shortly
 after registration.
 
+While in broadcast mode, ctrl ignores client requests (`/get/*`, `/set/*`,
+`/subscribe/*`, `/add/cable`, `/remove/cable`, `/audio/stats` and
+`/patch/open`). Register before sending them. Requests still queued when the
+client times out or re-registers are dropped without a reply.
+
 ### 3. Heartbeat Maintenance
 
 After registration, maintain the connection by sending periodic heartbeats.
