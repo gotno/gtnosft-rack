@@ -137,6 +137,8 @@ void OscReceiver::startHeartbeat() {
       osctx->setBroadcasting();
 
       subman->stop();
+      // before clearQueues, so tick() can't queue a resend after the clear
+      chunkman->reset();
       osctx->clearQueues();
 
       ctrl->enqueueAction([this]() { ctrl->onClientGone(); }, "client_gone");

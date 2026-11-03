@@ -18,6 +18,7 @@ ChunkedManager::~ChunkedManager() {
 
 void ChunkedManager::add(ChunkedSend* chunked) {
   std::shared_ptr<ChunkedSend> chunkedSend(chunked);
+  chunkedSend->generation = generation.load();
 
   if (!prepOnWorker) {
     prepare(chunkedSend);
@@ -42,6 +43,24 @@ void ChunkedManager::stopWorker() {
   }
   prepCondition.notify_one();
   if (prepWorker.joinable()) prepWorker.join();
+}
+
+void ChunkedManager::reset() {
+  {
+    std::lock_guard<std::mutex> locker(chunkedSendsMutex);
+    ++generation;
+    for (auto& [key, chunkedSend] : chunkedSends) chunkedSend->cancelled = true;
+    chunkedSends.clear();
+  }
+
+  // released outside prepMutex
+  std::deque<std::shared_ptr<ChunkedSend>> dropped;
+  {
+    std::lock_guard<std::mutex> locker(prepMutex);
+    std::swap(dropped, prepQueue);
+  }
+
+  rtt.reset();
 }
 
 void ChunkedManager::runPrepWorker() {
@@ -97,6 +116,7 @@ void ChunkedManager::prepare(const std::shared_ptr<ChunkedSend>& chunkedSend) {
 
   std::lock_guard<std::mutex> locker(chunkedSendsMutex);
   if (chunkedSends.count(key) != 0) return;
+  if (chunkedSend->generation != generation.load()) return;
   if (supersede) supersedeOlder(*chunkedSend);
   chunkedSends.emplace(key, chunkedSend);
 
@@ -205,6 +225,7 @@ bool ChunkedManager::processChunked(
   if (
     chunkedSend->sendFailed()
     || chunkedSend->superseded
+    || chunkedSend->cancelled
     || chunkedSend->sendSucceeded()
   ) return false;
 
@@ -241,6 +262,7 @@ void ChunkedManager::enqueueChunk(
   bundler->noopCheck = [chunkedSend, chunkNum]() {
     return chunkedSend->sendFailed()
       || chunkedSend->superseded
+      || chunkedSend->cancelled
       || chunkedSend->acked(chunkNum);
   };
 

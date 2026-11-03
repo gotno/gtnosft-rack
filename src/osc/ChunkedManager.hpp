@@ -25,6 +25,9 @@ struct ChunkedManager {
   void ack(int64_t id, int32_t sequenceId, int32_t chunkNum);
   void tick();
   void stopWorker();
+  // safe from any thread: cancels queued and in-flight sends and forgets
+  // round-trip history, e.g. when the client is gone
+  void reset();
   // true while queued prep and send work would take longer than a UI frame
   // to drain. texture renders wait while it holds and requests coalesce
   bool backedUp();
@@ -48,6 +51,8 @@ private:
   using ChunkedKey = std::pair<int64_t, int32_t>;
   std::map<ChunkedKey, std::shared_ptr<ChunkedSend>> chunkedSends;
   std::mutex chunkedSendsMutex;
+  // bumped by reset() under chunkedSendsMutex
+  std::atomic<uint64_t> generation{0};
 
   std::deque<std::shared_ptr<ChunkedSend>> prepQueue;
   std::mutex prepMutex;

@@ -53,6 +53,11 @@ struct ChunkedSend {
   std::atomic<bool> failed{false};
   // a newer send of the same image replaced this one: stop sending it
   std::atomic<bool> superseded{false};
+  // the client is gone: stop sending it
+  std::atomic<bool> cancelled{false};
+  // chunkMan's generation when this was added,
+  // used to drop sends from before the last reset.
+  uint64_t generation{0};
   bool sendFailed();
   bool sendSucceeded();
 
