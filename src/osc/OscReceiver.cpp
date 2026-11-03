@@ -111,39 +111,29 @@ void OscReceiver::startHeartbeat() {
       heartbeatsSinceReannounce = 0;
     }
 
-    std::scoped_lock<std::mutex> lock(heartbeatMutex);
+    {
+      std::scoped_lock<std::mutex> lock(heartbeatMutex);
 
-    // client isn't sending heartbeats or hasn't started yet
-    if (lastHeartbeatRxTime == std::chrono::steady_clock::time_point::min())
-      return;
+      // client isn't sending heartbeats or hasn't started yet
+      if (lastHeartbeatRxTime == std::chrono::steady_clock::time_point::min())
+        return;
 
-    auto now = std::chrono::steady_clock::now();
-    auto delayMs = std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS);
+      auto now = std::chrono::steady_clock::now();
+      auto delayMs = std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS);
 
-    if (lastHeartbeatRxTime < (now - delayMs)) {
-      ++missedHeartbeats;
-      BENCH(bench::count("heartbeat.client_missed");)
+      if (lastHeartbeatRxTime < (now - delayMs)) {
+        ++missedHeartbeats;
+        BENCH(bench::count("heartbeat.client_missed");)
+      }
+
+      if (missedHeartbeats < maxMissedHeartbeats) return;
     }
 
-    // client is gone, switch back to broadcasting
-    if (missedHeartbeats >= maxMissedHeartbeats) {
-      WARN("client is gone, switching back to broadcasting");
-      BENCH(
-        bench::count("heartbeat.client_gone");
-        bench::logReport();
-      )
-      lastHeartbeatRxTime = std::chrono::steady_clock::time_point::min();
-      missedHeartbeats = 0;
-      ++clientSession;
-      osctx->setBroadcasting();
-
-      subman->stop();
-      // before clearQueues, so tick() can't queue a resend after the clear
-      chunkman->reset();
-      osctx->clearQueues();
-
-      ctrl->enqueueAction([this]() { ctrl->onClientGone(); }, "client_gone");
-    }
+    BENCH(
+      bench::count("heartbeat.client_gone");
+      bench::logReport();
+    )
+    dropClient("client is gone");
   });
 
   heartbeatInterval.start();
@@ -189,6 +179,25 @@ void OscReceiver::ProcessMessage(
   } catch(osc::Exception& e) {
     WARN("error parsing OSC message %s: %s", message.AddressPattern(), e.what());
   }
+}
+
+void OscReceiver::dropClient(const char* reason) {
+  std::scoped_lock<std::mutex> lock(heartbeatMutex);
+  // already dropped, e.g. by a /reset racing a timeout
+  if (osctx->isBroadcasting()) return;
+
+  WARN("%s, switching back to broadcasting", reason);
+  lastHeartbeatRxTime = std::chrono::steady_clock::time_point::min();
+  missedHeartbeats = 0;
+  ++clientSession;
+  osctx->setBroadcasting();
+
+  subman->stop();
+  // before clearQueues, so tick() can't queue a resend after the clear
+  chunkman->reset();
+  osctx->clearQueues();
+
+  ctrl->enqueueAction([this]() { ctrl->onClientGone(); }, "client_gone");
 }
 
 void OscReceiver::enqueueClientAction(
@@ -425,6 +434,14 @@ void OscReceiver::generateRoutes() {
       }, "heartbeat");
 
       ctrl->enqueueAction([this]() { ctrl->onClientRegistered(); }, "audio");
+    }
+  );
+
+  routes.emplace(
+    "/reset",
+    [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
+      (void)args;
+      dropClient("client requested reset");
     }
   );
 

@@ -179,6 +179,17 @@ In broadcast mode, registers the client's IP address and switches outgoing
 traffic to direct unicast. A `/register` received while already in direct mode
 does not change the connection.
 
+#### `/reset`
+
+| Direction | Arguments |
+|---|---|
+| Client → Server | None |
+
+Disconnects the registered client, exactly as a heartbeat timeout does: ctrl
+drops queued and in-flight sends, subscriptions and cached state, disables the
+managed audio stream and switches back to broadcast mode. No reply is sent;
+send `/register` to reconnect. Ignored while in broadcast mode.
+
 #### `/keepalive`
 
 | Direction | Arguments |

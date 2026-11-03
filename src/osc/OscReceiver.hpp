@@ -103,5 +103,8 @@ private:
   // bumped when a client registers or is gone,
   // used to skip actions queued for an earlier session
   std::atomic<uint64_t> clientSession{0};
+  // safe from any thread: forget the registered client and all its state,
+  // then go back to broadcasting. no-op while already broadcasting
+  void dropClient(const char* reason);
   void enqueueClientAction(std::function<void()> action, const char* tag);
 };
