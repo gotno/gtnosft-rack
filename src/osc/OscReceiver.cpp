@@ -615,10 +615,8 @@ void OscReceiver::generateRoutes() {
       int64_t moduleId = (args++)->AsInt64();
 
       enqueueClientAction([this, moduleId]() {
-        std::vector<int64_t> moduleIds = {moduleId};
-
         osctx->enqueueBundler(
-          new ModuleParamsBundler(moduleIds)
+          new ModuleParamsBundler({moduleId})
         );
       }, "params_state");
     }

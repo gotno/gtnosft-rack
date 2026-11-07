@@ -18,38 +18,35 @@ ModuleParamsBundler::ModuleParamsBundler(
 }
 
 void ModuleParamsBundler::process(const std::vector<int64_t>& moduleIds) {
-  // filter subscriptions to loaded modules
-  std::vector<int64_t> rackModuleIds = APP->engine->getModuleIds();
-  std::sort(rackModuleIds.begin(), rackModuleIds.end());
+  for (const auto& moduleId : moduleIds) {
+    if (!APP->scene->rack->getModule(moduleId)) continue;
 
-  std::vector<int64_t> moduleIdsToProcess(rackModuleIds.size());
-  auto it = std::set_intersection(
-    moduleIds.begin(),
-    moduleIds.end(),
-    rackModuleIds.begin(),
-    rackModuleIds.end(),
-    moduleIdsToProcess.begin()
-  );
-  moduleIdsToProcess.resize(it - moduleIdsToProcess.begin());
-
-  for (const auto& moduleId : moduleIdsToProcess) {
-    // first time through, all params are sent as they are collected
+    // first time through, messages for all params are added as they are collected
     if (params.count(moduleId) == 0) {
       collectParams(moduleId);
       continue;
     }
 
     auto& paramList = params.at(moduleId);
+    int64_t numUpdates = 0;
     for (auto it = paramList.begin(); it != paramList.end(); ++it) {
       rack::app::ParamWidget* widget = it->first;
       auto& state = it->second;
 
-      // always send at least one param as an ack
-      bool isFirstParam = it == paramList.begin();
-      // send params whose state has changed since last update
-      bool wasUpdated = state.update(widget);
-      if (isFirstParam || wasUpdated) addMessage(moduleId, state);
+      if (state.update(widget)) {
+        addMessage(moduleId, state);
+        ++numUpdates;
+      }
     }
+
+    messages.emplace_back(
+      "/report/s/p/count",
+      [=](osc::OutboundPacketStream& pstream) {
+        pstream << moduleId
+          << (osc::int64)numUpdates
+          ;
+      }
+    );
   }
 }
 
@@ -69,6 +66,15 @@ void ModuleParamsBundler::collectParams(int64_t moduleId) {
     paramList.emplace_back(paramWidget, ParamState(paramId, paramWidget));
     addMessage(moduleId, paramList.back().second);
   }
+
+  messages.emplace_back(
+    "/report/s/p/count",
+    [=](osc::OutboundPacketStream& pstream) {
+      pstream << moduleId
+        << (osc::int64)paramList.size()
+        ;
+    }
+  );
 }
 
 void ModuleParamsBundler::addMessage(
