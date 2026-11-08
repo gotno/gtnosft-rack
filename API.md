@@ -120,13 +120,13 @@ For each unique (pluginSlug, moduleSlug) pair:
 For each module instance:
 
 1. Send /get/module_state <moduleId>
-   ← Receive /set/s/m with position and overlay texture id
+   ← Receive /set/state/module with position and overlay texture id
 
 2. Send /get/texture <overlayTextureId> <sequenceId> <scale|height>
    ← Receive chunks of the module's current overlay (displays, etc.)
 
 3. Optional: Send /subscribe/module/lights <moduleId>
-   ← Receive /ack/subscribe/module/lights, then /set/s/l updates each UI frame
+   ← Receive /ack/subscribe/module/lights, then /set/state/lights updates each UI frame
 ```
 
 ### Controlling Parameters
@@ -440,7 +440,7 @@ Returns the current position and overlay texture for one loaded module.
 |---:|---|---|---|
 | 0 | int64 | module id | Rack's unique id for the module instance |
 
-**Response:** `/set/s/m` (no response if the module is not loaded)
+**Response:** `/set/state/module` (no response if the module is not loaded)
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -459,13 +459,13 @@ Requests current parameter state for one module.
 |---:|---|---|---|
 | 0 | int64 | module id | Rack's unique id for the module instance |
 
-**Response:** One `/set/s/p` message per reported parameter. The first request
-for a module after server start or a cache reset reports all its parameters.
-Later requests report the first parameter plus parameters whose value or
-visibility changed; they are not full snapshots. No response is sent if the
-module is not loaded.
+**Response:** One `/set/state/param` message per reported parameter, followed by
+`/report/state/param/count`. The first request for a module after server start or a
+cache reset reports all its parameters. Later requests report only the
+parameters whose value or visibility changed; they are not
+full snapshots. No response is sent if the module is not loaded.
 
-`/set/s/p`:
+`/set/state/param`:
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -473,8 +473,13 @@ module is not loaded.
 | 1 | int32 | parameter id | parameter index from `/get/module_structure` |
 | 2 | bool | visible | current visibility |
 | 3 | float | value | current parameter value |
-| 4 | string | label | current formatted parameter value |
+| 4 | string | label | current formatted parameter value (shown in the param's tooltip in rack) |
 
+**`/report/state/param/count`**
+
+| index | type | contents | description |
+|---:|---|---|---|
+| 0 | int64 | update count | number of param updates |
 ---
 
 ### Parameter Control
@@ -593,20 +598,33 @@ Subscribes to light state updates for a loaded module.
 | 0 | int64 | module id | requested module id |
 | 1 | bool | success | false if the module is not loaded |
 
-On success, `/set/s/l` updates are produced each Rack UI frame. The first
+On success, `/set/state/lights` updates are produced each Rack UI frame. The first
 update reports every light; later updates include only changed lights. Unsent
-updates may be coalesced. A message may contain multiple light records, each
-with these fields in order:
+updates may be coalesced.
 
-| record field | type | contents | description |
+To avoid message-parsing overhead, all light updates are sent in a single
+message (ie, index 0 is madule id, as is index 4, index 8, and so on).
+The client should loop over the indidces until no more data remains.
+
+A 32-bit integer uses less message space than a string holding a hex value, so
+colors are packed into a 32-bit integer in the form `0xAARRGGBB`.
+Unpack with, eg.:
+```python
+a = (color_int >> 24) & 0xFF
+r = (color_int >> 16) & 0xFF
+g = (color_int >> 8)  & 0xFF
+b = color_int         & 0xFF
+```
+
+There is no unsubscribe request. The subscription ends when the connection is
+reset, including after heartbeat timeout.
+
+| index | type | contents | description |
 |---:|---|---|---|
 | 0 | int64 | module id | module containing the light |
 | 1 | int32 | light id | light index from `/get/module_structure` |
 | 2 | bool | visible | current visibility |
 | 3 | int32 | color | packed `0xAARRGGBB` color |
-
-There is no unsubscribe request. The subscription ends when the connection is
-reset, including after heartbeat timeout.
 
 ---
 

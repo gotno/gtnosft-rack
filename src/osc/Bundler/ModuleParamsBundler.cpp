@@ -40,7 +40,7 @@ void ModuleParamsBundler::process(const std::vector<int64_t>& moduleIds) {
     }
 
     messages.emplace_back(
-      "/report/s/p/count",
+      "/report/state/param/count",
       [=](osc::OutboundPacketStream& pstream) {
         pstream << moduleId
           << (osc::int64)numUpdates
@@ -68,7 +68,7 @@ void ModuleParamsBundler::collectParams(int64_t moduleId) {
   }
 
   messages.emplace_back(
-    "/report/s/p/count",
+    "/report/state/param/count",
     [=](osc::OutboundPacketStream& pstream) {
       pstream << moduleId
         << (osc::int64)paramList.size()
@@ -82,7 +82,7 @@ void ModuleParamsBundler::addMessage(
   const ParamState& state
 ) {
   messages.emplace_back(
-    "/set/s/p",
+    "/set/state/param",
     [moduleId, state](osc::OutboundPacketStream& pstream) {
       pstream << moduleId
         << state.id

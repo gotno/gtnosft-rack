@@ -46,7 +46,7 @@ void ModuleLightsBundler::collectLights(
 
 void ModuleLightsBundler::addMessage(const std::vector<LightEntry>& batch) {
   messages.emplace_back(
-    "/set/s/l",
+    "/set/state/lights",
     [batch](osc::OutboundPacketStream& pstream) {
       for (const auto& [moduleId, state] : batch) {
         pstream << moduleId
