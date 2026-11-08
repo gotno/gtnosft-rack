@@ -412,7 +412,7 @@ void CtrlWidget::appendContextMenu(Menu* menu) {
                   result.pixels,
                   result.width,
                   result.height,
-                  "oscctrl_render",
+                  "gotnosoft_ctrl_render",
                   rack::string::f(
                     "%lld-%s-%s-%s",
                     (long long)moduleId,
