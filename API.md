@@ -132,14 +132,10 @@ For each module instance:
 ### Controlling Parameters
 
 ```
-When user interacts with virtual knob/slider:
-
-1. Calculate new parameter value (within min/max from structure)
-
-2. Send /set/param/value <moduleId> <paramId> <value> <needsAck>
+1. Send /set/param/value <moduleId> <paramId> <value> <needsAck>
    ← If needsAck is true, receive /ack/param/value with applied value/status
 
-3. Optional: Request a new overlay render to see any changes related to the param change
+2. Optional: Request a new overlay render to see any changes related to the param change
    Send /get/texture <overlayTextureId> <sequenceId> <scale|height>
 ```
 
@@ -164,7 +160,7 @@ To remove a cable:
 
 ### General Notes
 1. All size and position values are in centimeters.
-2. Structure positions are relative to the module's top-left corner; state positions are relative to ctrl's top-left corner.
+2. Structure positions are relative to the module's top-left corner; module state positions (the module's position in the rack) are relative to ctrl's top-left corner.
 3. Positive x values move rightward; positive y values move downward.
 
 ### Connection Management
@@ -213,7 +209,7 @@ Returns Rack's current display and cable settings.
 
 | index | type | contents | description |
 |---:|---|---|---|
-| 0 | float | rack brightness | current Rack brightness setting |
+| 0 | float | rack brightness | current Rack "Room brightness" setting |
 | 1 | float | cable opacity | current cable opacity setting |
 | 2 | float | cable tension | current cable tension setting |
 | 3… | string | cable color | Hex color for each configured cable color, in order |
@@ -244,7 +240,7 @@ Loads a patch from the server's local filesystem.
 | 0 | string | path | filesystem path to the patch file on the server |
 
 
-**Response:** None. There is no success or failure acknowledgement.
+**Response:** None. The connection is immediately dropped when the new patch loads. There is no success or failure acknowledgement.
 
 ---
 
@@ -256,6 +252,10 @@ Get the id, plugin slug, and module slug for each module in the patch.
 
 **Response:** One `/set/module_stub` per loaded module, followed by
 `/report/module/count`.
+
+Stubs and their count report are sent as a single bundle to ensure count arrives last.
+
+`/set/module_stub`
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -269,6 +269,7 @@ Get the id, plugin slug, and module slug for each module in the patch.
 |---:|---|---|---|
 | 0 | int64 | module count | number of loaded modules |
 ---
+
 
 ### Structure
 Structure represents the general blueprint for a module and its params, ports and lights. It is distinct from State, which is the data unique to a specific instance of a module in the patch.
@@ -465,6 +466,9 @@ cache reset reports all its parameters. Later requests report only the
 parameters whose value or visibility changed; they are not
 full snapshots. No response is sent if the module is not loaded.
 
+Param updates and their count report are sent as a single bundle to ensure
+count arrives last.
+
 `/set/state/param`:
 
 | index | type | contents | description |
@@ -518,6 +522,9 @@ Returns all patch cables.
 **Request:** `/get/cables` (no arguments)
 
 **Response:** One `/set/cable` per cable, followed by `/report/cable/count`.
+
+Cables and their count report are sent as a single bundle to ensure
+count arrives last.
 
 `/set/cable`:
 
@@ -816,7 +823,7 @@ fields are little-endian.
 | 16 | 4 | sequence number of the newest frame |
 | 20 | … | `frame count` × (u16 length, bytes), newest first; frame i has sequence `newest − i` |
 
-Older frames repeat earlier packets (redundancy) so a single lost packet
+For redundancy, older frames repeat earlier packets so a single lost packet
 can be recovered.
 
 ---
