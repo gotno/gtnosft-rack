@@ -2,8 +2,8 @@
 
 #include "ChunkedSendBundler.hpp"
 
-class ChunkedImage;
-class ChunkedManager;
+struct ChunkedImage;
+struct ChunkedManager;
 
 struct ChunkedImageBundler : ChunkedSendBundler {
   ChunkedImageBundler(

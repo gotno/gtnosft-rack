@@ -17,10 +17,10 @@
 #include "OscConstants.hpp"
 #include "../bench/Bench.hpp"
 
-class CtrlWidget;
-class OscSender;
-class ChunkedManager;
-class SubscriptionManager;
+struct CtrlWidget;
+struct OscSender;
+struct ChunkedManager;
+struct SubscriptionManager;
 
 struct OscReceiver : public osc::OscPacketListener {
   OscReceiver(

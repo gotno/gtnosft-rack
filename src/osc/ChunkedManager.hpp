@@ -13,8 +13,8 @@
 #include <thread>
 #include <utility>
 
-class ChunkedSend;
-class OscSender;
+struct ChunkedSend;
+struct OscSender;
 
 struct ChunkedManager {
   ChunkedManager(OscSender* sender);

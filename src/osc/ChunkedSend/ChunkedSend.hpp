@@ -12,8 +12,8 @@
 #include <vector>
 #include <chrono>
 
-class ChunkedManager;
-class ChunkedSendBundler;
+struct ChunkedManager;
+struct ChunkedSendBundler;
 
 struct ChunkedSend {
   inline static int64_t idCounter{0};

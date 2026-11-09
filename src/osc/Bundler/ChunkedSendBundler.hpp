@@ -2,8 +2,8 @@
 
 #include "Bundler.hpp"
 
-class ChunkedSend;
-class ChunkedManager;
+struct ChunkedSend;
+struct ChunkedManager;
 
 struct ChunkedSendBundler : virtual Bundler {
   ChunkedSendBundler(

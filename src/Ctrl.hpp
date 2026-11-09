@@ -10,10 +10,10 @@
 #include <utility>
 
 struct Ctrl;
-class OscSender;
-class OscReceiver;
-class ChunkedManager;
-class SubscriptionManager;
+struct OscSender;
+struct OscReceiver;
+struct ChunkedManager;
+struct SubscriptionManager;
 struct Tx;
 
 typedef std::function<void(void)> Action;

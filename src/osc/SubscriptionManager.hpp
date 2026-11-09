@@ -4,9 +4,9 @@
 #include <atomic>
 #include <vector>
 
-class CtrlWidget;
-class OscSender;
-class ChunkedManager;
+struct CtrlWidget;
+struct OscSender;
+struct ChunkedManager;
 
 struct SubscriptionManager {
   SubscriptionManager(

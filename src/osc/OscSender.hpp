@@ -17,9 +17,9 @@
 #include <string>
 #include "../bench/Bench.hpp"
 
-class CtrlWidget;
+struct CtrlWidget;
 struct Bundler;
-class ChunkedImage;
+struct ChunkedImage;
 
 enum class SendMode {
   Broadcast,
