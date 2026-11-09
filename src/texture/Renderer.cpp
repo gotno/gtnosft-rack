@@ -567,10 +567,10 @@ float Renderer::getScaleFromVariant(
   rack::widget::FramebufferWidget* framebuffer,
   std::variant<float, int32_t> scaleOrHeight
 ) {
-  if (std::holds_alternative<float>(scaleOrHeight)) {
-    return std::get<float>(scaleOrHeight);
+  if (const float* scale = std::get_if<float>(&scaleOrHeight)) {
+    return *scale;
   } else {
-    int32_t height = std::get<int32_t>(scaleOrHeight);
+    int32_t height = *std::get_if<int32_t>(&scaleOrHeight);
     float pixelRatio = std::fmax(1.f, std::floor(APP->window->pixelRatio));
     return height / (framebuffer->box.size.y * pixelRatio);
   }
