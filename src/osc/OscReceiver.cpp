@@ -9,6 +9,7 @@
 #include "OscSender.hpp"
 #include "ChunkedManager.hpp"
 #include "SubscriptionManager.hpp"
+#include "ParamWrite.hpp"
 
 #include "ChunkedSend/ChunkedImage.hpp"
 
@@ -658,8 +659,19 @@ void OscReceiver::generateRoutes() {
           if (!param) return ack->fail();
 
           rack::engine::ParamQuantity* pq = param->getParamQuantity();
-          pq->setValue(value);
-          return ack->success(pq->getValue());
+          if (!pq) return ack->fail();
+
+          switch (gtnosft::param_write::applyOverride(param, value)) {
+            case gtnosft::param_write::Result::NotOverridden:
+              pq->setValue(value);
+              break;
+            case gtnosft::param_write::Result::Applied:
+              break;
+            case gtnosft::param_write::Result::Failed:
+              return ack->fail();
+          }
+
+          return ack->success(gtnosft::param_write::getValue(param));
         }();
 
         if (needsAck) {

@@ -2,6 +2,7 @@
 
 #include "ModuleLightsBundler.hpp"
 #include "ModuleParamsBundler.hpp"
+#include "../ParamWrite.hpp"
 #include "../../texture/Renderer.hpp"
 #include "../../bench/Bench.hpp"
 
@@ -12,6 +13,7 @@ ModuleCacheGuard::ModuleCacheGuard(int64_t _moduleId): moduleId(_moduleId) {
 ModuleCacheGuard::~ModuleCacheGuard() {
   ModuleLightsBundler::lights.erase(moduleId);
   ModuleParamsBundler::params.erase(moduleId);
+  gtnosft::param_write::forgetModule(moduleId);
   BENCH(
     if (Renderer::overlayCache.contains(moduleId))
       bench::count("overlay_cache.evict_destroyed");
@@ -32,5 +34,6 @@ void ModuleCacheGuard::ensure(
 void ModuleCacheGuard::clearAll() {
   ModuleLightsBundler::lights.clear();
   ModuleParamsBundler::params.clear();
+  gtnosft::param_write::clear();
   Renderer::clearOverlayCache();
 }

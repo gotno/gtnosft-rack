@@ -1,12 +1,13 @@
 #pragma once
 
 #include "Bundler.hpp"
+#include "../ParamWrite.hpp"
 
 struct ParamState {
   ParamState(int _id, rack::app::ParamWidget* widget):
     id(_id),
     visible(widget->isVisible()),
-    value(widget->getParamQuantity()->getValue()),
+    value(gtnosft::param_write::getValue(widget)),
     label(widget->getParamQuantity()->getString()) {}
 
   int id;
@@ -15,12 +16,13 @@ struct ParamState {
   std::string label;
 
   bool update(rack::app::ParamWidget* widget) {
-    bool valueUnchanged = value == widget->getParamQuantity()->getValue();
+    float currentValue = gtnosft::param_write::getValue(widget);
+    bool valueUnchanged = value == currentValue;
     if (visible == widget->isVisible() && valueUnchanged)
       return false;
 
     visible = widget->isVisible();
-    value = widget->getParamQuantity()->getValue();
+    value = currentValue;
     label = widget->getParamQuantity()->getString();
 
     // tooltip: pq->getString /n pq->getDescription
