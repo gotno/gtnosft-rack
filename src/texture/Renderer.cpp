@@ -142,15 +142,6 @@ RenderResult Renderer::renderTexture(
   switch (breadcrumbs.textureType) {
     case TextureType::Panel:
       result = renderPanel(moduleWidget, recipe);
-      // if (result.success()) {
-      //   renderPng(
-      //     result.pixels,
-      //     result.width,
-      //     result.height,
-      //     "render_panel_test",
-      //     breadcrumbs.moduleSlug + std::to_string(result.height)
-      //   );
-      // }
       break;
     case TextureType::Overlay:
       WARN("should not have entered `case TextureType::Overlay`");
@@ -193,15 +184,6 @@ RenderResult Renderer::renderTexture(
       return UNKNOWN_TEXTURE_TYPE("renderTexture", breadcrumbs);
   }
 
-  // if (result.success()) {
-  //   renderPng(
-  //     result.pixels,
-  //     result.width,
-  //     result.height,
-  //     "render_test",
-  //     rack::string::f("%lld", breadcrumbs.textureId)
-  //   );
-  // }
   return result;
 }
 
@@ -228,13 +210,11 @@ RenderResult Renderer::renderPanel(
 ) {
   // hide all children except the first, which should be the panel
   auto it = std::next(moduleWidget->children.begin());
-
   // panel is the second child? idfk
   if (
     moduleWidget->model->plugin->slug == "Instruo" &&
     moduleWidget->model->slug == "saich"
   ) ++it;
-
   for (; it != moduleWidget->children.end(); ++it) (*it)->setVisible(false);
 
   rack::widget::FramebufferWidget* wrapper = wrapForRendering(moduleWidget);
@@ -335,15 +315,6 @@ RenderResult Renderer::renderOverlay(
 
   rack::math::Vec scale = getScaleFromRecipe(framebuffer, recipe);
   RenderResult result = Renderer(framebuffer).render(scale);
-  // if (result.success()) {
-  //   renderPng(
-  //     result.pixels,
-  //     result.width,
-  //     result.height,
-  //     "render_panel_test",
-  //     "overlay" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count())
-  //   );
-  // }
   return result;
 }
 
