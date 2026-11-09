@@ -17,13 +17,13 @@
       "slug": "Ctrl",
       "name": "ctrl",
       "description": "An OSC-based API for Rack simulations",
-      "tags": ["Utility"]
+      "tags": ["External", "Utility"]
     },
     {
       "slug": "Tx",
       "name": "Tx",
       "description": "A network audio transmitter",
-      "tags": ["External, Utility"]
+      "tags": ["External", "Utility"]
     }
   ]
 }
