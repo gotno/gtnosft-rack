@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <cstring>
+
 #include "Renderer.hpp"
 #include "Catalog.hpp"
 #include "../util/Util.hpp"
@@ -595,35 +598,63 @@ rack::math::Vec Renderer::getScaleFromRecipe(
   }
 }
 
+uint8_t* Renderer::normalizePixels(
+  const uint8_t* source,
+  int sourceWidth,
+  int sourceHeight,
+  int targetWidth,
+  int targetHeight
+) {
+  const size_t targetRowBytes = (size_t)targetWidth * 4;
+  const int copyWidth = std::min(sourceWidth, targetWidth);
+  const int copyHeight = std::min(sourceHeight, targetHeight);
+  uint8_t* target = new uint8_t[targetRowBytes * targetHeight]{};
+
+  const size_t copyRowBytes = (size_t)copyWidth * 4;
+  for (int y = 0; y < copyHeight; ++y) {
+    std::memcpy(
+      target + (size_t)y * targetRowBytes,
+      source + (size_t)y * sourceWidth * 4,
+      copyRowBytes
+    );
+  }
+
+  return target;
+}
+
 uint8_t* Renderer::renderPixels(
   rack::widget::FramebufferWidget* fb,
   int& width,
   int& height,
   rack::math::Vec scale,
-  bool override
+  bool override,
+  int targetWidth,
+  int targetHeight
 ) {
+  if (targetWidth < 0 || targetHeight < 0) {
+    float pixelRatio = std::fmax(1.f, std::floor(APP->window->pixelRatio));
+    targetWidth =
+      (int)std::ceil(std::ceil(fb->box.size.x * scale.x) * pixelRatio);
+    targetHeight =
+      (int)std::ceil(std::ceil(fb->box.size.y * scale.y) * pixelRatio);
+  }
+
   fb->render(scale);
   // GL calls are async; finish here so draw and readback time separately
   BENCH(glFinish(); bench::stamp(bench::Stage::Drawn);)
   nvgluBindFramebuffer(fb->getFramebuffer());
   nvgImageSize(APP->window->vg, fb->getImageHandle(), &width, &height);
 
-  float pixelRatio = std::fmax(1.f, std::floor(APP->window->pixelRatio));
-  int expectedWidth =
-    (int)std::ceil(std::ceil(fb->box.size.x * scale.x) * pixelRatio);
-  int expectedHeight =
-    (int)std::ceil(std::ceil(fb->box.size.y * scale.y) * pixelRatio);
-
   if (!override) {
-    if (width != expectedWidth || height != expectedHeight) {
+    if (width != targetWidth || height != targetHeight) {
       // WARN(
       //   "renderPixels expected::actual %dx%d::%dx%d, adjusting scale and re-rendering",
-      //   expectedWidth, expectedHeight, width, height
+      //   targetWidth, targetHeight, width, height
       // );
 
       rack::math::Vec scaleOverride = scale;
-      scaleOverride.x *= (float)expectedWidth / width;
-      scaleOverride.y *= (float)expectedHeight / height;
+      scaleOverride.x *= (float)targetWidth / width;
+      scaleOverride.y *= (float)targetHeight / height;
 
       BENCH(if (bench::Trace* trace = bench::current()) ++trace->rerenders;)
       return renderPixels(
@@ -631,7 +662,9 @@ uint8_t* Renderer::renderPixels(
         width,
         height,
         scaleOverride,
-        true
+        true,
+        targetWidth,
+        targetHeight
       );
     }
   }
@@ -641,6 +674,24 @@ uint8_t* Renderer::renderPixels(
   BENCH(bench::stamp(bench::Stage::ReadBack);)
 
   nvgluBindFramebuffer(NULL);
+
+  // we've already retried with an adjusted scale and the dimensions
+  // are still wrong. to honor the api contract, we'll crop/pad.
+  if (width != targetWidth || height != targetHeight) {
+    uint8_t* normalized =
+      normalizePixels(
+        pixels,
+        width,
+        height,
+        targetWidth,
+        targetHeight
+      );
+    delete[] pixels;
+    width = targetWidth;
+    height = targetHeight;
+    return normalized;
+  }
+
   return pixels;
 }
 

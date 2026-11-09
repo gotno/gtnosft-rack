@@ -1,6 +1,8 @@
 #pragma once
 
 #include "rack.hpp"
+
+#include <cstdint>
 #include <chrono>
 #include <unordered_map>
 #include <variant>
@@ -193,13 +195,24 @@ struct Renderer {
     rack::widget::Widget* widget
   );
 
+  // crop/pad to target dimensions as necessary
+  uint8_t* normalizePixels(
+    const uint8_t* source,
+    int sourceWidth,
+    int sourceHeight,
+    int targetWidth,
+    int targetHeight
+  );
+
   // render framebuffer to pixel array
   uint8_t* renderPixels(
     rack::widget::FramebufferWidget* fb,
     int& width,
     int& height,
     rack::math::Vec scale,
-    bool override = false
+    bool override = false,
+    int targetWidth = -1,
+    int targetHeight = -1
   );
 
   // render pixel array to png
