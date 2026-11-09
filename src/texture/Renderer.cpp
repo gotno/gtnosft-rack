@@ -4,6 +4,7 @@
 #include "Renderer.hpp"
 #include "Catalog.hpp"
 #include "../util/Util.hpp"
+#include "../util/LightOverrides.hpp"
 #include "../osc/Bundler/ModuleCacheGuard.hpp"
 #include "../bench/Bench.hpp"
 #include "math.hpp"
@@ -738,26 +739,6 @@ void Renderer::hideChildren(rack::widget::Widget* widget) {
   }
 }
 
-std::map<
-  std::pair<std::string, std::string>,
-  std::function<bool(rack::widget::Widget*)>
-> Renderer::hideChildrenVisibilityOverride = {
-    {
-      {"Befaco", "NoisePlethora"},
-      [](rack::widget::Widget* w) {
-        if (!dynamic_cast<rack::app::LightWidget*>(w)) return false;
-
-        rack::math::Vec displayAPos =
-          rack::window::mm2px(rack::math::Vec(13.106f, 38.172f));
-        if (w->box.pos.equals(displayAPos)) return true;
-        rack::math::Vec displayBPos =
-          rack::window::mm2px(rack::math::Vec(13.106f, 50.712f));
-        if (w->box.pos.equals(displayBPos)) return true;
-        return false;
-      }
-    },
-};
-
 void Renderer::hideChildren(rack::widget::Widget* widget, std::string pluginSlug, std::string moduleSlug) {
   for (auto& child : widget->children) {
     if (
@@ -767,11 +748,10 @@ void Renderer::hideChildren(rack::widget::Widget* widget, std::string pluginSlug
         || dynamic_cast<rack::app::PortWidget*>(child)
         || dynamic_cast<rack::app::LightWidget*>(child)
     ) {
-      std::pair<std::string, std::string> slugPair(pluginSlug, moduleSlug);
-      child->visible =
-        hideChildrenVisibilityOverride.count(slugPair)
-          ? hideChildrenVisibilityOverride.at(slugPair)(child)
-          : false;
+      auto* light = dynamic_cast<rack::app::LightWidget*>(child);
+      child->visible = light && gtnosft::light_overrides::isOverlayLight(
+        gtnosft::light_overrides::overlayLights, pluginSlug, moduleSlug, light
+      );
     }
   }
 }

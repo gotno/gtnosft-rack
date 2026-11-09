@@ -1,4 +1,5 @@
 #include "LightGroups.hpp"
+#include "../../util/LightOverrides.hpp"
 
 #include <cmath>
 
@@ -75,8 +76,10 @@ std::vector<LightGroup> collectLightGroups(rack::app::ModuleWidget* moduleWidget
 
   // panel lights
   for (Widget* widget : moduleWidget->children) {
-    if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget))
-      addToGroups(groups, lightWidget, -1);
+    if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget)) {
+      if (!gtnosft::light_overrides::isOverlayLight(moduleWidget, lightWidget))
+        addToGroups(groups, lightWidget, -1);
+    }
   }
 
   // param lights
@@ -84,8 +87,10 @@ std::vector<LightGroup> collectLightGroups(rack::app::ModuleWidget* moduleWidget
     rack::engine::ParamQuantity* pq = paramWidget->getParamQuantity();
     int32_t paramId = pq ? pq->paramId : -1;
     for (Widget* widget : paramWidget->children) {
-      if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget))
-        addToGroups(groups, lightWidget, paramId);
+      if (LightWidget* lightWidget = dynamic_cast<LightWidget*>(widget)) {
+        if (!gtnosft::light_overrides::isOverlayLight(moduleWidget, lightWidget))
+          addToGroups(groups, lightWidget, paramId);
+      }
     }
   }
 

@@ -243,9 +243,4 @@ struct Renderer {
     std::string pluginSlug,
     std::string moduleSlug
   );
-  // override hideChildren visibility when rendering the overlay
-  static std::map<
-    std::pair<std::string, std::string>,
-    std::function<bool(rack::widget::Widget*)>
-  > hideChildrenVisibilityOverride;
 };
