@@ -1,5 +1,6 @@
 #include "ModuleStructureBundler.hpp"
 #include "../../util/Util.hpp"
+#include "../../util/ParamVisibility.hpp"
 #include "../../texture/Catalog.hpp"
 #include "../../bench/Bench.hpp"
 
@@ -141,6 +142,7 @@ void ModuleStructureBundler::addParamMessages(
   rack::app::Knob* knobWidget;
   rack::app::Switch* switchWidget;
 
+  auto visibility = gtnosft::param_visibility::collect(moduleWidget);
   for (rack::app::ParamWidget* & paramWidget : moduleWidget->getParams()) {
     rack::engine::ParamQuantity* pq = paramWidget->getParamQuantity();
 
@@ -154,7 +156,7 @@ void ModuleStructureBundler::addParamMessages(
     defaultValue = pq->getDefaultValue();
     minValue = pq->getMinValue();
     maxValue = pq->getMaxValue();
-    defaultVisible = paramWidget->isVisible();
+    defaultVisible = visibility.at(paramWidget);
     snap = pq->snapEnabled;
 
     sliderWidget = NULL;

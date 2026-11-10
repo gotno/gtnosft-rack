@@ -4,9 +4,9 @@
 #include "../ParamWrite.hpp"
 
 struct ParamState {
-  ParamState(int _id, rack::app::ParamWidget* widget):
+  ParamState(int _id, rack::app::ParamWidget* widget, bool effectiveVisible):
     id(_id),
-    visible(widget->isVisible()),
+    visible(effectiveVisible),
     value(gtnosft::param_write::getValue(widget)),
     label(widget->getParamQuantity()->getString()) {}
 
@@ -15,13 +15,13 @@ struct ParamState {
   float value;
   std::string label;
 
-  bool update(rack::app::ParamWidget* widget) {
+  bool update(rack::app::ParamWidget* widget, bool effectiveVisible) {
     float currentValue = gtnosft::param_write::getValue(widget);
     bool valueUnchanged = value == currentValue;
-    if (visible == widget->isVisible() && valueUnchanged)
+    if (visible == effectiveVisible && valueUnchanged)
       return false;
 
-    visible = widget->isVisible();
+    visible = effectiveVisible;
     value = currentValue;
     label = widget->getParamQuantity()->getString();
 
