@@ -15,7 +15,6 @@ endif
 # libopus, built static into $(DEP_LOCAL). build-wsl.sh / build-msys.sh set
 # DEP_LOCAL per environment, since they share this checkout. CI uses `dep`.
 DEP_LOCAL ?= dep
-OPUS_VERSION := 1.5.2
 libopus := $(DEP_LOCAL)/lib/libopus.a
 OBJECTS += $(libopus)
 DEPS += $(libopus)
@@ -61,6 +60,7 @@ SOURCES += $(wildcard dependencies/oscpack/osc/*.cpp)
 DISTRIBUTABLES += res
 DISTRIBUTABLES += $(wildcard LICENSE*)
 DISTRIBUTABLES += dependencies/oscpack/LICENSE
+DISTRIBUTABLES += dependencies/opus/COPYING
 DISTRIBUTABLES += dependencies/qoi/LICENSE
 DISTRIBUTABLES += dependencies/rapidhash/LICENSE
 DISTRIBUTABLES += $(wildcard presets)
@@ -83,13 +83,10 @@ else
 endif
 endif
 
-$(libopus):
-	cd $(DEP_LOCAL) && $(WGET) "https://downloads.xiph.org/releases/opus/opus-$(OPUS_VERSION).tar.gz"
-	cd $(DEP_LOCAL) && $(SHA256) opus-$(OPUS_VERSION).tar.gz 65c1d2f78b9f2fb20082c38cbe47c951ad5839345876e46941612ee87f9a7ce1
-	cd $(DEP_LOCAL) && $(UNTAR) opus-$(OPUS_VERSION).tar.gz
-	cd $(DEP_LOCAL)/opus-$(OPUS_VERSION) && $(CMAKE) -B build $(OPUS_CMAKE_FLAGS)
-	$(MAKE) -C $(DEP_LOCAL)/opus-$(OPUS_VERSION)/build
-	$(MAKE) -C $(DEP_LOCAL)/opus-$(OPUS_VERSION)/build install
+$(libopus): dependencies/opus/CMakeLists.txt
+	$(CMAKE) -S dependencies/opus -B $(DEP_LOCAL)/opus-build $(OPUS_CMAKE_FLAGS)
+	$(MAKE) -C $(DEP_LOCAL)/opus-build
+	$(MAKE) -C $(DEP_LOCAL)/opus-build install
 
 # audio sources include opus.h
 $(filter build/src/audio/%,$(OBJECTS)): | $(libopus)

@@ -12,8 +12,8 @@ Run these commands from the repository root.
   or `BENCH=1`.
 - Set `RACK_DIR` to the Rack SDK or Rack source tree; `Makefile` defaults to
   `../..` if it is unset.
-- Set up a missing libopus dependency with `./build-wsl.sh dep`; this downloads
-  and builds libopus if needed.
+- Set up a missing libopus dependency with `./build-wsl.sh dep`; this builds
+  the vendored Opus source if needed.
 - Run the Rack-free C++ suite with `./tests/run.sh`; select a test by
   case-sensitive name substring, for example `./tests/run.sh resyncs`.
 - After building on Linux/WSL, run headless Rack widget tests with
