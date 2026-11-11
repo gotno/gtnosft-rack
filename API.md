@@ -13,6 +13,8 @@ ctrl starts in **broadcast mode**, periodically sending `/announce` on the local
 network. The OSC receiver remains active in this mode; clients should use
 `/register` to establish a directed connection.
 
+While in broadcast mode, ctrl ignores all client requests other than `/register`.
+
 #### Announcement
 
 **Broadcast:** `/announce` to UDP port 7746 once per second
@@ -41,11 +43,6 @@ The server switches to direct unicast mode and sends outgoing OSC packets to
 the registering client's IP address on UDP port 7746. It continues listening
 on the port announced in `/announce`; a direct `/heartbeat` is sent shortly
 after registration.
-
-While in broadcast mode, ctrl ignores client requests (`/get/*`, `/set/*`,
-`/subscribe/*`, `/add/cable`, `/remove/cable`, `/audio/stats` and
-`/patch/open`). Register before sending them. Requests still queued when the
-client times out or re-registers are dropped without a reply.
 
 ### 3. Heartbeat Maintenance
 
@@ -98,16 +95,16 @@ and cancels subscriptions.
 ```
 For each unique (pluginSlug, moduleSlug) pair:
 
-1. Send /get/module_structure <pluginSlug> <moduleSlug>
-   ← Receive /set/module_structure (header)
-   ← Receive /set/module_structure/param/* for each parameter
-   ← Receive /set/module_structure/port for each port
-   ← Receive /set/module_structure/light for each light
+1. Send /get/module/structure <pluginSlug> <moduleSlug>
+   ← Receive /set/module/structure (header)
+   ← Receive /set/module/structure/param/* for each parameter
+   ← Receive /set/module/structure/port for each port
+   ← Receive /set/module/structure/light for each light
 
 2. Send /get/texture <panelTextureId> <sequenceId> <scale|height>
    (and the same for param and port texture ids)
-   ← Receive chunks via /set/texture
-   → ACK every copy of each chunk with /ack_chunk
+   ← Receive chunks via /set/texture/chunk
+   → ACK every copy of each chunk with /ack/chunk
    → Assemble and decode the QOI image
 
 3. Cache this information - only needs to be done once per module type
@@ -118,14 +115,14 @@ For each unique (pluginSlug, moduleSlug) pair:
 ```
 For each module instance:
 
-1. Send /get/module_state <moduleId>
-   ← Receive /set/state/module with position and overlay texture id
+1. Send /get/module/state <moduleId>
+   ← Receive /set/module/state with position and overlay texture id
 
 2. Send /get/texture <overlayTextureId> <sequenceId> <scale|height>
    ← Receive chunks of the module's current overlay (displays, etc.)
 
 3. Optional: Send /subscribe/module/lights <moduleId>
-   ← Receive /ack/subscribe/module/lights, then /set/state/lights updates each UI frame
+   ← Receive /ack/subscribe/module/lights, then /set/lights/state updates each UI frame
 ```
 
 ### Controlling Parameters
@@ -273,7 +270,7 @@ Stubs and their count report are sent as a single bundle to ensure count arrives
 ### Structure
 Structure represents the general blueprint for a module and its params, ports and lights. It is distinct from State, which is the data unique to a specific instance of a module in the patch.
 
-**Request:** `/get/module_structure`
+**Request:** `/get/module/structure`
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -284,7 +281,7 @@ Structure represents the general blueprint for a module and its params, ports an
 **Response:** Multiple messages describing the module and its parameters, ports,
 and lights. There is no response if the module model cannot be found or loaded.
 
-**Module header:** `/set/module_structure` General module information.
+**Module header:** `/set/module/structure` General module information.
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -302,7 +299,7 @@ and lights. There is no response if the module model cannot be found or loaded.
 ---
 **Parameter definitions:** Two messages per parameter: One general info and one type-specific info. Positions are relative to module position.
 
-**Parameter header:** `/set/module_structure/param`: Base parameter information
+**Parameter header:** `/set/module/structure/param`: Base parameter information
 Shared data shape for all param types.
 
 | index | type | contents | description |
@@ -323,7 +320,7 @@ Shared data shape for all param types.
 | 13 | bool | snap | whether the parameter snaps to integer values |
 
 
-`/set/module_structure/param/knob`: Knob-specific parameter information
+`/set/module/structure/param/knob`: Knob-specific parameter information
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -341,7 +338,7 @@ Shared data shape for all param types.
 <sub>2. if there is no texture for the given layer, `-1` is returned</sub><br />
 <sub>3. the midground texture rotates with the knob, while the background and foreground are static</sub><br />
 
-`/set/module_structure/param/slider`: Slider-specific parameter information
+`/set/module/structure/param/slider`: Slider-specific parameter information
 * A slider has a track, and a handle that moves within the bounding box of the track. It can be oriented horizontally or vertically.
 
 | index | type | contents | description |
@@ -359,7 +356,7 @@ Shared data shape for all param types.
 | 10 | int64 | handle texture id | unique id for requesting a render of the slider's handle |
 
 
-`/set/module_structure/param/button`: Button-specific parameter information.
+`/set/module/structure/param/button`: Button-specific parameter information.
 A button may be momentary (returns to unpressed when released) or
 toggle/latching (stays pressed until pressed again).
 
@@ -371,7 +368,7 @@ toggle/latching (stays pressed until pressed again).
 | 3… | int64 | frame texture id | one texture id per parameter position, in increasing value order |
 
 
-`/set/module_structure/param/switch`: Switch-specific parameter information
+`/set/module/structure/param/switch`: Switch-specific parameter information
 * A switch has an arbitrary number of positions. It cycles through them in order, wrapping back around to the first position after the last. It can be oriented horizontally or vertically.
 
 | index | type | contents | description |
@@ -388,7 +385,7 @@ two-state button, the first is unpressed and the second is pressed.
 ---
 **Port definitions:** One message per port. Positions are relative to module position.
 
-`/set/module_structure/port`
+`/set/module/structure/port`
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -407,7 +404,7 @@ two-state button, the first is unpressed and the second is pressed.
 ---
 **Light definitions:** One message per light<sup>2</sup>. Positions are relative to module position.
 
-`/set/module_structure/light`
+`/set/module/structure/light`
 | index | type | contents | description |
 |---:|---|---|---|
 | 0 | int32 | structure id | unique id for the structure of the module to which this light belongs |
@@ -440,7 +437,7 @@ Returns the current position and overlay texture for one loaded module.
 |---:|---|---|---|
 | 0 | int64 | module id | Rack's unique id for the module instance |
 
-**Response:** `/set/state/module` (no response if the module is not loaded)
+**Response:** `/set/module/state` (no response if the module is not loaded)
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -449,18 +446,18 @@ Returns the current position and overlay texture for one loaded module.
 | 2 | float | position y | module position relative to ctrl's top-left corner |
 | 3 | int64 | overlay texture id | texture for runtime graphics drawn over the panel; it may render blank |
 
-#### `/get/params_state`
+#### `/get/module/params/state`
 
 Requests current parameter state for one module.
 
-**Request:** `/get/params_state`
+**Request:** `/get/module/params/state`
 
 | index | type | contents | description |
 |---:|---|---|---|
 | 0 | int64 | module id | Rack's unique id for the module instance |
 
-**Response:** One `/set/state/param` message per reported parameter, followed by
-`/report/state/param/count`. The first request for a module after server start or a
+**Response:** One `/set/param/state` message per reported parameter, followed by
+`/report/param/state/count`. The first request for a module after server start or a
 cache reset reports all its parameters. Later requests report only the
 parameters whose value or visibility changed; they are not
 full snapshots. No response is sent if the module is not loaded.
@@ -468,12 +465,12 @@ full snapshots. No response is sent if the module is not loaded.
 Param updates and their count report are sent as a single bundle to ensure
 count arrives last.
 
-`/set/state/param`:
+`/set/param/state`:
 
 | index | type | contents | description |
 |---:|---|---|---|
 | 0 | int64 | module id | Rack's unique id for the module instance |
-| 1 | int32 | parameter id | parameter index from `/get/module_structure` |
+| 1 | int32 | parameter id | parameter index from `/get/module/structure` |
 | 2 | bool | visible | current visibility |
 | 3 | float | value | current parameter value |
 | 4 | string | label | current formatted parameter value (shown in the param's tooltip in rack) |
@@ -497,7 +494,7 @@ the parameter's `ParamQuantity`.
 | index | type | contents | description |
 |---:|---|---|---|
 | 0 | int64 | module id | Rack's unique id for the module instance |
-| 1 | int32 | parameter id | parameter index from `/get/module_structure` |
+| 1 | int32 | parameter id | parameter index from `/get/module/structure` |
 | 2 | float | value | requested parameter value |
 | 3 | bool | needs acknowledgement | when true, request an `/ack/param/value` response |
 
@@ -510,7 +507,7 @@ the parameter's `ParamQuantity`.
 | 2 | float or int32 | value | applied value on success; integer `-1` on failure |
 | 3 | bool | success | false if the module or parameter was not found |
 
-#### `/param/click`, `/param/press`, `/param/release`
+#### `/act/click/param`, `/act/press/param`, `/act/release/param`
 
 Synthesizes left-button interactions on the parameter's widget, on the UI
 thread. Targets are resolved by ID even when offscreen or hidden; the Rack view
@@ -522,11 +519,11 @@ do not capture desktop mouse movement, lock its cursor, or change its selection.
 | index | type | contents | description |
 |---:|---|---|---|
 | 0 | int64 | module id | Rack's unique id for the module instance |
-| 1 | int32 | parameter id | parameter index from `/get/module_structure` |
+| 1 | int32 | parameter id | parameter index from `/get/module/structure` |
 
-`/param/press` presses and holds the target. Only one synthetic hold is active:
+`/act/press/param` presses and holds the target. Only one synthetic hold is active:
 another press releases the previous target first, even if it is the same
-parameter. `/param/click` also releases any existing synthetic hold, then presses
+parameter. `/act/click/param` also releases any existing synthetic hold, then presses
 its target and schedules a release on a subsequent UI tick, after the engine has
 advanced enough to give the module an opportunity to observe the press.
 
@@ -535,7 +532,7 @@ clicks are not merged. An explicit release received before the engine has
 observed its press is also deferred. While the engine is stopped, these pending
 transitions and their acknowledgements wait for engine progress.
 
-`/param/release` releases only a matching synthetic hold. If there is no matching
+`/act/release/param` releases only a matching synthetic hold. If there is no matching
 hold, it succeeds without sending an event. Duplicate releases are therefore
 harmless; duplicate clicks and presses are **not** deduplicated.
 
@@ -544,8 +541,8 @@ client disconnects or resets, ctrl is removed, or the target module is removed.
 If the native mouse takes over the same control, its gesture is left intact and
 the synthetic gesture is canceled.
 
-**Response:** Every request receives its corresponding `/ack/param/click`,
-`/ack/param/press`, or `/ack/param/release`. ACKs are sent after the requested
+**Response:** Every request receives its corresponding `/ack/click/param`,
+`/ack/press/param`, or `/ack/release/param`. ACKs are sent after the requested
 transition is dispatched; click ACKs are sent after the deferred release,
 not merely after the request is queued.
 
@@ -649,7 +646,7 @@ Subscribes to light state updates for a loaded module.
 | 0 | int64 | module id | requested module id |
 | 1 | bool | success | false if the module is not loaded |
 
-On success, `/set/state/lights` updates are produced each Rack UI frame. The first
+On success, `/set/lights/state` updates are produced each Rack UI frame. The first
 update reports every light; later updates include only changed lights. Unsent
 updates may be coalesced.
 
@@ -673,7 +670,7 @@ reset, including after heartbeat timeout.
 | index | type | contents | description |
 |---:|---|---|---|
 | 0 | int64 | module id | module containing the light |
-| 1 | int32 | light id | light index from `/get/module_structure` |
+| 1 | int32 | light id | light index from `/get/module/structure` |
 | 2 | bool | visible | current visibility |
 | 3 | int32 | color | packed `0xAARRGGBB` color |
 
@@ -702,7 +699,7 @@ Or, for pixel dimensions:
 | 2 | int32 | height | target height in pixels |
 | 3 | int32 | width (optional) | target width; when omitted, aspect ratio is preserved |
 
-**Response:** Chunked `/set/texture` messages (see Chunked Transfer Protocol).
+**Response:** Chunked `/set/texture/chunk` messages (see Chunked Transfer Protocol).
 
 **Notes:**
 - A texture id of `-1` means there is no texture; do not request it.
@@ -721,7 +718,7 @@ The rendered image is RGBA with top-down rows, encoded as
 [QOI](https://qoiformat.org/). Each chunk is sent in its own UDP packet; chunks
 are queued and may be paced.
 
-**Server sends:** `/set/texture`, once per chunk.
+**Server sends:** `/set/texture/chunk`, once per chunk.
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -735,7 +732,7 @@ are queued and may be paced.
 | 7 | int32 | height | rendered image height in pixels |
 | 8 | blob | chunk data | bytes for offset `chunk number × chunk size` |
 
-**Client sends:** `/ack_chunk` for every copy of every received chunk.
+**Client sends:** `/ack/chunk` for every copy of every received chunk.
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -830,7 +827,7 @@ Selects the latency/quality preset.
 The request fails if the module is not the managed Tx, no client is registered,
 or the preset id is outside 0–3.
 
-#### `/audio/stats`
+#### `/set/audio/stats`
 
 Report jitter-buffer health to Tx. Send every ~500 ms while playing.
 

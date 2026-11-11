@@ -50,7 +50,7 @@ private:
 
   static constexpr size_t MSG_FIXED =
     4 + // bundle element size prefix
-    oscPadded(sizeof("/set/s/l") - 1) + // address string
+    oscPadded(sizeof("/set/lights/state") - 1) + // address string
     oscPadded(sizeof(",") - 1); // type tag base (comma prefix + null, padded)
 
   static constexpr size_t PER_ENTRY =

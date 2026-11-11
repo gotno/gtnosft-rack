@@ -20,7 +20,7 @@ ModuleStateBundler::ModuleStateBundler(int64_t moduleId, rack::math::Rect ctrlBo
   int64_t textureId = Catalog::pullOverlayId(moduleWidget);
 
   messages.emplace_back(
-    "/set/state/module",
+    "/set/module/state",
     [=](osc::OutboundPacketStream& pstream) {
       pstream << moduleId
         << pos.x

@@ -515,7 +515,7 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
-    "/get/module_structure",
+    "/get/module/structure",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       std::string pluginSlug = (args++)->AsString();
       std::string moduleSlug = (args++)->AsString();
@@ -594,7 +594,7 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
-    "/ack_chunk",
+    "/ack/chunk",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t chunkedId = (args++)->AsInt64();
       int32_t sequenceId = (args++)->AsInt32();
@@ -609,7 +609,7 @@ void OscReceiver::generateRoutes() {
 
   // state
   routes.emplace(
-    "/get/module_state",
+    "/get/module/state",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
 
@@ -622,7 +622,7 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
-    "/get/params_state",
+    "/get/module/params/state",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
 
@@ -695,15 +695,15 @@ void OscReceiver::generateRoutes() {
   );
 
   for (auto [actionName, action] : {
-    // /param/click
+    // /act/click/param
     std::pair{"click", gtnosft::param_interaction::Action::Click},
-    // /param/press
+    // /act/press/param
     std::pair{"press", gtnosft::param_interaction::Action::Press},
-    // /param/release
+    // /act/release/param
     std::pair{"release", gtnosft::param_interaction::Action::Release}
   }) {
     routes.emplace(
-      std::string("/param/") + actionName,
+      std::string("/act") + actionName + std::string("/param"),
       [this, action, actionName](
         osc::ReceivedMessage::const_iterator& args, const IpEndpointName&
       ) {
@@ -800,7 +800,7 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
-    "/audio/stats",
+    "/set/audio/stats",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       int64_t moduleId = (args++)->AsInt64();
       ChunkPacer::AudioStats stats;

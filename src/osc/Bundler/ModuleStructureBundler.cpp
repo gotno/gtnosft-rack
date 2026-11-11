@@ -36,7 +36,7 @@ ModuleStructureBundler::ModuleStructureBundler(
 
   messages.emplace(
     messages.begin(),
-    "/set/module_structure",
+    "/set/module/structure",
     [=, this](osc::OutboundPacketStream& pstream) {
       pstream << id
         << pluginSlug.c_str()
@@ -91,7 +91,7 @@ void ModuleStructureBundler::addLightMessage(const LightGroup& group) {
   }
 
   messages.emplace_back(
-    "/set/module_structure/light",
+    "/set/module/structure/light",
     [this, lightId, paramId, size, pos, defaultVisible, bgColorHex](
       osc::OutboundPacketStream& pstream
     ) {
@@ -241,7 +241,7 @@ void ModuleStructureBundler::addParamMessages(
     }
 
     messages.emplace_back(
-      "/set/module_structure/param",
+      "/set/module/structure/param",
       [=, this](osc::OutboundPacketStream& pstream) {
         pstream << id
           << paramId
@@ -282,7 +282,7 @@ void ModuleStructureBundler::addParamMessages(
         Catalog::pullIds(ParamType::Knob, knobWidget, probes);
 
       messages.emplace_back(
-        "/set/module_structure/param/knob",
+        "/set/module/structure/param/knob",
         [=, this](osc::OutboundPacketStream& pstream) {
           pstream << id
             << paramId
@@ -313,7 +313,7 @@ void ModuleStructureBundler::addParamMessages(
         Catalog::pullIds(ParamType::Slider, sliderWidget, probes);
 
       messages.emplace_back(
-        "/set/module_structure/param/slider",
+        "/set/module/structure/param/slider",
         [=, this](osc::OutboundPacketStream& pstream) {
           pstream << id
             << paramId
@@ -342,7 +342,7 @@ void ModuleStructureBundler::addParamMessages(
         Catalog::pullIds(ParamType::Button, switchWidget, probes);
 
       messages.emplace_back(
-        "/set/module_structure/param/button",
+        "/set/module/structure/param/button",
         [=, this](osc::OutboundPacketStream& pstream) {
           pstream << id
             << paramId
@@ -368,7 +368,7 @@ void ModuleStructureBundler::addParamMessages(
         Catalog::pullIds(ParamType::Button, switchWidget, probes);
 
       messages.emplace_back(
-        "/set/module_structure/param/switch",
+        "/set/module/structure/param/switch",
         [=, this](osc::OutboundPacketStream& pstream) {
           pstream << id
             << paramId
@@ -417,7 +417,7 @@ void ModuleStructureBundler::addPortMessages(
     int64_t textureId = Catalog::pullId(type, portWidget, probes);
 
     messages.emplace_back(
-      "/set/module_structure/port",
+      "/set/module/structure/port",
       [=, this](
         osc::OutboundPacketStream& pstream
       ) {

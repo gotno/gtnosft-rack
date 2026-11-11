@@ -14,7 +14,7 @@ ChunkedImageBundler::ChunkedImageBundler(
   int32_t _height
 ): Bundler("ChunkedImageBundler"),
   ChunkedSendBundler(
-    "/set/texture",
+    "/set/texture/chunk",
     chunkedSendId,
     sequenceId,
     chunkNum,

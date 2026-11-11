@@ -89,16 +89,16 @@ class BenchError(Exception):
 
 RCVBUF_REQUEST = 8 * 1024 * 1024
 
-# fast path for the hot /set/texture chunks; python-osc is too slow to keep up
+# fast path for the hot /set/texture/chunk chunks; python-osc is too slow to keep up
 # with large frames arriving in a burst
-_TEXTURE_PREFIX = b"/set/texture\0\0\0\0,hiiiihiib\0\0"
+_TEXTURE_PREFIX = b"/set/texture/chunk\0\0\0\0,hiiiihiib\0\0"
 _TEXTURE_ARGS = struct.Struct(">qiiiiqiii")  # ...width, height, blob size
 _ACK_PREFIX = b"/ack_chunk\0\0,hii\0\0\0\0"
 _ACK_ARGS = struct.Struct(">qii")
 
 
 def parse_texture_chunks(data):
-    """Returns the /set/texture chunk params in a packet (bundle or message),
+    """Returns the /set/texture/chunk chunk params in a packet (bundle or message),
     or None if the packet contains anything else."""
     if data.startswith(b"#bundle\0"):
         elements, offset = [], 16
@@ -327,7 +327,7 @@ class Client:
                 r["complete"] = r.pop("messages") == p[0]
                 self.report = r
                 self.report_building = None
-        elif a == "/set/texture":
+        elif a == "/set/texture/chunk":
             self._on_chunk(p, received_at)
 
     def _on_chunk(self, p, received_at):
