@@ -1,5 +1,8 @@
 # ctrl API Documentation
 
+> [!WARNING]
+> ctrl should be considered beta software. The API is subject to change.
+
 ## Overview
 
 ctrl provides a bidirectional [OSC (Open Sound Control)](https://ccrma.stanford.edu/groups/osc/index.html) network API for controlling and monitoring VCV Rack, enabling remote control, state synchronization, and visual rendering of modules and their components.
