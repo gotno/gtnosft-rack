@@ -16,6 +16,8 @@ Run these commands from the repository root.
   and builds libopus if needed.
 - Run the Rack-free C++ suite with `./tests/run.sh`; select a test by
   case-sensitive name substring, for example `./tests/run.sh resyncs`.
+- After building on Linux/WSL, run headless Rack widget tests with
+  `./tests/run-rack.sh`. These link `libRack.so` without creating a window.
 - On pull requests and pushes, CI runs `make plugin-build-lin-x64` and
   `make plugin-build-win-x64` inside the Rack plugin toolchain, plus `make dep`
   and `make dist` on macOS; see `.github/workflows/build-plugin.yml`. Required
@@ -29,7 +31,8 @@ Run these commands from the repository root.
   surrogate cache) and `Catalog` (texture IDs).
 - `src/Tx.cpp` and `src/audio/` implement the audio producer, codec and sender.
 - `src/bench/` contains optional instrumentation; `tools/bench/` has its clients.
-- `tests/` contains Rack-free C++ tests; `API.md` documents the network protocol.
+- `tests/` contains Rack-free C++ tests and `tests/rack/` contains headless
+  Rack-linked tests; `API.md` documents the network protocol.
 
 ## Conventions
 
@@ -40,6 +43,8 @@ Run these commands from the repository root.
 - Add new C++ source directories to the explicit `SOURCES` globs in `Makefile`.
 - Add Rack-free tests to `tests/test_*.cpp` using `TEST(...)` from
   `tests/test.hpp`; `tests/run.sh` compiles all test files.
+- Add Rack-linked widget tests to `tests/rack/test_*.cpp`; use
+  `tests/run-rack.sh` instead of the Rack-free runner.
 
 ## Adding a Rack module
 
@@ -63,6 +68,8 @@ Run these commands from the repository root.
 - Never hand-edit generated files in `build/`, `build-wsl/`, `build-msys/`,
   `build-tests/`, `dep/`, `dep-wsl/`, `dep-msys/` or `dist/`; use the relevant
   build or test command instead.
+- `API.md` is for API consumers. Document request/response formats and externally observable behavior, including timing, errors, and limitations. Omit internal implementation details and design rationale.
+  - For example, "click ACK arrives after release" belongs; explanations of private event state or engine sample counters don't.
 
 ## Further reading
 

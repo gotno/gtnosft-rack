@@ -4,6 +4,7 @@
 #include "osc/OscReceiver.hpp"
 #include "osc/ChunkedManager.hpp"
 #include "osc/SubscriptionManager.hpp"
+#include "osc/ParamInteraction.hpp"
 #include "osc/Bundler/ModuleCacheGuard.hpp"
 #include "Tx.hpp"
 #include "osc/Bundler/AudioBundlers.hpp"
@@ -162,6 +163,7 @@ void CtrlWidget::step() {
     chunkman->tick();
   }
 
+  if (osctx) gtnosft::param_interaction::step();
   processActionQueue();
   if (osctx) stepAudioExpander();
   if (chunkman) Renderer::evictIdleOverlays();

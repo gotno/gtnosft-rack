@@ -4,8 +4,7 @@
 
 ctrl provides a bidirectional [OSC (Open Sound Control)](https://ccrma.stanford.edu/groups/osc/index.html) network API for controlling and monitoring VCV Rack, enabling remote control, state synchronization, and visual rendering of modules and their components.
 
-The server wraps outgoing OSC messages in immediate bundles. A response
-containing multiple messages may span multiple UDP packets.
+The server wraps outgoing OSC messages in immediate bundles. A response containing multiple messages may span multiple UDP packets.
 
 ## Connection Flow
 ### 1. Discovery Phase (Broadcast Mode)
@@ -510,6 +509,51 @@ the parameter's `ParamQuantity`.
 | 1 | int32 | parameter id | requested parameter id |
 | 2 | float or int32 | value | applied value on success; integer `-1` on failure |
 | 3 | bool | success | false if the module or parameter was not found |
+
+#### `/param/click`, `/param/press`, `/param/release`
+
+Synthesizes left-button interactions on the parameter's widget, on the UI
+thread. Targets are resolved by ID even when offscreen or hidden; the Rack view
+is not scrolled or zoomed. Synthetic gestures use separate event state, so they
+do not capture desktop mouse movement, lock its cursor, or change its selection.
+
+**Request:** Each route takes two arguments:
+
+| index | type | contents | description |
+|---:|---|---|---|
+| 0 | int64 | module id | Rack's unique id for the module instance |
+| 1 | int32 | parameter id | parameter index from `/get/module_structure` |
+
+`/param/press` presses and holds the target. Only one synthetic hold is active:
+another press releases the previous target first, even if it is the same
+parameter. `/param/click` also releases any existing synthetic hold, then presses
+its target and schedules a release on a subsequent UI tick, after the engine has
+advanced enough to give the module an opportunity to observe the press.
+
+Release/repress transitions are serialized with engine-visible gaps so successive
+clicks are not merged. An explicit release received before the engine has
+observed its press is also deferred. While the engine is stopped, these pending
+transitions and their acknowledgements wait for engine progress.
+
+`/param/release` releases only a matching synthetic hold. If there is no matching
+hold, it succeeds without sending an event. Duplicate releases are therefore
+harmless; duplicate clicks and presses are **not** deduplicated.
+
+An active real mouse drag is not interrupted. Holds are cleared when the
+client disconnects or resets, ctrl is removed, or the target module is removed.
+If the native mouse takes over the same control, its gesture is left intact and
+the synthetic gesture is canceled.
+
+**Response:** Every request receives its corresponding `/ack/param/click`,
+`/ack/param/press`, or `/ack/param/release`. ACKs are sent after the requested
+transition is dispatched; click ACKs are sent after the deferred release,
+not merely after the request is queued.
+
+| index | type | contents | description |
+|---:|---|---|---|
+| 0 | int64 | module id | requested module id |
+| 1 | int32 | parameter id | requested parameter id |
+| 2 | bool | success | false if the target or UI event state is unavailable, or a press/click conflicts with a real pointer interaction |
 
 ---
 

@@ -10,6 +10,7 @@
 #include "ChunkedManager.hpp"
 #include "SubscriptionManager.hpp"
 #include "ParamWrite.hpp"
+#include "ParamInteraction.hpp"
 
 #include "ChunkedSend/ChunkedImage.hpp"
 
@@ -23,7 +24,8 @@
 #include "Bundler/CablesBundler.hpp"
 
 #include "Bundler/CableAckBundler.hpp"
-#include "Bundler/ParamAckBundler.hpp"
+#include "Bundler/ParamValueAckBundler.hpp"
+#include "Bundler/ParamActionAckBundler.hpp"
 #include "Bundler/LightSubscriptionAckBundler.hpp"
 #include "Bundler/BenchReportBundler.hpp"
 
@@ -49,6 +51,11 @@ OscReceiver::OscReceiver(
 
 OscReceiver::~OscReceiver() {
   endListener();
+  {
+    std::scoped_lock lock(heartbeatMutex);
+    ++clientSession;
+  }
+  gtnosft::param_interaction::clear();
 }
 
 void OscReceiver::startListener() {
@@ -198,7 +205,10 @@ void OscReceiver::dropClient(const char* reason) {
   chunkman->reset();
   osctx->clearQueues();
 
-  ctrl->enqueueAction([this]() { ctrl->onClientGone(); }, "client_gone");
+  ctrl->enqueueAction([this]() {
+    gtnosft::param_interaction::clear();
+    ctrl->onClientGone();
+  }, "client_gone");
 }
 
 void OscReceiver::enqueueClientAction(
@@ -417,6 +427,7 @@ void OscReceiver::generateRoutes() {
   routes.emplace(
     "/register",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName& remoteEndpoint) {
+      std::scoped_lock lock(heartbeatMutex);
       if (!osctx->isBroadcasting()) return;
 
       ++clientSession;
@@ -647,9 +658,9 @@ void OscReceiver::generateRoutes() {
       bool needsAck = (args++)->AsBool();
 
       enqueueClientAction([=, this]() {
-        ParamAckBundler* bundler = [=]() -> ParamAckBundler* {
-          ParamAckBundler* ack =
-            new ParamAckBundler(moduleId, paramId);
+        ParamValueAckBundler* bundler = [=]() -> ParamValueAckBundler* {
+          ParamValueAckBundler* ack =
+            new ParamValueAckBundler(moduleId, paramId);
 
           rack::app::ModuleWidget* module =
             APP->scene->rack->getModule(moduleId);
@@ -682,6 +693,69 @@ void OscReceiver::generateRoutes() {
       }, "param");
     }
   );
+
+  for (auto [actionName, action] : {
+    // /param/click
+    std::pair{"click", gtnosft::param_interaction::Action::Click},
+    // /param/press
+    std::pair{"press", gtnosft::param_interaction::Action::Press},
+    // /param/release
+    std::pair{"release", gtnosft::param_interaction::Action::Release}
+  }) {
+    routes.emplace(
+      std::string("/param/") + actionName,
+      [this, action, actionName](
+        osc::ReceivedMessage::const_iterator& args, const IpEndpointName&
+      ) {
+        int64_t moduleId = (args++)->AsInt64();
+        int32_t paramId = (args++)->AsInt32();
+        uint64_t session = clientSession.load();
+
+        enqueueClientAction([this, actionName, action, moduleId, paramId, session]() {
+          if (session != clientSession.load()) return;
+          auto* module = APP->scene->rack->getModule(moduleId);
+          auto* param = module ? module->getParam(paramId) : nullptr;
+
+          auto complete = [this, actionName, moduleId, paramId, session](bool success) {
+            std::scoped_lock lock(heartbeatMutex);
+
+            if (osctx->isBroadcasting()) return;
+            if (session != clientSession.load()) return;
+
+            auto* module =
+              success
+                ? APP->scene->rack->getModule(moduleId)
+                : nullptr;
+            auto* param =
+              module
+                ? module->getParam(paramId)
+                : nullptr;
+
+            auto* ack = new ParamActionAckBundler(moduleId, paramId, actionName);
+            if (success && param && param->getParamQuantity()) {
+              WARN("ctrl %ld:%d %s success", moduleId, paramId, actionName);
+              ack->success();
+            } else {
+              WARN("ctrl %ld:%d %s fail", moduleId, paramId, actionName);
+              ack->fail();
+            }
+
+            osctx->enqueueBundler(ack);
+          };
+
+          if (param) {
+            gtnosft::param_interaction::apply(
+              action,
+              param,
+              std::move(complete)
+            );
+          } else {
+            complete(false);
+          }
+        }, "param_action");
+      }
+    );
+  }
 
   routes.emplace(
     "/set/audio/enabled",
