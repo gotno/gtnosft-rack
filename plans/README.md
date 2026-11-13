@@ -13,11 +13,11 @@ progress, so plan 001 finishes it rather than waiting on it.
 | # | Plan | Category | Priority | Effort | Risk | Depends on | Status |
 |---|---|---|---|---|---|---|---|
 | 001 | [Finish the OSC route rename](001-finish-route-rename.md) | correctness / docs | P1 | S | LOW (wire-visible) | none | TODO |
-| 002 | [Stop the heartbeat before OscReceiver teardown](002-stop-heartbeat-before-teardown.md) | correctness | P1 | S | LOW | none | TODO |
-| 003 | [Make OscSender's send mode atomic](003-atomic-send-mode.md) | correctness | P2 | S | LOW | none | TODO |
+| 002 | [Stop the heartbeat before OscReceiver teardown](002-stop-heartbeat-before-teardown.md) | correctness | P1 | S | LOW | none | DONE |
+| 003 | [Make OscSender's send mode atomic](003-atomic-send-mode.md) | correctness | P2 | S | LOW | none | DONE |
 | 004 | [Validate `/get/texture` scale and size](004-validate-texture-args.md) | robustness | P2 | S | LOW | 001 (soft: both edit `API.md`) | TODO |
 | 005 | [Run tests in CI and gate the toolchain release build](005-tests-in-ci-and-toolchain-build.md) | DX / CI | P2 | M | LOW | 001 (address-check script) | TODO |
-| 006 | [Characterization tests for RttEstimator and ChunkedSend](006-chunk-transfer-tests.md) | tests | P2 | M | LOW | none | TODO |
+| 006 | [Characterization tests for RttEstimator and ChunkedSend](006-chunk-transfer-tests.md) | tests | P2 | M | LOW | none | DONE |
 | 007 | [Characterize EngineClock teardown](007-engine-clock-teardown.md) | correctness (investigate) | P3 | M | MED | none | TODO |
 | 008 | [Remove dead chunk code](008-remove-dead-chunk-code.md) | tech debt | P3 | S | LOW | after 006 (both touch `ChunkedSend`) | TODO |
 
