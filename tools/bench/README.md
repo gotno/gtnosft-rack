@@ -221,7 +221,7 @@ Other metrics:
 - Thread tallies (server counters `<name>` = calls and `<name>.busy_us` = total
   time inside, both lock-free):
   - `rx.packets`: every packet on the OSC receive thread.
-  - `rx.acks`: `/ack_chunk` handling, including waiting on the chunk map lock
+  - `rx.acks`: `/ack/chunk` handling, including waiting on the chunk map lock
     the UI thread holds during `tick()`. `rx.acks.unknown` counts acks for
     sends that had already finished, and `rx.acks.duplicate` counts acks for
     chunks already acked.
@@ -312,7 +312,7 @@ the libopus shared library (`--wav` and `--analyze` decode them).
 - **Managed** (default): connects to ctrl like `overlay_bench.py` (same
   `--host`/`--port` discovery), finds the Tx placed directly next to it,
   optionally selects `--preset ID`, enables the stream to this machine, and
-  sends `/audio/stats` from the simulated buffer. It disables the stream when
+  sends `/set/audio/stats` from the simulated buffer. It disables the stream when
   the run ends.
 - **Overlays at the same time:** `--overlays N` streams N overlays
   (`--overlay-height`, `--overlay-rate`) during the measurement. Run it once
@@ -334,7 +334,7 @@ the libopus shared library (`--wav` and `--analyze` decode them).
 | `drift_ppm` | sender clock rate relative to ours |
 | `sim_underruns` / `sim_lost` | what a fixed-target buffer at the preset target would have done |
 | `server.pacing_rate_mbps` | chunk pacing rate at the end (0 = unlimited) |
-| `server.client_underruns` | last reported `/audio/stats` underruns |
+| `server.client_underruns` | last reported `/set/audio/stats` underruns |
 
 To test without Rack, run `mock_server.py --audio` (managed) or
 `mock_server.py --audio-to 127.0.0.1:7747` (passive). Both send a 1 kHz PCM

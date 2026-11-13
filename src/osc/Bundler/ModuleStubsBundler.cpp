@@ -10,7 +10,7 @@ ModuleStubsBundler::ModuleStubsBundler(): Bundler("ModuleStubsBundler") {
     std::string moduleSlug = model->slug;
 
     messages.emplace_back(
-      "/set/module_stub",
+      "/set/module/stub",
       [id, pluginSlug, moduleSlug](osc::OutboundPacketStream& pstream) {
         pstream << id
           << pluginSlug.c_str()

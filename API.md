@@ -89,8 +89,8 @@ and cancels subscriptions.
 4. Send /get/patch_info
    ← Receive /set/patch_info with ctrlId and filename
 
-5. Send /get/module_stubs
-   ← Receive /set/module_stub for each module, then /report/module/count
+5. Send /get/modules
+   ← Receive /set/module/stub for each module, then /report/module/count
    → Build list of moduleId → (pluginSlug, moduleSlug)
 ```
 
@@ -144,7 +144,7 @@ For each module instance:
 ```
 To add a cable:
 1. Send /add/cable <inputModuleId> <outputModuleId> <inputPortId> <outputPortId> "#ff0000" <returnId>
-   ← Receive /ack/cable/add with returnId, cableId, and success
+   ← Receive /ack/add/cable with returnId, cableId, and success
 
 To get all cables:
 1. Send /get/cables
@@ -152,7 +152,7 @@ To get all cables:
 
 To remove a cable:
 1. Send /remove/cable <cableId>
-   ← Receive /ack/cable/remove with cableId and success
+   ← Receive /ack/remove/cable with cableId and success
 ```
 ---
 
@@ -245,17 +245,17 @@ Loads a patch from the server's local filesystem.
 ---
 
 ### Module Discovery
-#### Get loaded modules `/get/module_stubs`
+#### Get loaded modules `/get/modules`
 Get the id, plugin slug, and module slug for each module in the patch.
 
-**Request:** `/get/module_stubs` (no arguments)
+**Request:** `/get/modules` (no arguments)
 
-**Response:** One `/set/module_stub` per loaded module, followed by
+**Response:** One `/set/module/stub` per loaded module, followed by
 `/report/module/count`.
 
 Stubs and their count report are sent as a single bundle to ensure count arrives last.
 
-`/set/module_stub`
+`/set/module/stub`
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -431,11 +431,11 @@ two-state button, the first is unpressed and the second is pressed.
 
 ### State
 
-#### `/get/module_state`
+#### `/get/module/state`
 
 Returns the current position and overlay texture for one loaded module.
 
-**Request:** `/get/module_state`
+**Request:** `/get/module/state`
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -479,7 +479,7 @@ count arrives last.
 | 3 | float | value | current parameter value |
 | 4 | string | label | current formatted parameter value (shown in the param's tooltip in rack) |
 
-**`/report/state/param/count`**
+**`/report/param/state/count`**
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -604,7 +604,7 @@ and returns the existing cable id.
 | 4 | string | color | cable color as a hex string |
 | 5 | int64 | return id (optional) | echoed in the acknowledgement; defaults to `-1` |
 
-**Response:** `/ack/cable/add`
+**Response:** `/ack/add/cable`
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -622,7 +622,7 @@ Removes a cable.
 |---:|---|---|---|
 | 0 | int64 | cable id | Rack's unique id for the cable |
 
-**Response:** `/ack/cable/remove`
+**Response:** `/ack/remove/cable`
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -797,7 +797,7 @@ Enables or disables the stream to the registered client's address.
 | 1 | int32 | enabled | 0 = disable, 1 = enable |
 | 2 | int32 | port | client's UDP audio port (normally 7747 when enabling) |
 
-**Response:** `/set/audio/enabled/ack`
+**Response:** `/ack/audio/enabled`
 
 | index | type | contents | description |
 |---:|---|---|---|
@@ -820,7 +820,7 @@ Selects the latency/quality preset.
 | 0 | int64 | module id | managed Tx module id |
 | 1 | int32 | preset id | 0 = Lowest latency, 1 = Balanced, 2 = Highest quality, 3 = Uncompressed |
 
-**Response:** `/set/audio/preset/ack`
+**Response:** `/ack/audio/preset`
 
 | index | type | contents | description |
 |---:|---|---|---|

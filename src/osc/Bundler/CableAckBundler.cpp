@@ -10,7 +10,7 @@ CableAckBundler::CableAckBundler(
 CableAckBundler* CableAckBundler::success(int64_t cableId) {
   if (type == CableAckType::Add) {
     messages.emplace_back(
-      "/ack/cable/add",
+      "/ack/add/cable",
       [=](osc::OutboundPacketStream& pstream) {
         pstream << returnId
           << cableId
@@ -19,7 +19,7 @@ CableAckBundler* CableAckBundler::success(int64_t cableId) {
     );
   } else {
     messages.emplace_back(
-      "/ack/cable/remove",
+      "/ack/remove/cable",
       [=](osc::OutboundPacketStream& pstream) {
         pstream << cableId
           << true;
@@ -33,7 +33,7 @@ CableAckBundler* CableAckBundler::success(int64_t cableId) {
 CableAckBundler* CableAckBundler::fail(int64_t cableId) {
   if (type == CableAckType::Add) {
     messages.emplace_back(
-      "/ack/cable/add",
+      "/ack/add/cable",
       [=](osc::OutboundPacketStream& pstream) {
         pstream << returnId
           << cableId
@@ -42,7 +42,7 @@ CableAckBundler* CableAckBundler::fail(int64_t cableId) {
     );
   } else {
     messages.emplace_back(
-      "/ack/cable/remove",
+      "/ack/remove/cable",
       [=](osc::OutboundPacketStream& pstream) {
         pstream << cableId
           << false;

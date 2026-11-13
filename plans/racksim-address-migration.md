@@ -61,7 +61,7 @@ Sent: `/register`, `/keepalive`, `/get/settings`, `/get/modules`,
 
 Received: `/announce`, `/heartbeat`, `/set/settings`, `/set/module/stub`,
 `/set/cable`, `/report/module/count`, `/report/cable/count`,
-`/ack/param/value`, `/ack/cable/add`, `/ack/cable/remove`,
+`/ack/param/value`, `/ack/add/cable`, `/ack/remove/cable`,
 `/ack/subscribe/module/lights`, `/set/audio_stream`,
 `/ack/audio/enabled`, `/ack/audio/preset`.
 

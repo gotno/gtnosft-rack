@@ -493,7 +493,7 @@ void OscReceiver::generateRoutes() {
   );
 
   routes.emplace(
-    "/get/module_stubs",
+    "/get/modules",
     [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName&) {
       (void)args;
 
@@ -703,7 +703,7 @@ void OscReceiver::generateRoutes() {
     std::pair{"release", gtnosft::param_interaction::Action::Release}
   }) {
     routes.emplace(
-      std::string("/act") + actionName + std::string("/param"),
+      std::string("/act/") + actionName + std::string("/param"),
       [this, action, actionName](
         osc::ReceivedMessage::const_iterator& args, const IpEndpointName&
       ) {
@@ -773,7 +773,7 @@ void OscReceiver::generateRoutes() {
           osctx->pacer.setActive(enabled, std::chrono::steady_clock::now());
         }
         osctx->enqueueBundler(
-          new AudioAckBundler("/set/audio/enabled/ack", moduleId, enabled, ok)
+          new AudioAckBundler("/ack/audio/enabled", moduleId, enabled, ok)
         );
         if (ok) ctrl->announceAudioStream();
       }, "audio");
@@ -792,7 +792,7 @@ void OscReceiver::generateRoutes() {
           && tx_af::isValidPreset(preset);
         if (ok) audio->setPreset(preset);
         osctx->enqueueBundler(
-          new AudioAckBundler("/set/audio/preset/ack", moduleId, preset, ok)
+          new AudioAckBundler("/ack/audio/preset", moduleId, preset, ok)
         );
         if (ok) ctrl->announceAudioStream();
       }, "audio");
@@ -933,13 +933,4 @@ void OscReceiver::generateRoutes() {
       }, "patch_open");
     }
   );
-
-  // TEMPLATE
-  // routes.emplace(
-  //   "",
-  //   [&](osc::ReceivedMessage::const_iterator& args, const IpEndpointName& remoteEndpoint) {
-  //     ctrl->enqueueAction([&]() {
-  //     });
-  //   }
-  // );
-}
+};

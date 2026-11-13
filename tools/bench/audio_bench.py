@@ -2,7 +2,7 @@
 """Tx audio stream test client.
 
 Managed (default): registers with ctrl like RackSim does, enables the
-Tx next to it, and reports /audio/stats from a simulated jitter buffer.
+Tx next to it, and reports /set/audio/stats from a simulated jitter buffer.
 --passive: only listens, for a standalone Tx pointed at this machine.
 
 See README.md ("audio bench").
@@ -46,7 +46,7 @@ class AudioReceiver:
         self.recording = False
         self.records = []  # (packet, arrival, size)
         self.invalid = self.foreign = self.sim_dropped = 0
-        self.sim = None  # JitterSim fed live, for /audio/stats
+        self.sim = None  # JitterSim fed live, for /set/audio/stats
         self.sim_tracker = aa.StreamTracker()  # live jitter for stats
         self.running = True
         self.thread = threading.Thread(target=self._loop, daemon=True)
@@ -100,7 +100,7 @@ class AudioReceiver:
             return list(self.records)
 
     def stats_args(self):
-        """/audio/stats arguments after the module id: cumulative counts from
+        """/set/audio/stats arguments after the module id: cumulative counts from
         the live simulated buffer, recent jitter p95 and the target"""
         with self.lock:
             sim = self.sim
@@ -126,7 +126,7 @@ class AudioClient(Client):
                 "module_id": p[0], "stream_id": p[1], "preset": p[2],
                 "enabled": bool(p[3]), "epoch": p[4],
             }
-        elif a in ("/set/audio/enabled/ack", "/set/audio/preset/ack"):
+        elif a in ("/ack/audio/enabled", "/ack/audio/preset"):
             self.audio_acks[a] = (p[0], p[1], bool(p[2]))
         else:
             super()._dispatch(msg, addr, received_at)
@@ -152,7 +152,7 @@ def stats_loop(client, receiver, module_id, stop):
     while not stop.wait(STATS_INTERVAL):
         args = receiver.stats_args()
         client.send(
-            "/audio/stats", ("h", module_id), ("i", args[0]), ("i", args[1]),
+            "/set/audio/stats", ("h", module_id), ("i", args[0]), ("i", args[1]),
             ("i", args[2]), ("f", args[3]), ("f", args[4]),
         )
 
@@ -258,7 +258,7 @@ def cmd_run(args):
         if args.overlays:
             stubs = []
             client.module_stubs, client.module_count = [], None
-            client.send("/get/module_stubs")
+            client.send("/get/modules")
             if not client.wait_for(lambda: client.module_count is not None, 5):
                 raise BenchError("no module stubs received")
             stubs = [m for m in client.module_stubs if m["plugin"] != "gotnosoft"]

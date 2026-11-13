@@ -155,7 +155,7 @@ def main():
             elif a in TOGGLES:
                 print(a, p[0], flush=True)
                 send(msg(a + "/ack", ("i", p[0])))
-            elif a == "/ack_chunk":
+            elif a == "/ack/chunk":
                 acks += 1
             elif a == "/bench/reset":
                 acks = packets_sent = 0
@@ -168,25 +168,25 @@ def main():
                 elif ok and not p[1] and managed:
                     managed.stop()
                     managed = None
-                send(msg("/set/audio/enabled/ack", ("h", p[0]), ("i", p[1]), ("i", int(ok))))
+                send(msg("/ack/audio/enabled", ("h", p[0]), ("i", p[1]), ("i", int(ok))))
                 if ok:
                     send(audio_stream_msg(bool(managed)))
             elif a == "/set/audio/preset" and args.audio:
                 # always PCM; ack the request and keep sending preset 3
                 ok = p[0] == AUDIO_MODULE_ID and 0 <= p[1] <= 3
-                send(msg("/set/audio/preset/ack", ("h", p[0]), ("i", p[1]), ("i", int(ok))))
-            elif a == "/audio/stats":
+                send(msg("/ack/audio/preset", ("h", p[0]), ("i", p[1]), ("i", int(ok))))
+            elif a == "/set/audio/stats":
                 print("audio stats", *p[1:], flush=True)
-            elif a == "/get/module_stubs":
+            elif a == "/get/modules":
                 send(
-                    msg("/set/module_stub", ("h", 42), ("s", "Fundamental"), ("s", "Scope")),
-                    msg("/set/module_stub", ("h", 43), ("s", "Fundamental"), ("s", "Scope")),
-                    msg("/set/module_stub", ("h", 44), ("s", "Fundamental"), ("s", "VCO")),
+                    msg("/set/module/stub", ("h", 42), ("s", "Fundamental"), ("s", "Scope")),
+                    msg("/set/module/stub", ("h", 43), ("s", "Fundamental"), ("s", "Scope")),
+                    msg("/set/module/stub", ("h", 44), ("s", "Fundamental"), ("s", "VCO")),
                     msg("/report/module/count", ("h", 3)),
                 )
-            elif a == "/get/module_state":
+            elif a == "/get/module/state":
                 # overlay texture id = module id + 957 (module 42 -> 999)
-                send(msg("/set/s/m", ("h", p[0]), ("f", 0.0), ("f", 0.0), ("h", p[0] + 957)))
+                send(msg("/set/module/state", ("h", p[0]), ("f", 0.0), ("f", 0.0), ("h", p[0] + 957)))
             elif a == "/bench/report":
                 ms = [
                     msg("/bench/report/begin", ("h", 7), ("f", 3.0)),
@@ -224,7 +224,7 @@ def main():
                     part = body[i * CHUNK:(i + 1) * CHUNK]
                     packets_sent += 1
                     send(msg(
-                        "/set/texture", ("h", tid), ("i", seq), ("i", i), ("i", n),
+                        "/set/texture/chunk", ("h", tid), ("i", seq), ("i", i), ("i", n),
                         ("i", CHUNK), ("h", len(body)), ("i", w), ("i", h), ("b", part),
                     ))
 
