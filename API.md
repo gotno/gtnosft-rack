@@ -26,8 +26,9 @@ While in broadcast mode, ctrl ignores all client requests other than `/register`
 |---:|---|---|---|
 | 0 | int32 | listen port | the port on which the server is listening for incoming messages (normally 7225; may increment if the port is busy) |
 | 1 | int32 | interval | the interval between heartbeat messages in milliseconds |
-| 2 | int64 | ctrl id | module id of ctrl module |
-| 3 | string | filename | current patch filename (empty string for never-saved patch) |
+| 2 | string | plugin version | current version of the gotnosoft plugin (eg "2.0.1") |
+| 3 | int64 | ctrl id | module id of ctrl module |
+| 4 | string | filename | current patch filename (empty string for never-saved patch) |
 
 
 **Your client should:**
