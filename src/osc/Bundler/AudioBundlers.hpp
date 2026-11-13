@@ -13,7 +13,7 @@ struct AudioStreamBundler : Bundler {
   );
 };
 
-// /set/audio/enabled/ack and /set/audio/preset/ack
+// /ack/audio/enabled and /ack/audio/preset
 struct AudioAckBundler : Bundler {
   AudioAckBundler(
     const std::string& address,

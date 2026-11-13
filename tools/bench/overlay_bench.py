@@ -93,7 +93,7 @@ RCVBUF_REQUEST = 8 * 1024 * 1024
 # with large frames arriving in a burst
 _TEXTURE_PREFIX = b"/set/texture/chunk\0\0\0\0,hiiiihiib\0\0"
 _TEXTURE_ARGS = struct.Struct(">qiiiiqiii")  # ...width, height, blob size
-_ACK_PREFIX = b"/ack_chunk\0\0,hii\0\0\0\0"
+_ACK_PREFIX = b"/ack/chunk\0\0,hii\0\0\0\0"
 _ACK_ARGS = struct.Struct(">qii")
 
 
@@ -292,11 +292,11 @@ class Client:
                 self.announce = {"host": addr[0], "port": p[0], "ctrl_id": p[2], "patch": p[3]}
         elif a == "/heartbeat":
             self.heartbeats += 1
-        elif a == "/set/module_stub":
+        elif a == "/set/module/stub":
             self.module_stubs.append({"id": p[0], "plugin": p[1], "module": p[2]})
         elif a == "/report/module/count":
             self.module_count = p[0]
-        elif a == "/set/s/m":
+        elif a == "/set/module/state":
             self.module_state[p[0]] = {"texture_id": p[3]}
         elif a == "/bench/reset/ack":
             self.reset_ack = p[0]
@@ -426,7 +426,7 @@ class Client:
 
     def find_targets(self, plugin, module, index, module_ids):
         self.module_stubs, self.module_count = [], None
-        self.send("/get/module_stubs")
+        self.send("/get/modules")
         if not self.wait_for(lambda: self.module_count is not None, 5):
             raise BenchError("no module stubs received")
         stubs = {m["id"]: m for m in self.module_stubs}
@@ -454,7 +454,7 @@ class Client:
             targets = [dict(matches[index])]
 
         for target in targets:
-            self.send("/get/module_state", ("h", target["id"]))
+            self.send("/get/module/state", ("h", target["id"]))
         if not self.wait_for(lambda: all(t["id"] in self.module_state for t in targets), 5):
             raise BenchError("no module state received for some targets")
         for target in targets:
@@ -753,7 +753,7 @@ def cmd_list(args):
     try:
         connect(client, args)
         client.module_stubs, client.module_count = [], None
-        client.send("/get/module_stubs")
+        client.send("/get/modules")
         if not client.wait_for(lambda: client.module_count is not None, 5):
             raise BenchError("no module stubs received")
         for m in client.module_stubs:

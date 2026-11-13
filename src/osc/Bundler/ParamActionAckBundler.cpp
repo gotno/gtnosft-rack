@@ -9,7 +9,7 @@ ParamActionAckBundler::ParamActionAckBundler(
 
 void ParamActionAckBundler::addMessage(bool success) {
   messages.emplace_back(
-    "/ack/param/" + action,
+    "/ack/" + action + "/param",
     [this, success](osc::OutboundPacketStream& pstream) {
       pstream << moduleId
         << paramId
