@@ -95,7 +95,7 @@ void OscReceiver::startHeartbeat() {
   heartbeatInterval = Timer::setInterval(HEARTBEAT_INTERVAL_MS, [this] {
     rack::contextSet(rackContext);
 
-    // sent from this thread, so long UI frames can't hold heartbeats back
+    // sent from this thread so it doesn't get stuck in the action queue
     BENCH(bench::time_point firedAt = bench::clock::now();)
     auto send = [this BENCH(, firedAt)]() {
       osctx->sendHeartbeat(BENCH(firedAt));
