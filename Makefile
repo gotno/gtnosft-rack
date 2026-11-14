@@ -3,7 +3,6 @@ RACK_DIR ?= ../..
 
 # FLAGS will be passed to both the C and C++ compiler
 FLAGS += -I./dependencies
-CFLAGS +=
 CXXFLAGS += -std=c++20
 
 # `make BENCH=1` compiles in benchmark instrumentation (src/bench/Bench.hpp)
@@ -20,25 +19,16 @@ OBJECTS += $(libopus)
 DEPS += $(libopus)
 FLAGS += -I$(DEP_LOCAL)/include
 
-# Careful about linking to shared libraries, since you can't assume much about the user's environment and library search path.
-# Static libraries are fine, but they should be added to this plugin's build system.
-
 # defines for ARCH_WIN, ARCH_LIN, ARCH_MAC
 include $(RACK_DIR)/arch.mk
 
-MACHINE = $(shell $(CC) -dumpmachine)
-ifneq (, $(findstring mingw, $(MACHINE)))
+ifdef ARCH_WIN
 	SOURCES += $(wildcard dependencies/oscpack/ip/win32/*.cpp)
 	LDFLAGS += -lws2_32 -lwinmm -liphlpapi -lqwave
 	LDFLAGS += -lopengl32
 else
 	SOURCES += $(wildcard dependencies/oscpack/ip/posix/*.cpp)
 endif
-
-ifdef ARCH_MAC
-	LDFLAGS += -framework CoreFoundation -framework SystemConfiguration
-endif
-
 
 # Add .cpp files to the build
 SOURCES += $(wildcard src/*.cpp)
@@ -47,7 +37,6 @@ SOURCES += $(wildcard src/texture/*.cpp)
 SOURCES += $(wildcard src/util/*.cpp)
 SOURCES += $(wildcard src/audio/*.cpp)
 SOURCES += $(wildcard src/osc/*.cpp)
-SOURCES += $(wildcard src/osc/MessagePacker/*.cpp)
 SOURCES += $(wildcard src/osc/Bundler/*.cpp)
 SOURCES += $(wildcard src/osc/ChunkedSend/*.cpp)
 SOURCES += $(wildcard dependencies/oscpack/ip/*.cpp)
