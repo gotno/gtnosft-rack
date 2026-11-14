@@ -50,6 +50,7 @@ OscReceiver::OscReceiver(
   }
 
 OscReceiver::~OscReceiver() {
+  heartbeatInterval.clear();
   endListener();
   {
     std::scoped_lock lock(heartbeatMutex);
