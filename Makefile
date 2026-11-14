@@ -34,7 +34,6 @@ ifneq (, $(findstring mingw, $(MACHINE)))
 	LDFLAGS += -L$(RACK_DIR)/dep/lib
 else
 	SOURCES += $(wildcard dependencies/oscpack/ip/posix/*.cpp)
-	LDFLAGS += -lstdc++
 endif
 
 ifdef ARCH_MAC
