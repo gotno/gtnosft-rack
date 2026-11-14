@@ -61,7 +61,7 @@ struct OscSender {
 private:
   char* msgBuffer;
 
-  SendMode sendMode;
+  std::atomic<SendMode> sendMode{SendMode::Broadcast};
 
   IpEndpointName directEndpoint;
   void registerDirectEndpoint(const std::string& ip);

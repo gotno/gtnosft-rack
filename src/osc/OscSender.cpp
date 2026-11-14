@@ -60,12 +60,12 @@ void OscSender::setBroadcasting() {
   module->broadcasting = true;
 
   std::unique_lock<std::mutex> locker(qmutex);
-  sendMode = SendMode::Broadcast;
+  sendMode.store(SendMode::Broadcast);
   socketDirty.store(true);
 }
 
 bool OscSender::isBroadcasting() {
-  return sendMode == SendMode::Broadcast;
+  return sendMode.load() == SendMode::Broadcast;
 }
 
 void OscSender::setDirect(char* ip) {
@@ -73,7 +73,7 @@ void OscSender::setDirect(char* ip) {
   module->broadcasting = false;
 
   std::unique_lock<std::mutex> locker(qmutex);
-  sendMode = SendMode::Direct;
+  sendMode.store(SendMode::Direct);
   directEndpoint = IpEndpointName(ip, TX_PORT);
   socketDirty.store(true);
 }
@@ -285,12 +285,13 @@ void OscSender::processQueue() {
     }
 
     bool dirty = socketDirty.exchange(false);
+    SendMode mode = sendMode.load();
     IpEndpointName endpoint =
-      (sendMode == SendMode::Broadcast) ? broadcastEndpoint : directEndpoint;
+      (mode == SendMode::Broadcast) ? broadcastEndpoint : directEndpoint;
 
     locker.unlock();
 
-    if (dirty || !socket) rebuildSocket(sendMode, endpoint);
+    if (dirty || !socket) rebuildSocket(mode, endpoint);
 
     if (!bundler) return;
 
