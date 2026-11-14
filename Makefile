@@ -31,7 +31,6 @@ ifneq (, $(findstring mingw, $(MACHINE)))
 	SOURCES += $(wildcard dependencies/oscpack/ip/win32/*.cpp)
 	LDFLAGS += -lws2_32 -lwinmm -liphlpapi -lqwave
 	LDFLAGS += -lopengl32
-	LDFLAGS += -L$(RACK_DIR)/dep/lib
 else
 	SOURCES += $(wildcard dependencies/oscpack/ip/posix/*.cpp)
 endif
